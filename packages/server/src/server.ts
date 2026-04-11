@@ -17,7 +17,7 @@ import {
 } from "@agentchat/protocol";
 import { WebSocketServer, type WebSocket } from "ws";
 import { z } from "zod";
-import { renderAdminPage, renderAppPage, renderLandingPage } from "./admin-ui.js";
+import { renderAdminPage, renderAppPage, renderAuthPage, renderLandingPage } from "./admin-ui.js";
 import { AppError, asAppError } from "./errors.js";
 import {
   AgentChatStore,
@@ -57,6 +57,7 @@ type UserSession = {
   email: string;
   name: string;
   picture?: string;
+  authProvider: "google" | "local";
 };
 
 type OAuthState = {
@@ -91,6 +92,17 @@ const SendMessageBodySchema = z.object({
 
 const LoginBodySchema = z.object({
   password: z.string().min(1),
+});
+
+const HumanLoginBodySchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(1),
+});
+
+const HumanRegisterBodySchema = z.object({
+  email: z.string().email(),
+  name: z.string().min(1),
+  password: z.string().min(6),
 });
 
 const GoogleUserInfoSchema = z.object({
@@ -428,7 +440,9 @@ export class AgentChatServer {
           renderLandingPage({
             isLoggedIn: Boolean(userSession),
             appPath: "/app",
-            loginPath: "/auth/google/login",
+            loginPath: "/auth/login",
+            registerPath: "/auth/register",
+            ...(this.googleAuth ? { googleLoginPath: "/auth/google/login" } : {}),
           }),
         );
         return;
@@ -436,7 +450,7 @@ export class AgentChatServer {
 
       if (method === "GET" && url.pathname === "/app") {
         if (!userSession) {
-          redirect(response, "/auth/google/login");
+          redirect(response, "/auth/login");
           return;
         }
         response.statusCode = 200;
@@ -448,6 +462,84 @@ export class AgentChatServer {
             logoutPath: "/auth/logout",
           }),
         );
+        return;
+      }
+
+      if (method === "GET" && url.pathname === "/auth/login") {
+        response.statusCode = 200;
+        response.setHeader("content-type", "text/html; charset=utf-8");
+        response.end(
+          renderAuthPage({
+            mode: "login",
+            submitPath: "/auth/login",
+            switchPath: "/auth/register",
+            demoUser: {
+              email: "test@example.com",
+              password: "test123456",
+            },
+            ...(this.googleAuth ? { googleLoginPath: "/auth/google/login" } : {}),
+          }),
+        );
+        return;
+      }
+
+      if (method === "GET" && url.pathname === "/auth/register") {
+        response.statusCode = 200;
+        response.setHeader("content-type", "text/html; charset=utf-8");
+        response.end(
+          renderAuthPage({
+            mode: "register",
+            submitPath: "/auth/register",
+            switchPath: "/auth/login",
+            demoUser: {
+              email: "test@example.com",
+              password: "test123456",
+            },
+            ...(this.googleAuth ? { googleLoginPath: "/auth/google/login" } : {}),
+          }),
+        );
+        return;
+      }
+
+      if (method === "POST" && url.pathname === "/auth/login") {
+        const isForm = request.headers["content-type"]?.includes("application/x-www-form-urlencoded");
+        const body = isForm
+          ? HumanLoginBodySchema.parse(await this.readForm(request))
+          : HumanLoginBodySchema.parse(await readJson(request));
+        const user = this.store.authenticateHumanUser(body.email, body.password);
+        this.startUserSession(response, {
+          createdAt: Date.now(),
+          subject: `local:${user.id}`,
+          email: user.email,
+          name: user.name,
+          authProvider: "local",
+        });
+        if (isForm) {
+          redirect(response, "/app");
+          return;
+        }
+        jsonResponse(response, 200, { ok: true });
+        return;
+      }
+
+      if (method === "POST" && url.pathname === "/auth/register") {
+        const isForm = request.headers["content-type"]?.includes("application/x-www-form-urlencoded");
+        const body = isForm
+          ? HumanRegisterBodySchema.parse(await this.readForm(request))
+          : HumanRegisterBodySchema.parse(await readJson(request));
+        const user = this.store.createHumanUser(body);
+        this.startUserSession(response, {
+          createdAt: Date.now(),
+          subject: `local:${user.id}`,
+          email: user.email,
+          name: user.name,
+          authProvider: "local",
+        });
+        if (isForm) {
+          redirect(response, "/app");
+          return;
+        }
+        jsonResponse(response, 201, { ok: true });
         return;
       }
 
@@ -477,9 +569,8 @@ export class AgentChatServer {
         }
         this.oauthStates.delete(state);
         const profile = await this.exchangeGoogleCodeForProfile(code);
-        const sessionId = randomUUID();
-        this.userSessions.set(
-          sessionId,
+        this.startUserSession(
+          response,
           profile.picture
             ? {
                 createdAt: Date.now(),
@@ -487,19 +578,15 @@ export class AgentChatServer {
                 email: profile.email,
                 name: profile.name,
                 picture: profile.picture,
+                authProvider: "google",
               }
             : {
                 createdAt: Date.now(),
                 subject: profile.sub,
                 email: profile.email,
                 name: profile.name,
+                authProvider: "google",
               },
-        );
-        response.setHeader(
-          "set-cookie",
-          this.makeSessionCookie("agentchat_user_session", sessionId, {
-            maxAge: 60 * 60 * 24 * 7,
-          }),
         );
         redirect(response, "/app");
         return;
@@ -1010,7 +1097,7 @@ export class AgentChatServer {
   private requireUserSession(request: IncomingMessage): UserSession {
     const session = this.getUserSession(request);
     if (!session) {
-      throw new AppError("UNAUTHORIZED", "Google login required", 401);
+      throw new AppError("UNAUTHORIZED", "Login required", 401);
     }
     return session;
   }
@@ -1065,6 +1152,17 @@ export class AgentChatServer {
       return undefined;
     }
     return this.userSessions.get(sessionId);
+  }
+
+  private startUserSession(response: ServerResponse, session: UserSession): void {
+    const sessionId = randomUUID();
+    this.userSessions.set(sessionId, session);
+    response.setHeader(
+      "set-cookie",
+      this.makeSessionCookie("agentchat_user_session", sessionId, {
+        maxAge: 60 * 60 * 24 * 7,
+      }),
+    );
   }
 
   private getCookie(request: IncomingMessage, name: string): string | undefined {

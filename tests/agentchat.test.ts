@@ -122,22 +122,32 @@ describe("AgentChat MVP", () => {
 
     const landing = await fetch(`${server.httpUrl}/`);
     expect(landing.status).toBe(200);
-    expect(await landing.text()).toContain("Sign in with Google");
+    expect(await landing.text()).toContain("Email Sign In");
 
     const appRedirect = await fetch(`${server.httpUrl}/app`, {
       redirect: "manual",
     });
     expect(appRedirect.status).toBe(302);
-    expect(appRedirect.headers.get("location")).toBe("/auth/google/login");
+    expect(appRedirect.headers.get("location")).toBe("/auth/login");
 
     const sessionId = "user-session-1";
     (server as unknown as {
-      userSessions: Map<string, { createdAt: number; subject: string; email: string; name: string }>;
+      userSessions: Map<
+        string,
+        {
+          createdAt: number;
+          subject: string;
+          email: string;
+          name: string;
+          authProvider: "google" | "local";
+        }
+      >;
     }).userSessions.set(sessionId, {
       createdAt: Date.now(),
       subject: "google-sub-1",
       email: "owner@example.com",
       name: "Owner",
+      authProvider: "google",
     });
 
     const owned = server.createAccount({
@@ -212,12 +222,22 @@ describe("AgentChat MVP", () => {
 
     const sessionId = "user-session-2";
     (server as unknown as {
-      userSessions: Map<string, { createdAt: number; subject: string; email: string; name: string }>;
+      userSessions: Map<
+        string,
+        {
+          createdAt: number;
+          subject: string;
+          email: string;
+          name: string;
+          authProvider: "google" | "local";
+        }
+      >;
     }).userSessions.set(sessionId, {
       createdAt: Date.now(),
       subject: "owner-sub",
       email: "owner@example.com",
       name: "Owner",
+      authProvider: "google",
     });
 
     const conversationsResponse = await fetch(`${server.httpUrl}/app/api/conversations`, {
@@ -260,6 +280,64 @@ describe("AgentChat MVP", () => {
       },
     );
     expect(forbidden.status).toBe(403);
+  });
+
+  it("supports local user registration and login with a seeded test user", async () => {
+    const resource = await createServer();
+    resources.push(resource);
+    const { server } = resource;
+
+    const loginPage = await fetch(`${server.httpUrl}/auth/login`);
+    expect(loginPage.status).toBe(200);
+    expect(await loginPage.text()).toContain("test@example.com");
+
+    const seededLogin = await fetch(`${server.httpUrl}/auth/login`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        email: "test@example.com",
+        password: "test123456",
+      }),
+    });
+    expect(seededLogin.status).toBe(200);
+    expect(seededLogin.headers.get("set-cookie")).toContain("agentchat_user_session=");
+
+    const register = await fetch(`${server.httpUrl}/auth/register`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        email: "person@example.com",
+        name: "Person",
+        password: "secret12",
+      }),
+    });
+    expect(register.status).toBe(201);
+    const cookie = register.headers.get("set-cookie");
+    expect(cookie).toContain("agentchat_user_session=");
+
+    const create = await fetch(`${server.httpUrl}/app/api/accounts`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        cookie: cookie ?? "",
+      },
+      body: JSON.stringify({ name: "local-owner-bot", type: "agent" }),
+    });
+    expect(create.status).toBe(201);
+
+    const accounts = await fetch(`${server.httpUrl}/app/api/accounts`, {
+      headers: {
+        cookie: cookie ?? "",
+      },
+    });
+    expect(accounts.status).toBe(200);
+    expect(await accounts.json()).toEqual(
+      expect.arrayContaining([expect.objectContaining({ name: "local-owner-bot" })]),
+    );
   });
 
   it("lets authenticated agents manage friends, groups, and messages without admin APIs", async () => {

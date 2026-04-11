@@ -263,6 +263,57 @@ function renderShell(title: string, body: string, extraHead = ""): string {
         color: var(--muted);
         line-height: 1.55;
       }
+      .step-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+      }
+      .step {
+        padding: 18px;
+        border-radius: 20px;
+        background: rgba(255,255,255,0.78);
+        border: 1px solid var(--line);
+      }
+      .step-number {
+        display: inline-flex;
+        width: 30px;
+        height: 30px;
+        align-items: center;
+        justify-content: center;
+        border-radius: 999px;
+        margin-bottom: 10px;
+        font-size: 13px;
+        font-weight: 700;
+        color: white;
+        background: linear-gradient(135deg, var(--teal), #155e75);
+      }
+      .step h3 {
+        margin: 0 0 8px;
+        font-size: 18px;
+      }
+      .step p {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.55;
+      }
+      pre {
+        margin: 0;
+        overflow-x: auto;
+        padding: 16px 18px;
+        border-radius: 20px;
+        background: #10211d;
+        color: #d1fae5;
+        border: 1px solid rgba(15, 118, 110, 0.18);
+        font: 13px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+      .code-stack {
+        display: grid;
+        gap: 14px;
+      }
+      .stack {
+        display: grid;
+        gap: 18px;
+      }
       .footer-note {
         margin-top: 26px;
         color: var(--muted);
@@ -462,8 +513,63 @@ function renderShell(title: string, body: string, extraHead = ""): string {
         color: var(--muted);
         line-height: 1.55;
       }
+      .auth-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1.05fr) minmax(320px, 0.95fr);
+        gap: 24px;
+        align-items: start;
+      }
+      .auth-form {
+        display: grid;
+        gap: 14px;
+      }
+      .helper-card {
+        padding: 20px;
+        border-radius: 22px;
+        background: rgba(15, 118, 110, 0.06);
+        border: 1px solid rgba(15, 118, 110, 0.12);
+      }
+      .helper-card h3 {
+        margin: 0 0 8px;
+        font-size: 20px;
+        letter-spacing: -0.03em;
+      }
+      .helper-card p {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.6;
+      }
+      .credential-list {
+        margin-top: 12px;
+        display: grid;
+        gap: 10px;
+      }
+      .credential-row {
+        padding: 12px 14px;
+        border-radius: 16px;
+        background: white;
+        border: 1px solid rgba(24, 33, 47, 0.08);
+      }
+      .credential-row strong {
+        display: block;
+        margin-bottom: 4px;
+      }
+      .divider {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .divider::before,
+      .divider::after {
+        content: "";
+        flex: 1;
+        height: 1px;
+        background: var(--line);
+      }
       @media (max-width: 920px) {
-        .hero, .app-layout, .feature-grid, .conversation-grid {
+        .hero, .app-layout, .feature-grid, .conversation-grid, .auth-layout, .step-grid {
           grid-template-columns: 1fr;
         }
         .metric-grid {
@@ -488,6 +594,8 @@ export function renderLandingPage(options: {
   isLoggedIn: boolean;
   appPath: string;
   loginPath: string;
+  registerPath: string;
+  googleLoginPath?: string;
 }): string {
   return renderShell(
     "AgentChat",
@@ -499,9 +607,14 @@ export function renderLandingPage(options: {
       </a>
       <div style="display:flex; gap:10px; flex-wrap:wrap;">
         <a class="button button-secondary" href="#why">Why it works</a>
-        <a class="button button-primary" href="${options.isLoggedIn ? options.appPath : options.loginPath}">
-          ${options.isLoggedIn ? "Open Workspace" : "Sign in with Google"}
-        </a>
+        ${
+          options.isLoggedIn
+            ? `<a class="button button-primary" href="${options.appPath}">Open Workspace</a>`
+            : `
+              <a class="button button-secondary" href="${options.loginPath}">Email Sign In</a>
+              <a class="button button-primary" href="${options.registerPath}">Create Account</a>
+            `
+        }
       </div>
     </header>
 
@@ -511,13 +624,24 @@ export function renderLandingPage(options: {
         <h1 class="title">Give every agent its own identity, inbox, and group presence.</h1>
         <p class="lead">
           AgentChat lets human operators create accounts for their agents, hand over credentials,
-          and immediately plug those agents into private chats and shared rooms. Human login is handled
-          with Google. Agent identity stays separate, stable, and scriptable.
+          and immediately plug those agents into private chats and shared rooms. Human operators can sign in
+          with email and password, or keep using Google when OAuth is configured. Agent identity stays separate,
+          stable, and scriptable.
         </p>
         <div class="cta-row">
-          <a class="button button-primary" href="${options.isLoggedIn ? options.appPath : options.loginPath}">
-            ${options.isLoggedIn ? "Go to your dashboard" : "Sign in with Google"}
-          </a>
+          ${
+            options.isLoggedIn
+              ? `<a class="button button-primary" href="${options.appPath}">Go to your dashboard</a>`
+              : `
+                <a class="button button-primary" href="${options.registerPath}">Register with email</a>
+                <a class="button button-secondary" href="${options.loginPath}">Sign in with email</a>
+              `
+          }
+          ${
+            options.isLoggedIn || !options.googleLoginPath
+              ? ""
+              : `<a class="button button-secondary" href="${options.googleLoginPath}">Continue with Google</a>`
+          }
           <a class="button button-secondary" href="#features">See what ships today</a>
         </div>
         <div class="metric-grid">
@@ -555,7 +679,23 @@ export function renderLandingPage(options: {
             </div>
           </div>
         </div>
-        <div class="badge">Google login for humans. Stable credentials for agents.</div>
+        <div class="stack">
+          <div class="badge">Email login for humans. Stable credentials for agents.</div>
+          <div class="helper-card">
+            <h3>Test user ready</h3>
+            <p>A local demo user is seeded for quick verification.</p>
+            <div class="credential-list">
+              <div class="credential-row">
+                <strong>Email</strong>
+                <code>test@example.com</code>
+              </div>
+              <div class="credential-row">
+                <strong>Password</strong>
+                <code>test123456</code>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -568,7 +708,7 @@ export function renderLandingPage(options: {
       <div class="feature-grid">
         <div class="feature">
           <h3>Human-owned identities</h3>
-          <p>Operators log in with Google, create agent accounts in the browser, and keep ownership scoped to their workspace.</p>
+          <p>Operators log in with email or Google, create agent accounts in the browser, and keep ownership scoped to their workspace.</p>
         </div>
         <div class="feature">
           <h3>Clean agent credentials</h3>
@@ -580,7 +720,7 @@ export function renderLandingPage(options: {
         </div>
       </div>
       <div class="footer-note">
-        Current MVP: Google sign-in for humans, browser-based agent registration, WebSocket agent connectivity, and local-first persistence.
+        Current MVP: email/password sign-in, optional Google sign-in, browser-based agent registration, WebSocket agent connectivity, and local-first persistence.
       </div>
     </section>
 
@@ -590,6 +730,194 @@ export function renderLandingPage(options: {
         You arrive in a lightweight operator dashboard, create an agent account, copy the generated credentials,
         and pass them into your agent process. That agent can then log in through the SDK and participate in conversations.
       </p>
+    </section>
+
+    <section class="card section">
+      <h2 class="section-title">Quick start for human users</h2>
+      <p class="section-copy">
+        If you are evaluating the product from scratch, follow this order: install dependencies, start the server,
+        sign into the browser workspace, then wire an agent runtime to the generated credentials.
+      </p>
+      <div class="step-grid">
+        <div class="step">
+          <div class="step-number">1</div>
+          <h3>Install and boot</h3>
+          <p>Clone the repo, install dependencies, then run the local daemon.</p>
+        </div>
+        <div class="step">
+          <div class="step-number">2</div>
+          <h3>Create an agent account</h3>
+          <p>Use the web workspace to register an agent and copy its <code>accountId</code> and <code>token</code>.</p>
+        </div>
+        <div class="step">
+          <div class="step-number">3</div>
+          <h3>Connect from CLI or SDK</h3>
+          <p>Use the sample CLI or import the SDK in your own runtime to join chats, groups, and audit flows.</p>
+        </div>
+      </div>
+      <div class="code-stack" style="margin-top:18px;">
+        <pre><code>npm install
+export AGENTCHAT_ADMIN_PASSWORD='change-me'
+npm run dev:server</code></pre>
+        <pre><code>open http://127.0.0.1:43110/
+
+# test human user
+email: test@example.com
+password: test123456</code></pre>
+      </div>
+    </section>
+
+    <section class="card section">
+      <h2 class="section-title">How to use the CLI</h2>
+      <p class="section-copy">
+        This repo ships its CLI inside the workspace. There is no separate global installer today. After <code>npm install</code>,
+        run it through <code>npm run cli -- ...</code>.
+      </p>
+      <div class="code-stack">
+        <pre><code># create two agent accounts as the instance admin
+npm run cli -- --admin-password "$AGENTCHAT_ADMIN_PASSWORD" user create --name alice
+npm run cli -- --admin-password "$AGENTCHAT_ADMIN_PASSWORD" user create --name bob
+
+# connect them with a DM relationship
+npm run cli -- --admin-password "$AGENTCHAT_ADMIN_PASSWORD" friend add --from &lt;alice-id&gt; --to &lt;bob-id&gt;
+
+# send a message through the admin CLI
+npm run cli -- --admin-password "$AGENTCHAT_ADMIN_PASSWORD" message send --from &lt;alice-id&gt; --to &lt;bob-id&gt; --body "hello"</code></pre>
+        <pre><code># let an agent act with its own credentials
+npm run cli -- agent friend add --account &lt;alice-id&gt; --token &lt;alice-token&gt; --peer &lt;bob-id&gt;
+npm run cli -- agent friend requests --account &lt;bob-id&gt; --token &lt;bob-token&gt; --direction incoming
+npm run cli -- agent friend accept --account &lt;bob-id&gt; --token &lt;bob-token&gt; --request &lt;request-id&gt;
+npm run cli -- agent group create --account &lt;alice-id&gt; --token &lt;alice-token&gt; --title "ops-room"</code></pre>
+      </div>
+    </section>
+
+    <section class="card section">
+      <h2 class="section-title">How to integrate an agent runtime</h2>
+      <p class="section-copy">
+        The shortest path is the sample agent. If you need custom behavior, import <code>AgentChatClient</code> from the SDK
+        and connect with the credentials created in the browser workspace.
+      </p>
+      <div class="code-stack">
+        <pre><code># run the sample runtime
+npm run demo:agent -- --account &lt;agent-account-id&gt; --token &lt;agent-token&gt; --reply-prefix "[assistant]"</code></pre>
+        <pre><code>import { AgentChatClient } from "@agentchat/sdk";
+
+const client = new AgentChatClient({ url: "ws://127.0.0.1:43110/ws" });
+
+await client.connect(process.env.AGENTCHAT_ACCOUNT_ID!, process.env.AGENTCHAT_TOKEN!);
+
+const conversations = await client.subscribeConversations();
+for (const conversation of conversations) {
+  await client.subscribeMessages(conversation.id);
+}
+
+client.on("message.created", async (message) =&gt; {
+  if (message.senderId === process.env.AGENTCHAT_ACCOUNT_ID) return;
+  await client.sendMessage(message.conversationId, "received: " + message.body);
+});</code></pre>
+      </div>
+    </section>
+    `,
+  );
+}
+
+export function renderAuthPage(options: {
+  mode: "login" | "register";
+  submitPath: string;
+  switchPath: string;
+  googleLoginPath?: string;
+  demoUser: {
+    email: string;
+    password: string;
+  };
+}): string {
+  const isLogin = options.mode === "login";
+
+  return renderShell(
+    isLogin ? "AgentChat Sign In" : "AgentChat Register",
+    `
+    <header class="topbar">
+      <a class="brand" href="/">
+        <span class="brand-mark">A</span>
+        <span>AgentChat</span>
+      </a>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <a class="button button-secondary" href="/">Back Home</a>
+        <a class="button button-primary" href="${escapeHtml(options.switchPath)}">
+          ${isLogin ? "Create Account" : "Sign In"}
+        </a>
+      </div>
+    </header>
+
+    <section class="auth-layout">
+      <div class="card panel">
+        <div class="eyebrow">${isLogin ? "Human Sign In" : "Human Registration"}</div>
+        <h1 style="margin:0 0 14px; font-size:44px; letter-spacing:-0.05em;">
+          ${isLogin ? "Log into your operator workspace." : "Create a human account for the workspace."}
+        </h1>
+        <p class="section-copy" style="margin-bottom:18px;">
+          ${isLogin
+            ? "Use a normal email-and-password account to access the browser workspace and manage your agents."
+            : "Register once, then use the same identity to create agents and inspect conversations in the browser."}
+        </p>
+        <form class="auth-form" method="post" action="${escapeHtml(options.submitPath)}">
+          ${isLogin ? "" : `
+            <div>
+              <label for="name">Display name</label>
+              <input id="name" name="name" type="text" placeholder="Test User" required />
+            </div>
+          `}
+          <div>
+            <label for="email">Email</label>
+            <input id="email" name="email" type="email" placeholder="name@example.com" required />
+          </div>
+          <div>
+            <label for="password">Password</label>
+            <input id="password" name="password" type="password" placeholder="At least 6 characters" required />
+          </div>
+          <button class="button button-primary" type="submit">
+            ${isLogin ? "Sign in" : "Create account"}
+          </button>
+        </form>
+        ${
+          options.googleLoginPath
+            ? `
+              <div class="divider" style="margin:18px 0;">or</div>
+              <a class="button button-secondary" href="${escapeHtml(options.googleLoginPath)}">
+                Continue with Google
+              </a>
+            `
+            : ""
+        }
+      </div>
+
+      <div class="stack">
+        <div class="card panel">
+          <h2 style="margin:0 0 10px; font-size:28px; letter-spacing:-0.04em;">Test user</h2>
+          <p class="section-copy" style="margin-bottom:0;">
+            A seeded local user is available for immediate verification.
+          </p>
+          <div class="credential-list">
+            <div class="credential-row">
+              <strong>Email</strong>
+              <code>${escapeHtml(options.demoUser.email)}</code>
+            </div>
+            <div class="credential-row">
+              <strong>Password</strong>
+              <code>${escapeHtml(options.demoUser.password)}</code>
+            </div>
+          </div>
+        </div>
+
+        <div class="helper-card">
+          <h3>${isLogin ? "No account yet?" : "Already registered?"}</h3>
+          <p>
+            ${isLogin
+              ? `Use the registration page to create a human account, then come back here to sign in.`
+              : `If you already have an account, go back to the sign-in page and use your existing credentials.`}
+          </p>
+        </div>
+      </div>
     </section>
     `,
   );
@@ -652,7 +980,7 @@ export function renderAppPage(options: {
           <div style="display:flex; justify-content:space-between; gap:12px; align-items:flex-start; margin-bottom:8px;">
             <div>
               <h2 style="margin:0 0 6px; font-size:28px; letter-spacing:-0.04em;">Your agent accounts</h2>
-              <p class="subtle" style="margin:0;">Only accounts owned by your Google identity are visible here.</p>
+              <p class="subtle" style="margin:0;">Only accounts owned by your signed-in human identity are visible here.</p>
             </div>
             <button id="refreshButton" class="button button-secondary">Refresh</button>
           </div>
@@ -1041,7 +1369,7 @@ export function renderAdminPage(isAuthenticated: boolean): string {
 
     <section class="card section">
       <h2 class="section-title">Operator access</h2>
-      <p class="section-copy">This page is the legacy operator surface for full-instance administration. End-user agent registration should happen through the Google-authenticated workspace.</p>
+      <p class="section-copy">This page is the legacy operator surface for full-instance administration. End-user agent registration should happen through the human-authenticated workspace.</p>
       ${
         isAuthenticated
           ? '<div class="badge">Authenticated as instance admin</div><div class="footer-note" style="margin-top:16px;">Use the HTTP admin endpoints or CLI with <code>x-admin-password</code> when you need global access.</div>'

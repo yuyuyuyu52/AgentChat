@@ -8,7 +8,7 @@ AgentChat is a local-first IM infrastructure for agents. It provides:
 - group conversations and membership management
 - message history
 - realtime delivery over WebSocket
-- a local SDK, an admin CLI, a public landing page, and a Google-authenticated browser workspace
+- a local SDK, an admin CLI, a public landing page, and a browser workspace with email/password and optional Google authentication
 - browser users can inspect conversations for their own agents in read-only mode
 - browser users can inspect audit logs for their own agents in read-only mode
 
@@ -68,38 +68,46 @@ npm run dev:server
 http://127.0.0.1:43110/
 ```
 
-5. Sign in with Google and create agent accounts in the browser.
+5. Sign in with email/password in the browser and create agent accounts.
+   A seeded demo user is available out of the box:
 
-6. In the same browser workspace, inspect every conversation your agents are part of.
+```text
+email: test@example.com
+password: test123456
+```
+
+6. If you configure Google OAuth, the same login area also exposes Google sign-in.
+
+7. In the same browser workspace, inspect every conversation your agents are part of.
    This view is read-only and only shows conversations visible to agents you own.
 
-7. The legacy operator page still exists at:
+8. The legacy operator page still exists at:
 
 ```text
 http://127.0.0.1:43110/admin/ui
 ```
 
-8. CLI access still works for full-instance admin operations:
+9. CLI access still works for full-instance admin operations:
 
 ```bash
 npm run cli -- --admin-password "$AGENTCHAT_ADMIN_PASSWORD" user create --name alice
 npm run cli -- --admin-password "$AGENTCHAT_ADMIN_PASSWORD" user create --name bob
 ```
 
-9. Add friendship and send a DM:
+10. Add friendship and send a DM:
 
 ```bash
 npm run cli -- --admin-password "$AGENTCHAT_ADMIN_PASSWORD" friend add --from <alice-id> --to <bob-id>
 npm run cli -- --admin-password "$AGENTCHAT_ADMIN_PASSWORD" message send --from <alice-id> --to <bob-id> --body "hello"
 ```
 
-10. Run a demo agent:
+11. Run a demo agent:
 
 ```bash
 npm run demo:agent -- --account <alice-id> --token <alice-token> --reply-prefix "[alice]"
 ```
 
-11. Let an agent manage its own social graph from the CLI:
+12. Let an agent manage its own social graph from the CLI:
 
 ```bash
 npm run cli -- agent friend add --account <alice-id> --token <alice-token> --peer <bob-id>
@@ -117,7 +125,7 @@ npm run cli -- agent audit list --account <alice-id> --token <alice-token> --lim
 
 - `packages/protocol`: shared types and WebSocket protocol schemas
 - `packages/server`: `agentchatd` daemon, SQLite store, admin HTTP API
-- `packages/server`: `agentchatd` daemon, SQLite store, public landing page, Google login flow, user workspace, admin HTTP API
+- `packages/server`: `agentchatd` daemon, SQLite store, public landing page, email/password login, optional Google login flow, user workspace, admin HTTP API
 - `packages/sdk`: agent-facing WebSocket client
 - `packages/cli`: admin CLI
 - `packages/demo-agent`: minimal sample agent client

@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID, scryptSync, timingSafeEqual } from "node:crypto";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
@@ -83,6 +83,14 @@ type AuditLogRow = {
   created_at: string;
 };
 
+type HumanUserRow = {
+  id: string;
+  email: string;
+  name: string;
+  password_hash: string;
+  created_at: string;
+};
+
 type OwnedConversationRow = {
   id: string;
   kind: ConversationKind;
@@ -144,6 +152,40 @@ function createId(prefix: string): string {
   return `${prefix}_${randomUUID()}`;
 }
 
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
+function hashPassword(password: string): string {
+  const salt = randomBytes(16).toString("hex");
+  const hash = scryptSync(password, salt, 64).toString("hex");
+  return `scrypt:${salt}:${hash}`;
+}
+
+function verifyPassword(password: string, encodedHash: string): boolean {
+  const [algorithm, salt, expectedHash] = encodedHash.split(":");
+  if (algorithm !== "scrypt" || !salt || !expectedHash) {
+    return false;
+  }
+
+  const actualHash = scryptSync(password, salt, 64).toString("hex");
+  const left = Buffer.from(actualHash, "hex");
+  const right = Buffer.from(expectedHash, "hex");
+  if (left.length !== right.length) {
+    return false;
+  }
+  return timingSafeEqual(left, right);
+}
+
+function humanUserFromRow(row: HumanUserRow) {
+  return {
+    id: row.id,
+    email: row.email,
+    name: row.name,
+    createdAt: row.created_at,
+  };
+}
+
 export type CreateAccountInput = {
   name: string;
   type?: AccountType | undefined;
@@ -182,6 +224,8 @@ export type OwnedConversationMessage = Message & {
   senderName: string;
 };
 
+export type HumanUser = ReturnType<typeof humanUserFromRow>;
+
 export class AgentChatStore {
   readonly db: DatabaseSync;
   readonly databasePath: string;
@@ -194,6 +238,7 @@ export class AgentChatStore {
     this.db = new DatabaseSync(databasePath);
     this.db.exec("PRAGMA foreign_keys = ON;");
     this.initSchema();
+    this.seedDefaultHumanUser();
   }
 
   close(): void {
@@ -300,6 +345,71 @@ export class AgentChatStore {
       metadata: {},
     });
     return { accountId, token };
+  }
+
+  createHumanUser(input: {
+    email: string;
+    name: string;
+    password: string;
+  }): HumanUser {
+    const createdAt = nowIso();
+    const row: HumanUserRow = {
+      id: createId("user"),
+      email: normalizeEmail(input.email),
+      name: input.name.trim(),
+      password_hash: hashPassword(input.password),
+      created_at: createdAt,
+    };
+
+    try {
+      this.db
+        .prepare(
+          `
+            INSERT INTO human_users (
+              id, email, name, password_hash, created_at
+            )
+            VALUES (?, ?, ?, ?, ?)
+          `,
+        )
+        .run(row.id, row.email, row.name, row.password_hash, row.created_at);
+    } catch (error) {
+      throw new AppError("CONFLICT", `User email "${row.email}" already exists`, 409);
+    }
+
+    return humanUserFromRow(row);
+  }
+
+  authenticateHumanUser(email: string, password: string): HumanUser {
+    const normalizedEmail = normalizeEmail(email);
+    const row = this.db
+      .prepare(
+        `
+          SELECT id, email, name, password_hash, created_at
+          FROM human_users
+          WHERE email = ?
+        `,
+      )
+      .get(normalizedEmail) as HumanUserRow | undefined;
+
+    if (!row || !verifyPassword(password, row.password_hash)) {
+      throw new AppError("UNAUTHORIZED", "Invalid email or password", 401);
+    }
+
+    return humanUserFromRow(row);
+  }
+
+  getHumanUserByEmail(email: string): HumanUser | undefined {
+    const row = this.db
+      .prepare(
+        `
+          SELECT id, email, name, password_hash, created_at
+          FROM human_users
+          WHERE email = ?
+        `,
+      )
+      .get(normalizeEmail(email)) as HumanUserRow | undefined;
+
+    return row ? humanUserFromRow(row) : undefined;
   }
 
   createFriendship(accountA: string, accountB: string): {
@@ -1537,6 +1647,14 @@ export class AgentChatStore {
         created_at TEXT NOT NULL
       );
 
+      CREATE TABLE IF NOT EXISTS human_users (
+        id TEXT PRIMARY KEY,
+        email TEXT NOT NULL UNIQUE,
+        name TEXT NOT NULL,
+        password_hash TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      );
+
       CREATE INDEX IF NOT EXISTS idx_conversation_members_account
         ON conversation_members(account_id);
 
@@ -1554,6 +1672,9 @@ export class AgentChatStore {
 
       CREATE INDEX IF NOT EXISTS idx_audit_logs_actor_created
         ON audit_logs(actor_account_id, created_at);
+
+      CREATE INDEX IF NOT EXISTS idx_human_users_email
+        ON human_users(email);
     `);
 
     const columns = this.db.prepare("PRAGMA table_info(accounts)").all() as Array<{
@@ -1570,6 +1691,18 @@ export class AgentChatStore {
     if (!names.has("owner_name")) {
       this.db.exec("ALTER TABLE accounts ADD COLUMN owner_name TEXT;");
     }
+  }
+
+  private seedDefaultHumanUser(): void {
+    if (this.getHumanUserByEmail("test@example.com")) {
+      return;
+    }
+
+    this.createHumanUser({
+      name: "Test User",
+      email: "test@example.com",
+      password: "test123456",
+    });
   }
 
   private insertAuditLog(input: {
