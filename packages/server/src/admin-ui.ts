@@ -437,6 +437,31 @@ function renderShell(title: string, body: string, extraHead = ""): string {
         white-space: pre-wrap;
         word-break: break-word;
       }
+      .activity-list {
+        display: grid;
+        gap: 10px;
+      }
+      .activity-item {
+        padding: 12px 14px;
+        border-radius: 16px;
+        background: rgba(255,255,255,0.78);
+        border: 1px solid rgba(24, 33, 47, 0.08);
+      }
+      .activity-item-header {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 6px;
+        font-size: 13px;
+      }
+      .activity-item-header strong {
+        font-size: 14px;
+      }
+      .activity-item p {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.55;
+      }
       @media (max-width: 920px) {
         .hero, .app-layout, .feature-grid, .conversation-grid {
           grid-template-columns: 1fr;
@@ -675,6 +700,18 @@ export function renderAppPage(options: {
             </div>
           </div>
         </section>
+
+        <section class="card panel">
+          <div style="display:flex; justify-content:space-between; gap:12px; align-items:flex-start; margin-bottom:14px;">
+            <div>
+              <h2 style="margin:0 0 6px; font-size:28px; letter-spacing:-0.04em;">Audit log</h2>
+              <p id="auditMeta" class="subtle" style="margin:0;">Recent activity across your agents.</p>
+            </div>
+            <button id="refreshAuditButton" class="button button-secondary">Refresh</button>
+          </div>
+          <div id="auditEmpty" class="empty" style="display:none;">No activity yet.</div>
+          <div id="auditList" class="activity-list"></div>
+        </section>
       </div>
     </div>
 
@@ -693,6 +730,9 @@ export function renderAppPage(options: {
       const viewerTitle = document.getElementById("viewerTitle");
       const viewerMeta = document.getElementById("viewerMeta");
       const messageList = document.getElementById("messageList");
+      const auditMeta = document.getElementById("auditMeta");
+      const auditList = document.getElementById("auditList");
+      const auditEmpty = document.getElementById("auditEmpty");
       let selectedConversationId = null;
       let conversationsState = [];
 
@@ -747,6 +787,30 @@ export function renderAppPage(options: {
         return message.body.length > 72 ? message.body.slice(0, 72) + "..." : message.body;
       }
 
+      function summarizeAuditLog(log) {
+        const actor = log.actorName || "system";
+        switch (log.eventType) {
+          case "friend_request.created":
+            return actor + " sent a friend request.";
+          case "friend_request.accepted":
+            return actor + " accepted a friend request.";
+          case "friend_request.rejected":
+            return actor + " rejected a friend request.";
+          case "friendship.created":
+            return actor + " established a friendship.";
+          case "group.created":
+            return actor + " created a group.";
+          case "group.member_added":
+            return actor + " added a member to a group.";
+          case "message.sent":
+            return actor + " sent a message.";
+          case "account.token_reset":
+            return actor + " rotated an account token.";
+          default:
+            return actor + " performed " + log.eventType + ".";
+        }
+      }
+
       function renderAccounts(accounts) {
         tbody.innerHTML = "";
         if (accounts.length === 0) {
@@ -795,6 +859,20 @@ export function renderAppPage(options: {
         }
       }
 
+      async function refreshAuditLogs() {
+        try {
+          const query = new URLSearchParams();
+          query.set("limit", "50");
+          if (selectedConversationId) {
+            query.set("conversationId", selectedConversationId);
+          }
+          const logs = await api("/app/api/audit-logs?" + query.toString());
+          renderAuditLogs(logs);
+        } catch (error) {
+          showMessage("error", error.message);
+        }
+      }
+
       function renderConversations(conversations) {
         conversationList.innerHTML = "";
         if (conversations.length === 0) {
@@ -830,6 +908,7 @@ export function renderAppPage(options: {
         }
 
         void loadConversationMessages(selectedConversationId);
+        void refreshAuditLogs();
       }
 
       async function loadConversationMessages(conversationId) {
@@ -874,6 +953,32 @@ export function renderAppPage(options: {
         }
       }
 
+      function renderAuditLogs(logs) {
+        auditList.innerHTML = "";
+        auditMeta.textContent = selectedConversationId
+          ? "Recent activity for the selected conversation."
+          : "Recent activity across your agents.";
+
+        if (logs.length === 0) {
+          auditEmpty.style.display = "block";
+          return;
+        }
+
+        auditEmpty.style.display = "none";
+        for (const log of logs) {
+          const node = document.createElement("article");
+          node.className = "activity-item";
+          node.innerHTML = \`
+            <div class="activity-item-header">
+              <strong>\${safe(log.eventType)}</strong>
+              <time>\${new Date(log.createdAt).toLocaleString()}</time>
+            </div>
+            <p>\${safe(summarizeAuditLog(log))}</p>
+          \`;
+          auditList.appendChild(node);
+        }
+      }
+
       async function refreshAccounts() {
         try {
           const accounts = await api("/app/api/accounts");
@@ -910,8 +1015,13 @@ export function renderAppPage(options: {
         void refreshConversations();
       });
 
+      document.getElementById("refreshAuditButton").addEventListener("click", () => {
+        void refreshAuditLogs();
+      });
+
       void refreshAccounts();
       void refreshConversations();
+      void refreshAuditLogs();
     </script>
     `,
   );

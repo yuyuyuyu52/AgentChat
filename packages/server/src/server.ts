@@ -266,13 +266,34 @@ export class AgentChatServer {
   }
 
   addFriendAs(actorId: string, peerAccountId: string): {
-    friendshipId: string;
-    conversationId: string;
+    requestId: string;
     createdAt: string;
   } {
-    const result = this.store.addFriendAs(actorId, peerAccountId);
-    this.broadcastConversationCreated(actorId, result.conversationId);
-    this.broadcastConversationCreated(peerAccountId, result.conversationId);
+    return this.store.addFriendAs(actorId, peerAccountId);
+  }
+
+  listFriendRequests(
+    accountId: string,
+    direction: "incoming" | "outgoing" | "all" = "all",
+  ) {
+    return this.store.listFriendRequests(accountId, direction);
+  }
+
+  respondFriendRequestAs(
+    actorId: string,
+    requestId: string,
+    action: "accept" | "reject",
+  ) {
+    const result = this.store.respondFriendRequestAs(actorId, requestId, action);
+    if ("conversationId" in result) {
+      const request = this.store.listFriendRequests(actorId, "incoming")
+        .concat(this.store.listFriendRequests(actorId, "outgoing"))
+        .find((item) => item.id === requestId);
+      if (request) {
+        this.broadcastConversationCreated(request.requester.id, result.conversationId);
+        this.broadcastConversationCreated(request.target.id, result.conversationId);
+      }
+    }
     return result;
   }
 
@@ -371,6 +392,26 @@ export class AgentChatServer {
 
   listConversationMembers(accountId: string, conversationId: string) {
     return this.store.listConversationMembers(accountId, conversationId);
+  }
+
+  listAuditLogsForAccount(
+    accountId: string,
+    options: {
+      conversationId?: string;
+      limit?: number;
+    } = {},
+  ) {
+    return this.store.listAuditLogsForAccount(accountId, options);
+  }
+
+  listOwnedAuditLogs(
+    ownerSubject: string,
+    options: {
+      conversationId?: string;
+      limit?: number;
+    } = {},
+  ) {
+    return this.store.listOwnedAuditLogs(ownerSubject, options);
   }
 
   private async handleHttpRequest(request: IncomingMessage, response: ServerResponse) {
@@ -545,6 +586,22 @@ export class AgentChatServer {
       if (method === "GET" && url.pathname === "/app/api/conversations") {
         const session = this.requireUserSession(request);
         jsonResponse(response, 200, this.listOwnedConversations(session.subject));
+        return;
+      }
+
+      if (method === "GET" && url.pathname === "/app/api/audit-logs") {
+        const session = this.requireUserSession(request);
+        const conversationId =
+          typeof url.query.conversationId === "string" ? url.query.conversationId : undefined;
+        const limit = typeof url.query.limit === "string" ? Number(url.query.limit) : undefined;
+        jsonResponse(
+          response,
+          200,
+          this.listOwnedAuditLogs(session.subject, {
+            ...(conversationId ? { conversationId } : {}),
+            ...(limit ? { limit } : {}),
+          }),
+        );
         return;
       }
 
@@ -781,6 +838,25 @@ export class AgentChatServer {
           this.sendResponse(connection, request.id, result);
           return;
         }
+        case "list_friend_requests": {
+          const accountId = this.requireAuthenticated(connection);
+          const result = this.listFriendRequests(
+            accountId,
+            request.payload.direction ?? "all",
+          );
+          this.sendResponse(connection, request.id, result);
+          return;
+        }
+        case "respond_friend_request": {
+          const accountId = this.requireAuthenticated(connection);
+          const result = this.respondFriendRequestAs(
+            accountId,
+            request.payload.requestId,
+            request.payload.action,
+          );
+          this.sendResponse(connection, request.id, result);
+          return;
+        }
         case "create_group": {
           const accountId = this.requireAuthenticated(connection);
           const result = this.createGroupAs(accountId, request.payload.title);
@@ -803,6 +879,17 @@ export class AgentChatServer {
             accountId,
             request.payload.conversationId,
           );
+          this.sendResponse(connection, request.id, result);
+          return;
+        }
+        case "list_audit_logs": {
+          const accountId = this.requireAuthenticated(connection);
+          const result = this.listAuditLogsForAccount(accountId, {
+            ...(request.payload.conversationId
+              ? { conversationId: request.payload.conversationId }
+              : {}),
+            ...(request.payload.limit ? { limit: request.payload.limit } : {}),
+          });
           this.sendResponse(connection, request.id, result);
           return;
         }

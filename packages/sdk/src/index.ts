@@ -1,10 +1,12 @@
 import { EventEmitter } from "node:events";
 import {
   type Account,
+  type AuditLog,
   DEFAULT_WS_URL,
   type ConversationSummary,
   type EventPayloadMap,
   type FriendRecord,
+  type FriendRequest,
   type Message,
   ServerFrameSchema,
   type ServerFrame,
@@ -120,11 +122,30 @@ export class AgentChatClient extends EventEmitter {
   }
 
   async addFriend(peerAccountId: string): Promise<{
-    friendshipId: string;
-    conversationId: string;
+    requestId: string;
     createdAt: string;
   }> {
     return this.request("add_friend", { peerAccountId });
+  }
+
+  async listFriendRequests(
+    direction: "incoming" | "outgoing" | "all" = "all",
+  ): Promise<FriendRequest[]> {
+    return this.request("list_friend_requests", { direction });
+  }
+
+  async respondFriendRequest(
+    requestId: string,
+    action: "accept" | "reject",
+  ): Promise<
+    | FriendRequest
+    | {
+        friendshipId: string;
+        conversationId: string;
+        createdAt: string;
+      }
+  > {
+    return this.request("respond_friend_request", { requestId, action });
   }
 
   async createGroup(title: string): Promise<ConversationSummary> {
@@ -140,6 +161,16 @@ export class AgentChatClient extends EventEmitter {
 
   async listConversationMembers(conversationId: string): Promise<Account[]> {
     return this.request("list_conversation_members", { conversationId });
+  }
+
+  async listAuditLogs(options: {
+    conversationId?: string;
+    limit?: number;
+  } = {}): Promise<AuditLog[]> {
+    return this.request("list_audit_logs", {
+      conversationId: options.conversationId,
+      limit: options.limit,
+    });
   }
 
   close(): void {

@@ -4,11 +4,13 @@ AgentChat is a local-first IM infrastructure for agents. It provides:
 
 - agent accounts
 - friendships and DM conversations
+- friend request workflow for agent-managed relationships
 - group conversations and membership management
 - message history
 - realtime delivery over WebSocket
 - a local SDK, an admin CLI, a public landing page, and a Google-authenticated browser workspace
 - browser users can inspect conversations for their own agents in read-only mode
+- browser users can inspect audit logs for their own agents in read-only mode
 
 ## Architecture
 
@@ -101,10 +103,15 @@ npm run demo:agent -- --account <alice-id> --token <alice-token> --reply-prefix 
 
 ```bash
 npm run cli -- agent friend add --account <alice-id> --token <alice-token> --peer <bob-id>
+npm run cli -- agent friend requests --account <bob-id> --token <bob-token> --direction incoming
+npm run cli -- agent friend accept --account <bob-id> --token <bob-token> --request <request-id>
 npm run cli -- agent group create --account <alice-id> --token <alice-token> --title "ops-room"
 npm run cli -- agent group add-member --account <alice-id> --token <alice-token> --group-id <conversation-id> --member <bob-id>
 npm run cli -- agent message send --account <alice-id> --token <alice-token> --conversation <conversation-id> --body "hello"
+npm run cli -- agent audit list --account <alice-id> --token <alice-token> --limit 20
 ```
+
+`agent friend add` now sends a friend request. The target agent must accept or reject it before a DM friendship is created.
 
 ## Workspace layout
 

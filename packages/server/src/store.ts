@@ -5,11 +5,14 @@ import { DatabaseSync } from "node:sqlite";
 import {
   type Account,
   type AccountType,
+  type AuditLog,
   type AuthAccount,
   type ConversationKind,
   type ConversationSummary,
   DEFAULT_GROUP_HISTORY_LIMIT,
   type FriendRecord,
+  type FriendRequest,
+  type FriendRequestStatus,
   type Message,
 } from "@agentchat/protocol";
 import { AppError } from "./errors.js";
@@ -60,6 +63,26 @@ type FriendshipRow = {
   created_at: string;
 };
 
+type FriendRequestRow = {
+  id: string;
+  requester_id: string;
+  target_id: string;
+  status: FriendRequestStatus;
+  created_at: string;
+  responded_at: string | null;
+};
+
+type AuditLogRow = {
+  id: string;
+  actor_account_id: string | null;
+  event_type: string;
+  subject_type: string;
+  subject_id: string;
+  conversation_id: string | null;
+  metadata_json: string;
+  created_at: string;
+};
+
 type OwnedConversationRow = {
   id: string;
   kind: ConversationKind;
@@ -94,6 +117,22 @@ function messageFromRow(row: MessageRow): Message {
     kind: row.kind,
     createdAt: row.created_at,
     seq: row.seq,
+  };
+}
+
+function auditLogFromRow(
+  row: AuditLogRow & { actor_name?: string | null },
+): AuditLog {
+  return {
+    id: row.id,
+    actorAccountId: row.actor_account_id,
+    actorName: row.actor_name ?? null,
+    eventType: row.event_type,
+    subjectType: row.subject_type,
+    subjectId: row.subject_id,
+    conversationId: row.conversation_id,
+    metadata: parseRecord(row.metadata_json),
+    createdAt: row.created_at,
   };
 }
 
@@ -253,6 +292,13 @@ export class AgentChatStore {
     this.db
       .prepare("UPDATE accounts SET auth_token = ? WHERE id = ?")
       .run(token, accountId);
+    this.insertAuditLog({
+      actorAccountId: accountId,
+      eventType: "account.token_reset",
+      subjectType: "account",
+      subjectId: accountId,
+      metadata: {},
+    });
     return { accountId, token };
   }
 
@@ -330,6 +376,18 @@ export class AgentChatStore {
           `,
         )
         .run(friendshipId, left, right, conversationId, createdAt);
+
+      this.insertAuditLog({
+        actorAccountId: accountA,
+        eventType: "friendship.created",
+        subjectType: "friendship",
+        subjectId: friendshipId,
+        conversationId,
+        metadata: {
+          accountA: left,
+          accountB: right,
+        },
+      });
     });
 
     return {
@@ -390,6 +448,16 @@ export class AgentChatStore {
         `,
       )
       .run(conversationId, title, createdAt);
+    this.insertAuditLog({
+      actorAccountId: null,
+      eventType: "group.created",
+      subjectType: "conversation",
+      subjectId: conversationId,
+      conversationId,
+      metadata: {
+        title,
+      },
+    });
     return this.getConversationSummaryForSystem(conversationId);
   }
 
@@ -417,19 +485,271 @@ export class AgentChatStore {
           `,
         )
         .run(conversationId, creatorId, createdAt);
+
+      this.insertAuditLog({
+        actorAccountId: creatorId,
+        eventType: "group.created",
+        subjectType: "conversation",
+        subjectId: conversationId,
+        conversationId,
+        metadata: {
+          title,
+        },
+      });
     });
 
     return this.getConversationSummaryForAccount(creatorId, conversationId);
   }
 
   addFriendAs(actorId: string, peerAccountId: string): {
-    friendshipId: string;
-    conversationId: string;
+    requestId: string;
     createdAt: string;
   } {
     this.requireAccount(actorId);
     this.requireAccount(peerAccountId);
-    return this.createFriendship(actorId, peerAccountId);
+    if (actorId === peerAccountId) {
+      throw new AppError("INVALID_ARGUMENT", "Cannot send a friend request to self");
+    }
+
+    const [left, right] = normalizeFriendshipPair(actorId, peerAccountId);
+    const active = this.db
+      .prepare(
+        `
+          SELECT id
+          FROM friendships
+          WHERE account_a = ? AND account_b = ? AND status = 'active'
+        `,
+      )
+      .get(left, right) as { id: string } | undefined;
+    if (active) {
+      throw new AppError("CONFLICT", "Accounts are already friends", 409);
+    }
+
+    const pendingSameDirection = this.db
+      .prepare(
+        `
+          SELECT id, requester_id, target_id, status, created_at, responded_at
+          FROM friend_requests
+          WHERE requester_id = ? AND target_id = ? AND status = 'pending'
+          ORDER BY created_at DESC
+          LIMIT 1
+        `,
+      )
+      .get(actorId, peerAccountId) as FriendRequestRow | undefined;
+    if (pendingSameDirection) {
+      return {
+        requestId: pendingSameDirection.id,
+        createdAt: pendingSameDirection.created_at,
+      };
+    }
+
+    const reversePending = this.db
+      .prepare(
+        `
+          SELECT id
+          FROM friend_requests
+          WHERE requester_id = ? AND target_id = ? AND status = 'pending'
+          ORDER BY created_at DESC
+          LIMIT 1
+        `,
+      )
+      .get(peerAccountId, actorId) as { id: string } | undefined;
+    if (reversePending) {
+      throw new AppError(
+        "CONFLICT",
+        "There is already an incoming friend request from this account",
+        409,
+      );
+    }
+
+    const requestId = createId("freq");
+    const createdAt = nowIso();
+    this.db
+      .prepare(
+        `
+          INSERT INTO friend_requests
+            (id, requester_id, target_id, status, created_at, responded_at)
+          VALUES (?, ?, ?, 'pending', ?, NULL)
+        `,
+      )
+      .run(requestId, actorId, peerAccountId, createdAt);
+
+    this.insertAuditLog({
+      actorAccountId: actorId,
+      eventType: "friend_request.created",
+      subjectType: "friend_request",
+      subjectId: requestId,
+      metadata: {
+        requesterId: actorId,
+        targetId: peerAccountId,
+      },
+    });
+
+    return {
+      requestId,
+      createdAt,
+    };
+  }
+
+  listFriendRequests(
+    accountId: string,
+    direction: "incoming" | "outgoing" | "all" = "all",
+  ): FriendRequest[] {
+    this.requireAccount(accountId);
+    const where =
+      direction === "incoming"
+        ? "fr.target_id = ?"
+        : direction === "outgoing"
+          ? "fr.requester_id = ?"
+          : "(fr.requester_id = ? OR fr.target_id = ?)";
+
+    const rows = this.db
+      .prepare(
+        `
+          SELECT
+            fr.id,
+            fr.requester_id,
+            fr.target_id,
+            fr.status,
+            fr.created_at,
+            fr.responded_at,
+            req.id AS req_id,
+            req.type AS req_type,
+            req.name AS req_name,
+            req.profile_json AS req_profile_json,
+            req.auth_token AS req_auth_token,
+            req.owner_subject AS req_owner_subject,
+            req.owner_email AS req_owner_email,
+            req.owner_name AS req_owner_name,
+            req.created_at AS req_created_at,
+            tgt.id AS tgt_id,
+            tgt.type AS tgt_type,
+            tgt.name AS tgt_name,
+            tgt.profile_json AS tgt_profile_json,
+            tgt.auth_token AS tgt_auth_token,
+            tgt.owner_subject AS tgt_owner_subject,
+            tgt.owner_email AS tgt_owner_email,
+            tgt.owner_name AS tgt_owner_name,
+            tgt.created_at AS tgt_created_at
+          FROM friend_requests fr
+          JOIN accounts req ON req.id = fr.requester_id
+          JOIN accounts tgt ON tgt.id = fr.target_id
+          WHERE ${where}
+          ORDER BY fr.created_at DESC
+        `,
+      )
+      .all(...(direction === "all" ? [accountId, accountId] : [accountId])) as Array<
+      FriendRequestRow & {
+        req_id: string;
+        req_type: AccountType;
+        req_name: string;
+        req_profile_json: string;
+        req_auth_token: string;
+        req_owner_subject: string | null;
+        req_owner_email: string | null;
+        req_owner_name: string | null;
+        req_created_at: string;
+        tgt_id: string;
+        tgt_type: AccountType;
+        tgt_name: string;
+        tgt_profile_json: string;
+        tgt_auth_token: string;
+        tgt_owner_subject: string | null;
+        tgt_owner_email: string | null;
+        tgt_owner_name: string | null;
+        tgt_created_at: string;
+      }
+    >;
+
+    return rows.map((row) => ({
+      id: row.id,
+      requester: accountFromRow({
+        id: row.req_id,
+        type: row.req_type,
+        name: row.req_name,
+        profile_json: row.req_profile_json,
+        auth_token: row.req_auth_token,
+        owner_subject: row.req_owner_subject,
+        owner_email: row.req_owner_email,
+        owner_name: row.req_owner_name,
+        created_at: row.req_created_at,
+      }),
+      target: accountFromRow({
+        id: row.tgt_id,
+        type: row.tgt_type,
+        name: row.tgt_name,
+        profile_json: row.tgt_profile_json,
+        auth_token: row.tgt_auth_token,
+        owner_subject: row.tgt_owner_subject,
+        owner_email: row.tgt_owner_email,
+        owner_name: row.tgt_owner_name,
+        created_at: row.tgt_created_at,
+      }),
+      status: row.status,
+      createdAt: row.created_at,
+      respondedAt: row.responded_at,
+    }));
+  }
+
+  respondFriendRequestAs(
+    actorId: string,
+    requestId: string,
+    action: "accept" | "reject",
+  ):
+    | FriendRequest
+    | {
+        friendshipId: string;
+        conversationId: string;
+        createdAt: string;
+      } {
+    this.requireAccount(actorId);
+    const request = this.db
+      .prepare(
+        `
+          SELECT id, requester_id, target_id, status, created_at, responded_at
+          FROM friend_requests
+          WHERE id = ?
+        `,
+      )
+      .get(requestId) as FriendRequestRow | undefined;
+
+    if (!request) {
+      throw new AppError("NOT_FOUND", `Friend request "${requestId}" not found`, 404);
+    }
+    if (request.target_id !== actorId) {
+      throw new AppError("FORBIDDEN", "Only the target can respond to this friend request", 403);
+    }
+    if (request.status !== "pending") {
+      throw new AppError("CONFLICT", "Friend request has already been handled", 409);
+    }
+
+    const respondedAt = nowIso();
+    this.db
+      .prepare(
+        `
+          UPDATE friend_requests
+          SET status = ?, responded_at = ?
+          WHERE id = ?
+        `,
+      )
+      .run(action === "accept" ? "accepted" : "rejected", respondedAt, requestId);
+
+    this.insertAuditLog({
+      actorAccountId: actorId,
+      eventType: `friend_request.${action}ed`,
+      subjectType: "friend_request",
+      subjectId: requestId,
+      metadata: {
+        requesterId: request.requester_id,
+        targetId: request.target_id,
+      },
+    });
+
+    if (action === "reject") {
+      return this.getFriendRequestById(requestId);
+    }
+
+    return this.createFriendship(request.requester_id, request.target_id);
   }
 
   addGroupMember(conversationId: string, accountId: string): ConversationSummary {
@@ -466,7 +786,18 @@ export class AgentChatStore {
     accountId: string,
   ): ConversationSummary {
     this.requireMembership(conversationId, actorId);
-    return this.addGroupMember(conversationId, accountId);
+    const summary = this.addGroupMember(conversationId, accountId);
+    this.insertAuditLog({
+      actorAccountId: actorId,
+      eventType: "group.member_added",
+      subjectType: "account",
+      subjectId: accountId,
+      conversationId,
+      metadata: {
+        accountId,
+      },
+    });
+    return summary;
   }
 
   listGroups(accountId: string): ConversationSummary[] {
@@ -697,10 +1028,122 @@ export class AgentChatStore {
         row.seq,
       );
 
+    this.insertAuditLog({
+      actorAccountId: sender.id,
+      eventType: "message.sent",
+      subjectType: "message",
+      subjectId: row.id,
+      conversationId,
+      metadata: {
+        conversationId,
+        senderId: sender.id,
+      },
+    });
+
     return {
       conversation: this.getConversationSummaryForAccount(sender.id, conversation.id),
       message: messageFromRow(row),
     };
+  }
+
+  listAuditLogsForAccount(
+    accountId: string,
+    options: {
+      conversationId?: string;
+      limit?: number;
+    } = {},
+  ): AuditLog[] {
+    this.requireAccount(accountId);
+    const limit = options.limit ?? 50;
+    if (options.conversationId) {
+      this.requireMembership(options.conversationId, accountId);
+    }
+
+    const rows = this.db
+      .prepare(
+        options.conversationId
+          ? `
+              SELECT al.*, actor.name AS actor_name
+              FROM audit_logs al
+              LEFT JOIN accounts actor ON actor.id = al.actor_account_id
+              WHERE al.conversation_id = ?
+              ORDER BY al.created_at DESC
+              LIMIT ?
+            `
+          : `
+              SELECT DISTINCT al.*, actor.name AS actor_name
+              FROM audit_logs al
+              LEFT JOIN accounts actor ON actor.id = al.actor_account_id
+              LEFT JOIN conversation_members cm ON cm.conversation_id = al.conversation_id
+              WHERE al.actor_account_id = ?
+                 OR al.subject_id = ?
+                 OR cm.account_id = ?
+              ORDER BY al.created_at DESC
+              LIMIT ?
+            `,
+      )
+      .all(
+        ...(options.conversationId
+          ? [options.conversationId, limit]
+          : [accountId, accountId, accountId, limit]),
+      ) as Array<AuditLogRow & { actor_name: string | null }>;
+
+    return rows.map(auditLogFromRow);
+  }
+
+  listOwnedAuditLogs(
+    ownerSubject: string,
+    options: {
+      conversationId?: string;
+      limit?: number;
+    } = {},
+  ): AuditLog[] {
+    const limit = options.limit ?? 50;
+
+    if (options.conversationId) {
+      this.requireOwnedConversationAccess(ownerSubject, options.conversationId);
+      const rows = this.db
+        .prepare(
+          `
+            SELECT al.*, actor.name AS actor_name
+            FROM audit_logs al
+            LEFT JOIN accounts actor ON actor.id = al.actor_account_id
+            WHERE al.conversation_id = ?
+            ORDER BY al.created_at DESC
+            LIMIT ?
+          `,
+        )
+        .all(options.conversationId, limit) as Array<AuditLogRow & {
+        actor_name: string | null;
+      }>;
+      return rows.map(auditLogFromRow);
+    }
+
+    const rows = this.db
+      .prepare(
+        `
+          SELECT DISTINCT al.*, actor.name AS actor_name
+          FROM audit_logs al
+          LEFT JOIN accounts actor ON actor.id = al.actor_account_id
+          LEFT JOIN accounts subject_account
+            ON al.subject_type = 'account'
+           AND subject_account.id = al.subject_id
+          LEFT JOIN conversation_members cm
+            ON cm.conversation_id = al.conversation_id
+          LEFT JOIN accounts member_account
+            ON member_account.id = cm.account_id
+          WHERE actor.owner_subject = ?
+             OR subject_account.owner_subject = ?
+             OR member_account.owner_subject = ?
+          ORDER BY al.created_at DESC
+          LIMIT ?
+        `,
+      )
+      .all(ownerSubject, ownerSubject, ownerSubject, limit) as Array<
+      AuditLogRow & { actor_name: string | null }
+    >;
+
+    return rows.map(auditLogFromRow);
   }
 
   getConversationSummaryForAccount(
@@ -805,6 +1248,19 @@ export class AgentChatStore {
     return rows.map((row) => row.account_id);
   }
 
+  getFriendRequestWatcherIds(requestId: string): string[] {
+    const row = this.db
+      .prepare(
+        `
+          SELECT requester_id, target_id
+          FROM friend_requests
+          WHERE id = ?
+        `,
+      )
+      .get(requestId) as { requester_id: string; target_id: string } | undefined;
+    return row ? [row.requester_id, row.target_id] : [];
+  }
+
   private getLastMessage(conversationId: string): Message | null {
     const row = this.db
       .prepare(
@@ -831,6 +1287,98 @@ export class AgentChatStore {
       )
       .get(conversationId) as { max_seq: number };
     return row.max_seq;
+  }
+
+  private getFriendRequestById(requestId: string): FriendRequest {
+    const row = this.db
+      .prepare(
+        `
+          SELECT
+            fr.id,
+            fr.requester_id,
+            fr.target_id,
+            fr.status,
+            fr.created_at,
+            fr.responded_at,
+            req.id AS req_id,
+            req.type AS req_type,
+            req.name AS req_name,
+            req.profile_json AS req_profile_json,
+            req.auth_token AS req_auth_token,
+            req.owner_subject AS req_owner_subject,
+            req.owner_email AS req_owner_email,
+            req.owner_name AS req_owner_name,
+            req.created_at AS req_created_at,
+            tgt.id AS tgt_id,
+            tgt.type AS tgt_type,
+            tgt.name AS tgt_name,
+            tgt.profile_json AS tgt_profile_json,
+            tgt.auth_token AS tgt_auth_token,
+            tgt.owner_subject AS tgt_owner_subject,
+            tgt.owner_email AS tgt_owner_email,
+            tgt.owner_name AS tgt_owner_name,
+            tgt.created_at AS tgt_created_at
+          FROM friend_requests fr
+          JOIN accounts req ON req.id = fr.requester_id
+          JOIN accounts tgt ON tgt.id = fr.target_id
+          WHERE fr.id = ?
+        `,
+      )
+      .get(requestId) as
+      | (FriendRequestRow & {
+          req_id: string;
+          req_type: AccountType;
+          req_name: string;
+          req_profile_json: string;
+          req_auth_token: string;
+          req_owner_subject: string | null;
+          req_owner_email: string | null;
+          req_owner_name: string | null;
+          req_created_at: string;
+          tgt_id: string;
+          tgt_type: AccountType;
+          tgt_name: string;
+          tgt_profile_json: string;
+          tgt_auth_token: string;
+          tgt_owner_subject: string | null;
+          tgt_owner_email: string | null;
+          tgt_owner_name: string | null;
+          tgt_created_at: string;
+        })
+      | undefined;
+
+    if (!row) {
+      throw new AppError("NOT_FOUND", `Friend request "${requestId}" not found`, 404);
+    }
+
+    return {
+      id: row.id,
+      requester: accountFromRow({
+        id: row.req_id,
+        type: row.req_type,
+        name: row.req_name,
+        profile_json: row.req_profile_json,
+        auth_token: row.req_auth_token,
+        owner_subject: row.req_owner_subject,
+        owner_email: row.req_owner_email,
+        owner_name: row.req_owner_name,
+        created_at: row.req_created_at,
+      }),
+      target: accountFromRow({
+        id: row.tgt_id,
+        type: row.tgt_type,
+        name: row.tgt_name,
+        profile_json: row.tgt_profile_json,
+        auth_token: row.tgt_auth_token,
+        owner_subject: row.tgt_owner_subject,
+        owner_email: row.tgt_owner_email,
+        owner_name: row.tgt_owner_name,
+        created_at: row.tgt_created_at,
+      }),
+      status: row.status,
+      createdAt: row.created_at,
+      respondedAt: row.responded_at,
+    };
   }
 
   private requireAccount(accountId: string, ownerSubject?: string): Account {
@@ -935,6 +1483,15 @@ export class AgentChatStore {
         UNIQUE(account_a, account_b)
       );
 
+      CREATE TABLE IF NOT EXISTS friend_requests (
+        id TEXT PRIMARY KEY,
+        requester_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+        target_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+        status TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        responded_at TEXT
+      );
+
       CREATE TABLE IF NOT EXISTS conversations (
         id TEXT PRIMARY KEY,
         kind TEXT NOT NULL,
@@ -969,6 +1526,17 @@ export class AgentChatStore {
         last_seen_at TEXT NOT NULL
       );
 
+      CREATE TABLE IF NOT EXISTS audit_logs (
+        id TEXT PRIMARY KEY,
+        actor_account_id TEXT REFERENCES accounts(id) ON DELETE SET NULL,
+        event_type TEXT NOT NULL,
+        subject_type TEXT NOT NULL,
+        subject_id TEXT NOT NULL,
+        conversation_id TEXT REFERENCES conversations(id) ON DELETE SET NULL,
+        metadata_json TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      );
+
       CREATE INDEX IF NOT EXISTS idx_conversation_members_account
         ON conversation_members(account_id);
 
@@ -977,6 +1545,15 @@ export class AgentChatStore {
 
       CREATE INDEX IF NOT EXISTS idx_accounts_owner_subject
         ON accounts(owner_subject);
+
+      CREATE INDEX IF NOT EXISTS idx_friend_requests_requester_target
+        ON friend_requests(requester_id, target_id, status);
+
+      CREATE INDEX IF NOT EXISTS idx_audit_logs_conversation_created
+        ON audit_logs(conversation_id, created_at);
+
+      CREATE INDEX IF NOT EXISTS idx_audit_logs_actor_created
+        ON audit_logs(actor_account_id, created_at);
     `);
 
     const columns = this.db.prepare("PRAGMA table_info(accounts)").all() as Array<{
@@ -993,6 +1570,34 @@ export class AgentChatStore {
     if (!names.has("owner_name")) {
       this.db.exec("ALTER TABLE accounts ADD COLUMN owner_name TEXT;");
     }
+  }
+
+  private insertAuditLog(input: {
+    actorAccountId: string | null;
+    eventType: string;
+    subjectType: string;
+    subjectId: string;
+    conversationId?: string;
+    metadata: Record<string, unknown>;
+  }): void {
+    this.db
+      .prepare(
+        `
+          INSERT INTO audit_logs
+            (id, actor_account_id, event_type, subject_type, subject_id, conversation_id, metadata_json, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `,
+      )
+      .run(
+        createId("audit"),
+        input.actorAccountId,
+        input.eventType,
+        input.subjectType,
+        input.subjectId,
+        input.conversationId ?? null,
+        JSON.stringify(input.metadata),
+        nowIso(),
+      );
   }
 
   private getOwnedConversationSummary(

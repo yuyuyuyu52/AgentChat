@@ -155,6 +155,9 @@ Commands:
 Agent commands:
   agent friend add --account <id> --token <token> --peer <accountId>
   agent friend list --account <id> --token <token>
+  agent friend requests --account <id> --token <token> [--direction incoming|outgoing|all]
+  agent friend accept --account <id> --token <token> --request <requestId>
+  agent friend reject --account <id> --token <token> --request <requestId>
   agent group create --account <id> --token <token> --title <title>
   agent group add-member --account <id> --token <token> --group-id <conversationId> --member <accountId>
   agent group list --account <id> --token <token>
@@ -162,6 +165,7 @@ Agent commands:
   agent conversation members --account <id> --token <token> --conversation <conversationId>
   agent message send --account <id> --token <token> --conversation <conversationId> --body <text>
   agent message tail --account <id> --token <token> --conversation <conversationId> [--limit 20]
+  agent audit list --account <id> --token <token> [--conversation <conversationId>] [--limit 50]
 
 Optional flags:
   --url <http://127.0.0.1:43110>
@@ -324,6 +328,29 @@ async function main() {
       return;
     }
 
+    if (agentScope === "friend" && agentAction === "requests") {
+      print(
+        await withAgentClient(flags, async (client) =>
+          client.listFriendRequests(
+            typeof flags.direction === "string"
+              ? (flags.direction as "incoming" | "outgoing" | "all")
+              : "all",
+          )),
+      );
+      return;
+    }
+
+    if (agentScope === "friend" && (agentAction === "accept" || agentAction === "reject")) {
+      print(
+        await withAgentClient(flags, async (client) =>
+          client.respondFriendRequest(
+            requireString(flags, "request"),
+            agentAction === "accept" ? "accept" : "reject",
+          )),
+      );
+      return;
+    }
+
     if (agentScope === "group" && agentAction === "create") {
       print(
         await withAgentClient(flags, async (client) =>
@@ -380,6 +407,20 @@ async function main() {
             requireString(flags, "conversation"),
             limit ? { limit } : {},
           )),
+      );
+      return;
+    }
+
+    if (agentScope === "audit" && agentAction === "list") {
+      const limit = typeof flags.limit === "string" ? Number(flags.limit) : undefined;
+      const conversationId =
+        typeof flags.conversation === "string" ? flags.conversation : undefined;
+      print(
+        await withAgentClient(flags, async (client) =>
+          client.listAuditLogs({
+            ...(conversationId ? { conversationId } : {}),
+            ...(limit ? { limit } : {}),
+          })),
       );
       return;
     }

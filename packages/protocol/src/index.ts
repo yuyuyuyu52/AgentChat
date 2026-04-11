@@ -59,6 +59,32 @@ export const FriendRecordSchema = z.object({
 });
 export type FriendRecord = z.infer<typeof FriendRecordSchema>;
 
+export const FriendRequestStatusSchema = z.enum(["pending", "accepted", "rejected"]);
+export type FriendRequestStatus = z.infer<typeof FriendRequestStatusSchema>;
+
+export const FriendRequestSchema = z.object({
+  id: z.string(),
+  requester: AccountSchema,
+  target: AccountSchema,
+  status: FriendRequestStatusSchema,
+  createdAt: z.string(),
+  respondedAt: z.string().nullable(),
+});
+export type FriendRequest = z.infer<typeof FriendRequestSchema>;
+
+export const AuditLogSchema = z.object({
+  id: z.string(),
+  actorAccountId: z.string().nullable(),
+  actorName: z.string().nullable(),
+  eventType: z.string(),
+  subjectType: z.string(),
+  subjectId: z.string(),
+  conversationId: z.string().nullable(),
+  metadata: z.record(z.string(), z.unknown()),
+  createdAt: z.string(),
+});
+export type AuditLog = z.infer<typeof AuditLogSchema>;
+
 const RequestEnvelopeSchema = z.object({
   id: z.string().min(1),
   type: z.string().min(1),
@@ -124,6 +150,21 @@ const AddFriendRequestSchema = RequestEnvelopeSchema.extend({
   }),
 });
 
+const ListFriendRequestsRequestSchema = RequestEnvelopeSchema.extend({
+  type: z.literal("list_friend_requests"),
+  payload: z.object({
+    direction: z.enum(["incoming", "outgoing", "all"]).optional(),
+  }),
+});
+
+const RespondFriendRequestSchema = RequestEnvelopeSchema.extend({
+  type: z.literal("respond_friend_request"),
+  payload: z.object({
+    requestId: z.string(),
+    action: z.enum(["accept", "reject"]),
+  }),
+});
+
 const CreateGroupRequestSchema = RequestEnvelopeSchema.extend({
   type: z.literal("create_group"),
   payload: z.object({
@@ -146,6 +187,14 @@ const ListConversationMembersRequestSchema = RequestEnvelopeSchema.extend({
   }),
 });
 
+const ListAuditLogsRequestSchema = RequestEnvelopeSchema.extend({
+  type: z.literal("list_audit_logs"),
+  payload: z.object({
+    conversationId: z.string().optional(),
+    limit: z.number().int().positive().max(200).optional(),
+  }),
+});
+
 export const ClientRequestSchema = z.discriminatedUnion("type", [
   ConnectRequestSchema,
   SubscribeConversationsRequestSchema,
@@ -156,9 +205,12 @@ export const ClientRequestSchema = z.discriminatedUnion("type", [
   ListFriendsRequestSchema,
   ListGroupsRequestSchema,
   AddFriendRequestSchema,
+  ListFriendRequestsRequestSchema,
+  RespondFriendRequestSchema,
   CreateGroupRequestSchema,
   AddGroupMemberRequestSchema,
   ListConversationMembersRequestSchema,
+  ListAuditLogsRequestSchema,
 ]);
 export type ClientRequest = z.infer<typeof ClientRequestSchema>;
 

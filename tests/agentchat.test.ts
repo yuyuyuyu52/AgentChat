@@ -282,8 +282,18 @@ describe("AgentChat MVP", () => {
     await gammaClient.connect(gamma.id, gamma.token);
     await intruderClient.connect(intruder.id, intruder.token);
 
-    const friendship = await alphaClient.addFriend(beta.id);
-    expect(friendship.conversationId).toMatch(/^conv_/);
+    const friendRequest = await alphaClient.addFriend(beta.id);
+    expect(friendRequest.requestId).toMatch(/^freq_/);
+
+    const betaIncoming = await betaClient.listFriendRequests("incoming");
+    expect(betaIncoming).toHaveLength(1);
+    expect(betaIncoming[0]?.requester.name).toBe("alpha");
+
+    const friendship = await betaClient.respondFriendRequest(
+      betaIncoming[0]!.id,
+      "accept",
+    );
+    expect("conversationId" in friendship && friendship.conversationId).toMatch(/^conv_/);
 
     const betaFriends = await betaClient.listFriends();
     expect(betaFriends.map((friend) => friend.account.name)).toContain("alpha");
@@ -305,6 +315,11 @@ describe("AgentChat MVP", () => {
     const eventPromise = expectEvent<{ body: string }>(gammaClient, "message.created");
     await alphaClient.sendMessage(group.id, "welcome gamma");
     await expect(eventPromise).resolves.toMatchObject({ body: "welcome gamma" });
+
+    const audit = await alphaClient.listAuditLogs({ conversationId: group.id, limit: 20 });
+    expect(audit.some((entry) => entry.eventType === "group.created")).toBe(true);
+    expect(audit.some((entry) => entry.eventType === "group.member_added")).toBe(true);
+    expect(audit.some((entry) => entry.eventType === "message.sent")).toBe(true);
 
     alphaClient.close();
     betaClient.close();
