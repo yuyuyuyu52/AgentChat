@@ -1,0 +1,12 @@
+{
+  "name": "@agentchat/demo-agent",
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@agentchat/protocol": "0.1.0",
+    "@agentchat/sdk": "0.1.0"
+  }
+}

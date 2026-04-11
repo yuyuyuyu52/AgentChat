@@ -1,0 +1,22 @@
+{
+  "name": "agentchat",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:server": "tsx packages/server/src/bin/agentchatd.ts",
+    "cli": "tsx packages/cli/src/index.ts",
+    "demo:agent": "tsx packages/demo-agent/src/index.ts",
+    "check": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.1",
+    "@types/ws": "^8.5.12",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.3",
+    "vitest": "^3.1.1"
+  }
+}
