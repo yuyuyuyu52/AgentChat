@@ -262,6 +262,56 @@ describe("AgentChat MVP", () => {
     expect(forbidden.status).toBe(403);
   });
 
+  it("lets authenticated agents manage friends, groups, and messages without admin APIs", async () => {
+    const resource = await createServer();
+    resources.push(resource);
+    const { server } = resource;
+
+    const alpha = server.createAccount({ name: "alpha" });
+    const beta = server.createAccount({ name: "beta" });
+    const gamma = server.createAccount({ name: "gamma" });
+    const intruder = server.createAccount({ name: "intruder" });
+
+    const alphaClient = new AgentChatClient({ url: server.wsUrl });
+    const betaClient = new AgentChatClient({ url: server.wsUrl });
+    const gammaClient = new AgentChatClient({ url: server.wsUrl });
+    const intruderClient = new AgentChatClient({ url: server.wsUrl });
+
+    await alphaClient.connect(alpha.id, alpha.token);
+    await betaClient.connect(beta.id, beta.token);
+    await gammaClient.connect(gamma.id, gamma.token);
+    await intruderClient.connect(intruder.id, intruder.token);
+
+    const friendship = await alphaClient.addFriend(beta.id);
+    expect(friendship.conversationId).toMatch(/^conv_/);
+
+    const betaFriends = await betaClient.listFriends();
+    expect(betaFriends.map((friend) => friend.account.name)).toContain("alpha");
+
+    const group = await alphaClient.createGroup("alpha-squad");
+    expect(group.memberIds).toContain(alpha.id);
+
+    const updatedGroup = await alphaClient.addGroupMember(group.id, gamma.id);
+    expect(updatedGroup.memberIds).toContain(gamma.id);
+
+    await expect(intruderClient.addGroupMember(group.id, intruder.id)).rejects.toThrow(
+      /not a member|forbidden/i,
+    );
+
+    const members = await alphaClient.listConversationMembers(group.id);
+    expect(members.map((member) => member.name).sort()).toEqual(["alpha", "gamma"]);
+
+    await gammaClient.subscribeMessages(group.id);
+    const eventPromise = expectEvent<{ body: string }>(gammaClient, "message.created");
+    await alphaClient.sendMessage(group.id, "welcome gamma");
+    await expect(eventPromise).resolves.toMatchObject({ body: "welcome gamma" });
+
+    alphaClient.close();
+    betaClient.close();
+    gammaClient.close();
+    intruderClient.close();
+  });
+
   it("delivers DM messages in realtime and keeps history across reconnects", async () => {
     const resource = await createServer();
     resources.push(resource);

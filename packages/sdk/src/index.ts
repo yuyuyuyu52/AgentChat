@@ -1,5 +1,6 @@
 import { EventEmitter } from "node:events";
 import {
+  type Account,
   DEFAULT_WS_URL,
   type ConversationSummary,
   type EventPayloadMap,
@@ -116,6 +117,29 @@ export class AgentChatClient extends EventEmitter {
 
   async listGroups(): Promise<ConversationSummary[]> {
     return this.request("list_groups", {});
+  }
+
+  async addFriend(peerAccountId: string): Promise<{
+    friendshipId: string;
+    conversationId: string;
+    createdAt: string;
+  }> {
+    return this.request("add_friend", { peerAccountId });
+  }
+
+  async createGroup(title: string): Promise<ConversationSummary> {
+    return this.request("create_group", { title });
+  }
+
+  async addGroupMember(conversationId: string, accountId: string): Promise<ConversationSummary> {
+    return this.request("add_group_member", {
+      conversationId,
+      accountId,
+    });
+  }
+
+  async listConversationMembers(conversationId: string): Promise<Account[]> {
+    return this.request("list_conversation_members", { conversationId });
   }
 
   close(): void {

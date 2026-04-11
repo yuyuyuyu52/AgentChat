@@ -393,6 +393,45 @@ export class AgentChatStore {
     return this.getConversationSummaryForSystem(conversationId);
   }
 
+  createGroupAs(creatorId: string, title: string): ConversationSummary {
+    this.requireAccount(creatorId);
+    const conversationId = createId("conv");
+    const createdAt = nowIso();
+
+    this.transaction(() => {
+      this.db
+        .prepare(
+          `
+            INSERT INTO conversations (id, kind, title, created_at)
+            VALUES (?, 'group', ?, ?)
+          `,
+        )
+        .run(conversationId, title, createdAt);
+
+      this.db
+        .prepare(
+          `
+            INSERT INTO conversation_members
+              (conversation_id, account_id, role, joined_at, history_start_seq)
+            VALUES (?, ?, 'owner', ?, 1)
+          `,
+        )
+        .run(conversationId, creatorId, createdAt);
+    });
+
+    return this.getConversationSummaryForAccount(creatorId, conversationId);
+  }
+
+  addFriendAs(actorId: string, peerAccountId: string): {
+    friendshipId: string;
+    conversationId: string;
+    createdAt: string;
+  } {
+    this.requireAccount(actorId);
+    this.requireAccount(peerAccountId);
+    return this.createFriendship(actorId, peerAccountId);
+  }
+
   addGroupMember(conversationId: string, accountId: string): ConversationSummary {
     const conversation = this.requireConversation(conversationId);
     if (conversation.kind !== "group") {
@@ -421,6 +460,15 @@ export class AgentChatStore {
     return this.getConversationSummaryForAccount(accountId, conversationId);
   }
 
+  addGroupMemberAs(
+    actorId: string,
+    conversationId: string,
+    accountId: string,
+  ): ConversationSummary {
+    this.requireMembership(conversationId, actorId);
+    return this.addGroupMember(conversationId, accountId);
+  }
+
   listGroups(accountId: string): ConversationSummary[] {
     this.requireAccount(accountId);
     const ids = this.db
@@ -436,6 +484,25 @@ export class AgentChatStore {
       .all(accountId) as Array<{ id: string }>;
 
     return ids.map(({ id }) => this.getConversationSummaryForAccount(accountId, id));
+  }
+
+  listConversationMembers(accountId: string, conversationId: string): Account[] {
+    this.requireMembership(conversationId, accountId);
+    const rows = this.db
+      .prepare(
+        `
+          SELECT id, type, name, profile_json, auth_token, owner_subject, owner_email, owner_name, created_at
+          FROM accounts
+          WHERE id IN (
+            SELECT account_id
+            FROM conversation_members
+            WHERE conversation_id = ?
+          )
+          ORDER BY name ASC
+        `,
+      )
+      .all(conversationId) as AccountRow[];
+    return rows.map(accountFromRow);
   }
 
   listConversations(accountId: string): ConversationSummary[] {

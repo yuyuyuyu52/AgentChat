@@ -1,4 +1,5 @@
-import { DEFAULT_HTTP_URL } from "@agentchat/protocol";
+import { DEFAULT_HTTP_URL, DEFAULT_WS_URL } from "@agentchat/protocol";
+import { AgentChatClient } from "@agentchat/sdk";
 
 type Flags = Record<string, string | boolean>;
 
@@ -151,10 +152,40 @@ Commands:
   friend list --account <accountId>
   group list --account <accountId>
 
+Agent commands:
+  agent friend add --account <id> --token <token> --peer <accountId>
+  agent friend list --account <id> --token <token>
+  agent group create --account <id> --token <token> --title <title>
+  agent group add-member --account <id> --token <token> --group-id <conversationId> --member <accountId>
+  agent group list --account <id> --token <token>
+  agent conversation list --account <id> --token <token>
+  agent conversation members --account <id> --token <token> --conversation <conversationId>
+  agent message send --account <id> --token <token> --conversation <conversationId> --body <text>
+  agent message tail --account <id> --token <token> --conversation <conversationId> [--limit 20]
+
 Optional flags:
   --url <http://127.0.0.1:43110>
+  --ws-url <ws://127.0.0.1:43110/ws>
   --admin-password <password>
 `);
+}
+
+async function withAgentClient<T>(
+  flags: Flags,
+  fn: (client: AgentChatClient, accountId: string) => Promise<T>,
+): Promise<T> {
+  const accountId = requireString(flags, "account");
+  const token = requireString(flags, "token");
+  const client = new AgentChatClient({
+    url: typeof flags["ws-url"] === "string" ? flags["ws-url"] : DEFAULT_WS_URL,
+  });
+
+  try {
+    await client.connect(accountId, token);
+    return await fn(client, accountId);
+  } finally {
+    client.close();
+  }
 }
 
 async function main() {
@@ -275,6 +306,83 @@ async function main() {
       ),
     );
     return;
+  }
+
+  if (scope === "agent") {
+    const [agentScope, agentAction] = command.slice(1);
+
+    if (agentScope === "friend" && agentAction === "add") {
+      print(
+        await withAgentClient(flags, async (client) =>
+          client.addFriend(requireString(flags, "peer"))),
+      );
+      return;
+    }
+
+    if (agentScope === "friend" && agentAction === "list") {
+      print(await withAgentClient(flags, async (client) => client.listFriends()));
+      return;
+    }
+
+    if (agentScope === "group" && agentAction === "create") {
+      print(
+        await withAgentClient(flags, async (client) =>
+          client.createGroup(requireString(flags, "title"))),
+      );
+      return;
+    }
+
+    if (agentScope === "group" && agentAction === "add-member") {
+      print(
+        await withAgentClient(flags, async (client) =>
+          client.addGroupMember(
+            requireString(flags, "group-id"),
+            requireString(flags, "member"),
+          )),
+      );
+      return;
+    }
+
+    if (agentScope === "group" && agentAction === "list") {
+      print(await withAgentClient(flags, async (client) => client.listGroups()));
+      return;
+    }
+
+    if (agentScope === "conversation" && agentAction === "list") {
+      print(await withAgentClient(flags, async (client) => client.listConversations()));
+      return;
+    }
+
+    if (agentScope === "conversation" && agentAction === "members") {
+      print(
+        await withAgentClient(flags, async (client) =>
+          client.listConversationMembers(requireString(flags, "conversation"))),
+      );
+      return;
+    }
+
+    if (agentScope === "message" && agentAction === "send") {
+      print(
+        await withAgentClient(flags, async (client) =>
+          client.sendMessage(
+            requireString(flags, "conversation"),
+            requireString(flags, "body"),
+          )),
+      );
+      return;
+    }
+
+    if (agentScope === "message" && agentAction === "tail") {
+      const limit = typeof flags.limit === "string" ? Number(flags.limit) : undefined;
+      print(
+        await withAgentClient(flags, async (client) =>
+          client.listMessages(
+            requireString(flags, "conversation"),
+            limit ? { limit } : {},
+          )),
+      );
+      return;
+    }
   }
 
   throw new Error(`Unknown command: ${command.join(" ")}`);

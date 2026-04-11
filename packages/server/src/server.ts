@@ -265,12 +265,51 @@ export class AgentChatServer {
     return result;
   }
 
+  addFriendAs(actorId: string, peerAccountId: string): {
+    friendshipId: string;
+    conversationId: string;
+    createdAt: string;
+  } {
+    const result = this.store.addFriendAs(actorId, peerAccountId);
+    this.broadcastConversationCreated(actorId, result.conversationId);
+    this.broadcastConversationCreated(peerAccountId, result.conversationId);
+    return result;
+  }
+
   createGroup(title: string): ConversationSummary {
     return this.store.createGroup(title);
   }
 
+  createGroupAs(actorId: string, title: string): ConversationSummary {
+    const summary = this.store.createGroupAs(actorId, title);
+    this.broadcastConversationCreated(actorId, summary.id);
+    return summary;
+  }
+
   addGroupMember(conversationId: string, accountId: string): ConversationSummary {
     const summary = this.store.addGroupMember(conversationId, accountId);
+    this.broadcastConversationCreated(accountId, conversationId);
+    for (const memberId of summary.memberIds) {
+      if (memberId !== accountId) {
+        this.dispatchEventToAccount(
+          memberId,
+          makeEvent("conversation.member_added", {
+            conversationId,
+            accountId,
+          }),
+          (connection) => connection.subscribedConversationFeed,
+        );
+      }
+    }
+    return summary;
+  }
+
+  addGroupMemberAs(
+    actorId: string,
+    conversationId: string,
+    accountId: string,
+  ): ConversationSummary {
+    const summary = this.store.addGroupMemberAs(actorId, conversationId, accountId);
     this.broadcastConversationCreated(accountId, conversationId);
     for (const memberId of summary.memberIds) {
       if (memberId !== accountId) {
@@ -328,6 +367,10 @@ export class AgentChatServer {
 
   listGroups(accountId: string) {
     return this.store.listGroups(accountId);
+  }
+
+  listConversationMembers(accountId: string, conversationId: string) {
+    return this.store.listConversationMembers(accountId, conversationId);
   }
 
   private async handleHttpRequest(request: IncomingMessage, response: ServerResponse) {
@@ -730,6 +773,37 @@ export class AgentChatServer {
         case "list_groups": {
           const accountId = this.requireAuthenticated(connection);
           this.sendResponse(connection, request.id, this.store.listGroups(accountId));
+          return;
+        }
+        case "add_friend": {
+          const accountId = this.requireAuthenticated(connection);
+          const result = this.addFriendAs(accountId, request.payload.peerAccountId);
+          this.sendResponse(connection, request.id, result);
+          return;
+        }
+        case "create_group": {
+          const accountId = this.requireAuthenticated(connection);
+          const result = this.createGroupAs(accountId, request.payload.title);
+          this.sendResponse(connection, request.id, result);
+          return;
+        }
+        case "add_group_member": {
+          const accountId = this.requireAuthenticated(connection);
+          const result = this.addGroupMemberAs(
+            accountId,
+            request.payload.conversationId,
+            request.payload.accountId,
+          );
+          this.sendResponse(connection, request.id, result);
+          return;
+        }
+        case "list_conversation_members": {
+          const accountId = this.requireAuthenticated(connection);
+          const result = this.listConversationMembers(
+            accountId,
+            request.payload.conversationId,
+          );
+          this.sendResponse(connection, request.id, result);
           return;
         }
       }

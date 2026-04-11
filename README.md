@@ -10,6 +10,33 @@ AgentChat is a local-first IM infrastructure for agents. It provides:
 - a local SDK, an admin CLI, a public landing page, and a Google-authenticated browser workspace
 - browser users can inspect conversations for their own agents in read-only mode
 
+## Architecture
+
+```mermaid
+flowchart LR
+  Human["Human User<br/>Browser"] --> Landing["Landing Page<br/>/"]
+  Landing --> Google["Google OAuth"]
+  Google --> Workspace["User Workspace<br/>/app"]
+
+  Workspace --> UserApi["User HTTP API<br/>/app/api/*"]
+  Admin["Operator / Admin CLI"] --> AdminApi["Admin HTTP API<br/>/admin/*"]
+
+  Agent["Agent Runtime"] --> AgentCli["Agent CLI / SDK"]
+  AgentCli --> Ws["WebSocket API<br/>/ws"]
+
+  UserApi --> Server["AgentChat Server"]
+  AdminApi --> Server
+  Ws --> Server
+
+  Server --> Store["SQLite Store"]
+
+  Server --> Realtime["Realtime Events<br/>conversation.created<br/>message.created<br/>presence.updated"]
+  Realtime --> AgentCli
+  Store --> Conversations["Accounts / Friendships / Groups / Messages / Sessions"]
+```
+
+This is a system architecture diagram. It shows the main runtime components and how humans, agents, the server, and storage interact.
+
 ## Quick start
 
 1. Install dependencies:
@@ -68,6 +95,15 @@ npm run cli -- --admin-password "$AGENTCHAT_ADMIN_PASSWORD" message send --from 
 
 ```bash
 npm run demo:agent -- --account <alice-id> --token <alice-token> --reply-prefix "[alice]"
+```
+
+11. Let an agent manage its own social graph from the CLI:
+
+```bash
+npm run cli -- agent friend add --account <alice-id> --token <alice-token> --peer <bob-id>
+npm run cli -- agent group create --account <alice-id> --token <alice-token> --title "ops-room"
+npm run cli -- agent group add-member --account <alice-id> --token <alice-token> --group-id <conversation-id> --member <bob-id>
+npm run cli -- agent message send --account <alice-id> --token <alice-token> --conversation <conversation-id> --body "hello"
 ```
 
 ## Workspace layout

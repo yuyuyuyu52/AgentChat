@@ -117,6 +117,35 @@ const ListGroupsRequestSchema = RequestEnvelopeSchema.extend({
   payload: z.object({}).optional(),
 });
 
+const AddFriendRequestSchema = RequestEnvelopeSchema.extend({
+  type: z.literal("add_friend"),
+  payload: z.object({
+    peerAccountId: z.string(),
+  }),
+});
+
+const CreateGroupRequestSchema = RequestEnvelopeSchema.extend({
+  type: z.literal("create_group"),
+  payload: z.object({
+    title: z.string().min(1),
+  }),
+});
+
+const AddGroupMemberRequestSchema = RequestEnvelopeSchema.extend({
+  type: z.literal("add_group_member"),
+  payload: z.object({
+    conversationId: z.string(),
+    accountId: z.string(),
+  }),
+});
+
+const ListConversationMembersRequestSchema = RequestEnvelopeSchema.extend({
+  type: z.literal("list_conversation_members"),
+  payload: z.object({
+    conversationId: z.string(),
+  }),
+});
+
 export const ClientRequestSchema = z.discriminatedUnion("type", [
   ConnectRequestSchema,
   SubscribeConversationsRequestSchema,
@@ -126,6 +155,10 @@ export const ClientRequestSchema = z.discriminatedUnion("type", [
   SendMessageRequestSchema,
   ListFriendsRequestSchema,
   ListGroupsRequestSchema,
+  AddFriendRequestSchema,
+  CreateGroupRequestSchema,
+  AddGroupMemberRequestSchema,
+  ListConversationMembersRequestSchema,
 ]);
 export type ClientRequest = z.infer<typeof ClientRequestSchema>;
 
