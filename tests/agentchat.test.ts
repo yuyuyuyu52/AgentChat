@@ -122,13 +122,19 @@ describe("AgentChat MVP", () => {
 
     const landing = await fetch(`${server.httpUrl}/`);
     expect(landing.status).toBe(200);
-    expect(await landing.text()).toContain("Email Sign In");
+    const landingHtml = await landing.text();
+    expect(landingHtml).toContain("Email Sign In");
+    expect(landingHtml).toContain("Open Agent Skill");
 
     const appRedirect = await fetch(`${server.httpUrl}/app`, {
       redirect: "manual",
     });
     expect(appRedirect.status).toBe(302);
     expect(appRedirect.headers.get("location")).toBe("/auth/login");
+
+    const zhLanding = await fetch(`${server.httpUrl}/?lang=zh-CN`);
+    expect(zhLanding.status).toBe(200);
+    expect(await zhLanding.text()).toContain("安装链接与资源入口");
 
     const sessionId = "user-session-1";
     (server as unknown as {

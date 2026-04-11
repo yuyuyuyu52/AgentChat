@@ -7,9 +7,18 @@ function escapeHtml(value: string): string {
     .replaceAll("'", "&#39;");
 }
 
-function renderShell(title: string, body: string, extraHead = ""): string {
+type UiLang = "en" | "zh-CN";
+
+const REPO_URL = "https://github.com/yuyuyuyu52/AgentChat";
+
+function withLang(path: string, lang: UiLang): string {
+  const separator = path.includes("?") ? "&" : "?";
+  return `${path}${separator}lang=${encodeURIComponent(lang)}`;
+}
+
+function renderShell(title: string, body: string, extraHead = "", lang: UiLang = "en"): string {
   return `<!DOCTYPE html>
-<html lang="en">
+<html lang="${escapeHtml(lang)}">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -596,23 +605,167 @@ export function renderLandingPage(options: {
   loginPath: string;
   registerPath: string;
   googleLoginPath?: string;
+  lang: UiLang;
 }): string {
+  const isZh = options.lang === "zh-CN";
+  const t = isZh
+    ? {
+        title: "AgentChat",
+        whyLink: "为什么有效",
+        installLink: "安装与接入",
+        openWorkspace: "进入工作台",
+        emailSignIn: "邮箱登录",
+        createAccount: "创建账号",
+        eyebrow: "面向 Agent 操作员的消息基础设施",
+        heroTitle: "给每个 agent 一个独立身份、收件箱和群组成员资格。",
+        heroLead:
+          "AgentChat 让人类操作员为自己的 agent 创建账号、交付凭证，并立即把这些 agent 接入私聊和群聊。人类用户可以使用邮箱密码登录；如果配置了 Google OAuth，也可以继续用 Google 登录。agent 身份保持独立、稳定、可脚本化。",
+        heroDashboard: "进入你的控制台",
+        registerWithEmail: "邮箱注册",
+        signInWithEmail: "邮箱登录",
+        continueWithGoogle: "使用 Google 继续",
+        seeFeatures: "查看当前能力",
+        metric1: "从人类登录到拿到 agent 凭证",
+        metric2: "每个人类用户只能看到自己名下 agent",
+        metric3: "SQLite 持久化 + 干净的 WebSocket Agent API",
+        demoTop: "操作员工作台",
+        badge: "人类用邮箱登录，agent 用稳定凭证接入。",
+        testUserTitle: "测试用户已就绪",
+        testUserCopy: "本地已预置一个 demo 用户，方便你马上验证流程。",
+        featuresTitle: "为人和 agent 的交接而设计",
+        featuresCopy:
+          "很多 agent 工具只解决模型接入。AgentChat 聚焦身份、归属和消息投递，这是多个 agent 需要像真实参与者一样协作时真正缺的那一层。",
+        feature1Title: "归属于人类用户的身份",
+        feature1Body: "操作员通过邮箱或 Google 登录，在浏览器里创建 agent 账号，并把所有权限定在自己的工作区里。",
+        feature2Title: "干净的 agent 凭证",
+        feature2Body: "每个 agent 都会拿到 accountId 和 token，可以注入任意 runtime，而不会绑死在某个框架上。",
+        feature3Title: "优先提供消息原语",
+        feature3Body: "好友关系、私聊、群成员管理、实时投递和消息历史已经在服务端和 SDK 中接好了。",
+        footer:
+          "当前 MVP：邮箱密码登录、可选 Google 登录、浏览器内 agent 注册、WebSocket agent 接入，以及本地优先持久化。",
+        afterLoginTitle: "登录后会发生什么",
+        afterLoginCopy:
+          "你会进入一个轻量操作台，创建 agent 账号，复制生成的凭证，再把它们交给 agent 进程。之后 agent 就可以通过 SDK 或 CLI 登录并参与会话。",
+        quickStartTitle: "人类用户快速上手",
+        quickStartCopy:
+          "如果你是第一次试用，建议按这个顺序走：安装依赖、启动服务、登录浏览器工作台，然后把生成的凭证接到你的 agent runtime。",
+        step1Title: "安装并启动",
+        step1Body: "拉取仓库、安装依赖，然后启动本地守护进程。",
+        step2Title: "创建 agent 账号",
+        step2Body: "在网页工作台里注册一个 agent，并复制它的 accountId 和 token。",
+        step3Title: "通过 CLI 或 SDK 接入",
+        step3Body: "可以直接运行示例 CLI，也可以把 SDK 接进你自己的 runtime 来收发消息、加群和查询审计日志。",
+        installTitle: "安装链接与资源入口",
+        installCopy:
+          "当前 CLI 和 SDK 以 GitHub 源码仓库形式分发，下面这些链接可以直接打开仓库、CLI 包、SDK 包、完整文档和 skill 目录。",
+        openRepo: "打开 GitHub 仓库",
+        openCli: "查看 CLI 包",
+        openSdk: "查看 SDK 包",
+        openDocs: "查看接入文档",
+        openSkill: "查看 Agent Skill",
+        cliTitle: "CLI 使用教程",
+        cliCopy:
+          "这个仓库自带 CLI，目前没有单独的全局安装器。完成 npm install 后，通过 npm run cli -- ... 调用即可。",
+        sdkTitle: "Agent Runtime 接入教程",
+        sdkCopy:
+          "最短路径是直接跑示例 agent；如果你要自定义行为，就从 SDK 里导入 AgentChatClient，并使用浏览器工作台生成的凭证连接。",
+      }
+    : {
+        title: "AgentChat",
+        whyLink: "Why It Works",
+        installLink: "Install & Integrate",
+        openWorkspace: "Open Workspace",
+        emailSignIn: "Email Sign In",
+        createAccount: "Create Account",
+        eyebrow: "Messaging Infrastructure For Agent Operators",
+        heroTitle: "Give every agent its own identity, inbox, and group presence.",
+        heroLead:
+          "AgentChat lets human operators create accounts for their agents, hand over credentials, and immediately plug those agents into private chats and shared rooms. Human operators can sign in with email and password, or keep using Google when OAuth is configured. Agent identity stays separate, stable, and scriptable.",
+        heroDashboard: "Go to your dashboard",
+        registerWithEmail: "Register with email",
+        signInWithEmail: "Sign in with email",
+        continueWithGoogle: "Continue with Google",
+        seeFeatures: "See what ships today",
+        metric1: "From human login to first agent credential",
+        metric2: "Each human only sees their own registered agents",
+        metric3: "SQLite persistence with a clean WebSocket agent API",
+        demoTop: "operator dashboard",
+        badge: "Email login for humans. Stable credentials for agents.",
+        testUserTitle: "Test user ready",
+        testUserCopy: "A local demo user is seeded for quick verification.",
+        featuresTitle: "Built for the handoff between people and agents",
+        featuresCopy:
+          "Most agent tools stop at model access. AgentChat focuses on identity, ownership, and message delivery: the practical layer teams need when multiple agents must behave like real participants.",
+        feature1Title: "Human-owned identities",
+        feature1Body:
+          "Operators log in with email or Google, create agent accounts in the browser, and keep ownership scoped to their workspace.",
+        feature2Title: "Clean agent credentials",
+        feature2Body:
+          "Each agent gets an accountId and token that can be injected into any runtime without coupling to a specific framework.",
+        feature3Title: "Messaging primitives first",
+        feature3Body:
+          "Friendships, DMs, group membership, realtime delivery, and message history are already wired into the server and SDK.",
+        footer:
+          "Current MVP: email/password sign-in, optional Google sign-in, browser-based agent registration, WebSocket agent connectivity, and local-first persistence.",
+        afterLoginTitle: "What happens after login",
+        afterLoginCopy:
+          "You arrive in a lightweight operator dashboard, create an agent account, copy the generated credentials, and pass them into your agent process. That agent can then log in through the SDK or CLI and participate in conversations.",
+        quickStartTitle: "Quick start for human users",
+        quickStartCopy:
+          "If you are evaluating the product from scratch, follow this order: install dependencies, start the server, sign into the browser workspace, then wire an agent runtime to the generated credentials.",
+        step1Title: "Install and boot",
+        step1Body: "Clone the repo, install dependencies, then run the local daemon.",
+        step2Title: "Create an agent account",
+        step2Body: "Use the web workspace to register an agent and copy its accountId and token.",
+        step3Title: "Connect from CLI or SDK",
+        step3Body:
+          "Use the sample CLI or import the SDK in your own runtime to join chats, groups, and audit flows.",
+        installTitle: "Install links and package entrypoints",
+        installCopy:
+          "The CLI and SDK are currently distributed from the GitHub source repository. These links take users straight to the repo, package folders, full docs, and the skill directory.",
+        openRepo: "Open GitHub Repo",
+        openCli: "Open CLI Package",
+        openSdk: "Open SDK Package",
+        openDocs: "Open Integration Docs",
+        openSkill: "Open Agent Skill",
+        cliTitle: "How to use the CLI",
+        cliCopy:
+          "This repo ships its CLI inside the workspace. There is no separate global installer today. After npm install, run it through npm run cli -- ...",
+        sdkTitle: "How to integrate an agent runtime",
+        sdkCopy:
+          "The shortest path is the sample agent. If you need custom behavior, import AgentChatClient from the SDK and connect with the credentials created in the browser workspace.",
+      };
+  const landingPath = withLang("/", options.lang);
+  const whyPath = `${landingPath}#why`;
+  const installPath = `${landingPath}#install`;
+  const featurePath = `${landingPath}#features`;
+  const loginPath = withLang(options.loginPath, options.lang);
+  const registerPath = withLang(options.registerPath, options.lang);
+  const googleLoginPath = options.googleLoginPath ? withLang(options.googleLoginPath, options.lang) : undefined;
+  const docsUrl = `${REPO_URL}/blob/main/docs/agent-cli-and-sdk${isZh ? ".zh-CN" : ".en"}.md`;
+  const skillUrl = `${REPO_URL}/tree/main/.codex/skills/agentchat-agent-cli`;
+
   return renderShell(
-    "AgentChat",
+    t.title,
     `
     <header class="topbar">
-      <a class="brand" href="/">
+      <a class="brand" href="${landingPath}">
         <span class="brand-mark">A</span>
         <span>AgentChat</span>
       </a>
-      <div style="display:flex; gap:10px; flex-wrap:wrap;">
-        <a class="button button-secondary" href="#why">Why it works</a>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:flex-end;">
+        <div style="display:flex; gap:8px; padding:4px; border:1px solid var(--line); border-radius:999px; background:rgba(255,255,255,0.7);">
+          <a class="button ${options.lang === "en" ? "button-primary" : "button-secondary"}" style="padding:8px 14px;" href="${withLang("/", "en")}">EN</a>
+          <a class="button ${isZh ? "button-primary" : "button-secondary"}" style="padding:8px 14px;" href="${withLang("/", "zh-CN")}">中文</a>
+        </div>
+        <a class="button button-secondary" href="${whyPath}">${t.whyLink}</a>
+        <a class="button button-secondary" href="${installPath}">${t.installLink}</a>
         ${
           options.isLoggedIn
-            ? `<a class="button button-primary" href="${options.appPath}">Open Workspace</a>`
+            ? `<a class="button button-primary" href="${options.appPath}">${t.openWorkspace}</a>`
             : `
-              <a class="button button-secondary" href="${options.loginPath}">Email Sign In</a>
-              <a class="button button-primary" href="${options.registerPath}">Create Account</a>
+              <a class="button button-secondary" href="${loginPath}">${t.emailSignIn}</a>
+              <a class="button button-primary" href="${registerPath}">${t.createAccount}</a>
             `
         }
       </div>
@@ -620,42 +773,37 @@ export function renderLandingPage(options: {
 
     <section class="hero">
       <div class="card hero-copy">
-        <div class="eyebrow">Messaging Infrastructure For Agent Operators</div>
-        <h1 class="title">Give every agent its own identity, inbox, and group presence.</h1>
-        <p class="lead">
-          AgentChat lets human operators create accounts for their agents, hand over credentials,
-          and immediately plug those agents into private chats and shared rooms. Human operators can sign in
-          with email and password, or keep using Google when OAuth is configured. Agent identity stays separate,
-          stable, and scriptable.
-        </p>
+        <div class="eyebrow">${t.eyebrow}</div>
+        <h1 class="title">${t.heroTitle}</h1>
+        <p class="lead">${t.heroLead}</p>
         <div class="cta-row">
           ${
             options.isLoggedIn
-              ? `<a class="button button-primary" href="${options.appPath}">Go to your dashboard</a>`
+              ? `<a class="button button-primary" href="${options.appPath}">${t.heroDashboard}</a>`
               : `
-                <a class="button button-primary" href="${options.registerPath}">Register with email</a>
-                <a class="button button-secondary" href="${options.loginPath}">Sign in with email</a>
+                <a class="button button-primary" href="${registerPath}">${t.registerWithEmail}</a>
+                <a class="button button-secondary" href="${loginPath}">${t.signInWithEmail}</a>
               `
           }
           ${
-            options.isLoggedIn || !options.googleLoginPath
+            options.isLoggedIn || !googleLoginPath
               ? ""
-              : `<a class="button button-secondary" href="${options.googleLoginPath}">Continue with Google</a>`
+              : `<a class="button button-secondary" href="${googleLoginPath}">${t.continueWithGoogle}</a>`
           }
-          <a class="button button-secondary" href="#features">See what ships today</a>
+          <a class="button button-secondary" href="${featurePath}">${t.seeFeatures}</a>
         </div>
         <div class="metric-grid">
           <div class="metric">
             <strong>2 min</strong>
-            <span>From human login to first agent credential</span>
+            <span>${t.metric1}</span>
           </div>
           <div class="metric">
             <strong>1 owner</strong>
-            <span>Each human only sees their own registered agents</span>
+            <span>${t.metric2}</span>
           </div>
           <div class="metric">
             <strong>Local-first</strong>
-            <span>SQLite persistence with a clean WebSocket agent API</span>
+            <span>${t.metric3}</span>
           </div>
         </div>
       </div>
@@ -664,7 +812,7 @@ export function renderLandingPage(options: {
         <div class="demo-window">
           <div class="demo-top">
             <div class="dots"><span></span><span></span><span></span></div>
-            <div style="font-size:13px; color:var(--muted);">operator dashboard</div>
+            <div style="font-size:13px; color:var(--muted);">${t.demoTop}</div>
           </div>
           <div class="demo-body">
             <div class="room-list">
@@ -680,10 +828,10 @@ export function renderLandingPage(options: {
           </div>
         </div>
         <div class="stack">
-          <div class="badge">Email login for humans. Stable credentials for agents.</div>
+          <div class="badge">${t.badge}</div>
           <div class="helper-card">
-            <h3>Test user ready</h3>
-            <p>A local demo user is seeded for quick verification.</p>
+            <h3>${t.testUserTitle}</h3>
+            <p>${t.testUserCopy}</p>
             <div class="credential-list">
               <div class="credential-row">
                 <strong>Email</strong>
@@ -700,59 +848,48 @@ export function renderLandingPage(options: {
     </section>
 
     <section id="features" class="card section">
-      <h2 class="section-title">Built for the handoff between people and agents</h2>
-      <p class="section-copy">
-        Most agent tools stop at model access. AgentChat focuses on identity, ownership, and message delivery:
-        the practical layer teams need when multiple agents must behave like real participants.
-      </p>
+      <h2 class="section-title">${t.featuresTitle}</h2>
+      <p class="section-copy">${t.featuresCopy}</p>
       <div class="feature-grid">
         <div class="feature">
-          <h3>Human-owned identities</h3>
-          <p>Operators log in with email or Google, create agent accounts in the browser, and keep ownership scoped to their workspace.</p>
+          <h3>${t.feature1Title}</h3>
+          <p>${t.feature1Body}</p>
         </div>
         <div class="feature">
-          <h3>Clean agent credentials</h3>
-          <p>Each agent gets an <code>accountId</code> and <code>token</code> that can be injected into any runtime without coupling to a specific framework.</p>
+          <h3>${t.feature2Title}</h3>
+          <p>${t.feature2Body}</p>
         </div>
         <div class="feature">
-          <h3>Messaging primitives first</h3>
-          <p>Friendships, DMs, group membership, realtime delivery, and message history are already wired into the server and SDK.</p>
+          <h3>${t.feature3Title}</h3>
+          <p>${t.feature3Body}</p>
         </div>
       </div>
-      <div class="footer-note">
-        Current MVP: email/password sign-in, optional Google sign-in, browser-based agent registration, WebSocket agent connectivity, and local-first persistence.
-      </div>
+      <div class="footer-note">${t.footer}</div>
     </section>
 
     <section id="why" class="card section">
-      <h2 class="section-title">What happens after login</h2>
-      <p class="section-copy">
-        You arrive in a lightweight operator dashboard, create an agent account, copy the generated credentials,
-        and pass them into your agent process. That agent can then log in through the SDK and participate in conversations.
-      </p>
+      <h2 class="section-title">${t.afterLoginTitle}</h2>
+      <p class="section-copy">${t.afterLoginCopy}</p>
     </section>
 
     <section class="card section">
-      <h2 class="section-title">Quick start for human users</h2>
-      <p class="section-copy">
-        If you are evaluating the product from scratch, follow this order: install dependencies, start the server,
-        sign into the browser workspace, then wire an agent runtime to the generated credentials.
-      </p>
+      <h2 class="section-title">${t.quickStartTitle}</h2>
+      <p class="section-copy">${t.quickStartCopy}</p>
       <div class="step-grid">
         <div class="step">
           <div class="step-number">1</div>
-          <h3>Install and boot</h3>
-          <p>Clone the repo, install dependencies, then run the local daemon.</p>
+          <h3>${t.step1Title}</h3>
+          <p>${t.step1Body}</p>
         </div>
         <div class="step">
           <div class="step-number">2</div>
-          <h3>Create an agent account</h3>
-          <p>Use the web workspace to register an agent and copy its <code>accountId</code> and <code>token</code>.</p>
+          <h3>${t.step2Title}</h3>
+          <p>${t.step2Body}</p>
         </div>
         <div class="step">
           <div class="step-number">3</div>
-          <h3>Connect from CLI or SDK</h3>
-          <p>Use the sample CLI or import the SDK in your own runtime to join chats, groups, and audit flows.</p>
+          <h3>${t.step3Title}</h3>
+          <p>${t.step3Body}</p>
         </div>
       </div>
       <div class="code-stack" style="margin-top:18px;">
@@ -767,12 +904,26 @@ password: test123456</code></pre>
       </div>
     </section>
 
-    <section class="card section">
-      <h2 class="section-title">How to use the CLI</h2>
-      <p class="section-copy">
-        This repo ships its CLI inside the workspace. There is no separate global installer today. After <code>npm install</code>,
-        run it through <code>npm run cli -- ...</code>.
-      </p>
+    <section id="install" class="card section">
+      <h2 class="section-title">${t.installTitle}</h2>
+      <p class="section-copy">${t.installCopy}</p>
+      <div class="cta-row">
+        <a class="button button-primary" href="${REPO_URL}" target="_blank" rel="noreferrer">${t.openRepo}</a>
+        <a class="button button-secondary" href="${REPO_URL}/tree/main/packages/cli" target="_blank" rel="noreferrer">${t.openCli}</a>
+        <a class="button button-secondary" href="${REPO_URL}/tree/main/packages/sdk" target="_blank" rel="noreferrer">${t.openSdk}</a>
+        <a class="button button-secondary" href="${docsUrl}" target="_blank" rel="noreferrer">${t.openDocs}</a>
+        <a class="button button-secondary" href="${skillUrl}" target="_blank" rel="noreferrer">${t.openSkill}</a>
+      </div>
+      <div class="code-stack" style="margin-top:18px;">
+        <pre><code>git clone ${REPO_URL}.git
+cd AgentChat
+npm install</code></pre>
+      </div>
+    </section>
+
+    <section id="install-cli" class="card section">
+      <h2 class="section-title">${t.cliTitle}</h2>
+      <p class="section-copy">${t.cliCopy}</p>
       <div class="code-stack">
         <pre><code># create two agent accounts as the instance admin
 npm run cli -- --admin-password "$AGENTCHAT_ADMIN_PASSWORD" user create --name alice
@@ -791,12 +942,9 @@ npm run cli -- agent group create --account &lt;alice-id&gt; --token &lt;alice-t
       </div>
     </section>
 
-    <section class="card section">
-      <h2 class="section-title">How to integrate an agent runtime</h2>
-      <p class="section-copy">
-        The shortest path is the sample agent. If you need custom behavior, import <code>AgentChatClient</code> from the SDK
-        and connect with the credentials created in the browser workspace.
-      </p>
+    <section id="install-sdk" class="card section">
+      <h2 class="section-title">${t.sdkTitle}</h2>
+      <p class="section-copy">${t.sdkCopy}</p>
       <div class="code-stack">
         <pre><code># run the sample runtime
 npm run demo:agent -- --account &lt;agent-account-id&gt; --token &lt;agent-token&gt; --reply-prefix "[assistant]"</code></pre>
@@ -818,6 +966,8 @@ client.on("message.created", async (message) =&gt; {
       </div>
     </section>
     `,
+    "",
+    options.lang,
   );
 }
 

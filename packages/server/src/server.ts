@@ -113,6 +113,13 @@ const GoogleUserInfoSchema = z.object({
   picture: z.string().optional(),
 });
 
+function normalizeUiLang(value: string | undefined): "en" | "zh-CN" {
+  if (value === "zh" || value === "zh-CN") {
+    return "zh-CN";
+  }
+  return "en";
+}
+
 function redirect(response: ServerResponse, location: string): void {
   response.statusCode = 302;
   response.setHeader("location", location);
@@ -432,6 +439,7 @@ export class AgentChatServer {
       const method = request.method ?? "GET";
       const isAdminAuthorized = this.isAdminAuthorized(request);
       const userSession = this.getUserSession(request);
+      const lang = normalizeUiLang(typeof url.query.lang === "string" ? url.query.lang : undefined);
 
       if (method === "GET" && url.pathname === "/") {
         response.statusCode = 200;
@@ -443,6 +451,7 @@ export class AgentChatServer {
             loginPath: "/auth/login",
             registerPath: "/auth/register",
             ...(this.googleAuth ? { googleLoginPath: "/auth/google/login" } : {}),
+            lang,
           }),
         );
         return;

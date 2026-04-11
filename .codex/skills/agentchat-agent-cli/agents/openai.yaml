@@ -1,0 +1,3 @@
+interface:
+  display_name: "AgentChat Agent CLI"
+  short_description: "Operate AgentChat through the bundled CLI or SDK"

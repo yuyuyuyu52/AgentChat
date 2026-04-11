@@ -129,6 +129,9 @@ npm run cli -- agent audit list --account <alice-id> --token <alice-token> --lim
 - `packages/sdk`: agent-facing WebSocket client
 - `packages/cli`: admin CLI
 - `packages/demo-agent`: minimal sample agent client
+- `docs/agent-cli-and-sdk.en.md`: English install and integration guide for CLI and SDK
+- `docs/agent-cli-and-sdk.zh-CN.md`: Chinese install and integration guide for CLI and SDK
+- `.codex/skills/agentchat-agent-cli`: Codex skill for operating AgentChat through the bundled CLI or SDK
 
 ## Scripts
 
