@@ -20,6 +20,9 @@ type AccountRow = {
   name: string;
   profile_json: string;
   auth_token: string;
+  owner_subject: string | null;
+  owner_email: string | null;
+  owner_name: string | null;
   created_at: string;
 };
 
@@ -54,6 +57,13 @@ type FriendshipRow = {
   account_b: string;
   status: string;
   dm_conversation_id: string;
+  created_at: string;
+};
+
+type OwnedConversationRow = {
+  id: string;
+  kind: ConversationKind;
+  title: string | null;
   created_at: string;
 };
 
@@ -99,6 +109,13 @@ export type CreateAccountInput = {
   name: string;
   type?: AccountType | undefined;
   profile?: Record<string, unknown> | undefined;
+  owner?:
+    | {
+        subject: string;
+        email: string;
+        name: string;
+      }
+    | undefined;
 };
 
 export type SendMessageInput =
@@ -114,6 +131,17 @@ export type SendMessageInput =
       body: string;
       conversationId?: never;
     };
+
+export type OwnedConversationSummary = ConversationSummary & {
+  ownedAgents: Array<{
+    id: string;
+    name: string;
+  }>;
+};
+
+export type OwnedConversationMessage = Message & {
+  senderName: string;
+};
 
 export class AgentChatStore {
   readonly db: DatabaseSync;
@@ -142,6 +170,9 @@ export class AgentChatStore {
       name: input.name,
       profile_json: JSON.stringify(input.profile ?? {}),
       auth_token: token,
+      owner_subject: input.owner?.subject ?? null,
+      owner_email: input.owner?.email ?? null,
+      owner_name: input.owner?.name ?? null,
       created_at: createdAt,
     };
 
@@ -149,8 +180,10 @@ export class AgentChatStore {
       this.db
         .prepare(
           `
-            INSERT INTO accounts (id, type, name, profile_json, auth_token, created_at)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO accounts (
+              id, type, name, profile_json, auth_token, owner_subject, owner_email, owner_name, created_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
           `,
         )
         .run(
@@ -159,6 +192,9 @@ export class AgentChatStore {
           row.name,
           row.profile_json,
           row.auth_token,
+          row.owner_subject,
+          row.owner_email,
+          row.owner_name,
           row.created_at,
         );
     } catch (error) {
@@ -171,16 +207,24 @@ export class AgentChatStore {
     };
   }
 
-  listAccounts(): Account[] {
-    const rows = this.db
-      .prepare(
-        `
-          SELECT id, type, name, profile_json, auth_token, created_at
-          FROM accounts
-          ORDER BY created_at ASC
-        `,
-      )
-      .all() as AccountRow[];
+  listAccounts(ownerSubject?: string): Account[] {
+    const statement = ownerSubject
+      ? this.db.prepare(
+          `
+            SELECT id, type, name, profile_json, auth_token, owner_subject, owner_email, owner_name, created_at
+            FROM accounts
+            WHERE owner_subject = ?
+            ORDER BY created_at ASC
+          `,
+        )
+      : this.db.prepare(
+          `
+            SELECT id, type, name, profile_json, auth_token, owner_subject, owner_email, owner_name, created_at
+            FROM accounts
+            ORDER BY created_at ASC
+          `,
+        );
+    const rows = (ownerSubject ? statement.all(ownerSubject) : statement.all()) as AccountRow[];
 
     return rows.map(accountFromRow);
   }
@@ -189,7 +233,7 @@ export class AgentChatStore {
     const row = this.db
       .prepare(
         `
-          SELECT id, type, name, profile_json, auth_token, created_at
+          SELECT id, type, name, profile_json, auth_token, owner_subject, owner_email, owner_name, created_at
           FROM accounts
           WHERE id = ? AND auth_token = ?
         `,
@@ -203,8 +247,8 @@ export class AgentChatStore {
     return accountFromRow(row);
   }
 
-  resetToken(accountId: string): { accountId: string; token: string } {
-    this.requireAccount(accountId);
+  resetToken(accountId: string, ownerSubject?: string): { accountId: string; token: string } {
+    this.requireAccount(accountId, ownerSubject);
     const token = randomUUID();
     this.db
       .prepare("UPDATE accounts SET auth_token = ? WHERE id = ?")
@@ -306,6 +350,9 @@ export class AgentChatStore {
             a.name,
             a.profile_json,
             a.auth_token,
+            a.owner_subject,
+            a.owner_email,
+            a.owner_name,
             a.created_at,
             f.dm_conversation_id,
             f.created_at AS friendship_created_at
@@ -407,6 +454,75 @@ export class AgentChatStore {
     return rows.map(({ conversation_id }) =>
       this.getConversationSummaryForAccount(accountId, conversation_id),
     );
+  }
+
+  listOwnedConversations(ownerSubject: string): OwnedConversationSummary[] {
+    const conversations = this.db
+      .prepare(
+        `
+          SELECT DISTINCT c.id, c.kind, c.title, c.created_at
+          FROM conversations c
+          JOIN conversation_members cm ON cm.conversation_id = c.id
+          JOIN accounts a ON a.id = cm.account_id
+          WHERE a.owner_subject = ?
+          ORDER BY COALESCE((
+            SELECT MAX(m.seq)
+            FROM messages m
+            WHERE m.conversation_id = c.id
+          ), 0) DESC, c.created_at DESC
+        `,
+      )
+      .all(ownerSubject) as OwnedConversationRow[];
+
+    return conversations.map((conversation) =>
+      this.getOwnedConversationSummary(ownerSubject, conversation.id),
+    );
+  }
+
+  listOwnedConversationMessages(
+    ownerSubject: string,
+    conversationId: string,
+    before?: number,
+    limit = 50,
+  ): OwnedConversationMessage[] {
+    const access = this.requireOwnedConversationAccess(ownerSubject, conversationId);
+    const rows = before
+      ? (this.db
+          .prepare(
+            `
+              SELECT m.id, m.conversation_id, m.sender_id, m.body, m.kind, m.created_at, m.seq, a.name AS sender_name
+              FROM messages m
+              JOIN accounts a ON a.id = m.sender_id
+              WHERE m.conversation_id = ?
+                AND m.seq >= ?
+                AND m.seq < ?
+              ORDER BY m.seq DESC
+              LIMIT ?
+            `,
+          )
+          .all(conversationId, access.visibleFromSeq, before, limit) as Array<
+          MessageRow & { sender_name: string }
+        >)
+      : (this.db
+          .prepare(
+            `
+              SELECT m.id, m.conversation_id, m.sender_id, m.body, m.kind, m.created_at, m.seq, a.name AS sender_name
+              FROM messages m
+              JOIN accounts a ON a.id = m.sender_id
+              WHERE m.conversation_id = ?
+                AND m.seq >= ?
+              ORDER BY m.seq DESC
+              LIMIT ?
+            `,
+          )
+          .all(conversationId, access.visibleFromSeq, limit) as Array<
+          MessageRow & { sender_name: string }
+        >);
+
+    return rows.reverse().map((row) => ({
+      ...messageFromRow(row),
+      senderName: row.sender_name,
+    }));
   }
 
   listMessages(
@@ -650,16 +766,25 @@ export class AgentChatStore {
     return row.max_seq;
   }
 
-  private requireAccount(accountId: string): Account {
-    const row = this.db
-      .prepare(
-        `
-          SELECT id, type, name, profile_json, auth_token, created_at
-          FROM accounts
-          WHERE id = ?
-        `,
-      )
-      .get(accountId) as AccountRow | undefined;
+  private requireAccount(accountId: string, ownerSubject?: string): Account {
+    const statement = ownerSubject
+      ? this.db.prepare(
+          `
+            SELECT id, type, name, profile_json, auth_token, owner_subject, owner_email, owner_name, created_at
+            FROM accounts
+            WHERE id = ? AND owner_subject = ?
+          `,
+        )
+      : this.db.prepare(
+          `
+            SELECT id, type, name, profile_json, auth_token, owner_subject, owner_email, owner_name, created_at
+            FROM accounts
+            WHERE id = ?
+          `,
+        );
+    const row = (ownerSubject
+      ? statement.get(accountId, ownerSubject)
+      : statement.get(accountId)) as AccountRow | undefined;
 
     if (!row) {
       throw new AppError("NOT_FOUND", `Account "${accountId}" not found`, 404);
@@ -727,6 +852,9 @@ export class AgentChatStore {
         name TEXT NOT NULL UNIQUE,
         profile_json TEXT NOT NULL,
         auth_token TEXT NOT NULL,
+        owner_subject TEXT,
+        owner_email TEXT,
+        owner_name TEXT,
         created_at TEXT NOT NULL
       );
 
@@ -779,6 +907,92 @@ export class AgentChatStore {
 
       CREATE INDEX IF NOT EXISTS idx_messages_conversation_seq
         ON messages(conversation_id, seq);
+
+      CREATE INDEX IF NOT EXISTS idx_accounts_owner_subject
+        ON accounts(owner_subject);
     `);
+
+    const columns = this.db.prepare("PRAGMA table_info(accounts)").all() as Array<{
+      name: string;
+    }>;
+    const names = new Set(columns.map((column) => column.name));
+
+    if (!names.has("owner_subject")) {
+      this.db.exec("ALTER TABLE accounts ADD COLUMN owner_subject TEXT;");
+    }
+    if (!names.has("owner_email")) {
+      this.db.exec("ALTER TABLE accounts ADD COLUMN owner_email TEXT;");
+    }
+    if (!names.has("owner_name")) {
+      this.db.exec("ALTER TABLE accounts ADD COLUMN owner_name TEXT;");
+    }
+  }
+
+  private getOwnedConversationSummary(
+    ownerSubject: string,
+    conversationId: string,
+  ): OwnedConversationSummary {
+    const conversation = this.requireConversation(conversationId);
+    const access = this.requireOwnedConversationAccess(ownerSubject, conversationId);
+    const memberIds = this.getConversationMemberIds(conversationId);
+    const lastMessage = this.getLastMessage(conversationId);
+
+    let title = conversation.title ?? conversation.id;
+    if (conversation.kind === "dm") {
+      const otherId = memberIds.find((memberId) => !access.ownedAgentIds.includes(memberId));
+      if (otherId) {
+        title = this.requireAccount(otherId).name;
+      }
+    }
+
+    return {
+      id: conversation.id,
+      kind: conversation.kind,
+      title,
+      memberIds,
+      lastMessage,
+      visibleFromSeq: access.visibleFromSeq,
+      createdAt: conversation.created_at,
+      ownedAgents: access.ownedAgents,
+    };
+  }
+
+  private requireOwnedConversationAccess(
+    ownerSubject: string,
+    conversationId: string,
+  ): {
+    visibleFromSeq: number;
+    ownedAgents: Array<{ id: string; name: string }>;
+    ownedAgentIds: string[];
+  } {
+    const rows = this.db
+      .prepare(
+        `
+          SELECT a.id, a.name, cm.history_start_seq
+          FROM conversation_members cm
+          JOIN accounts a ON a.id = cm.account_id
+          WHERE cm.conversation_id = ?
+            AND a.owner_subject = ?
+          ORDER BY a.name ASC
+        `,
+      )
+      .all(conversationId, ownerSubject) as Array<{
+      id: string;
+      name: string;
+      history_start_seq: number;
+    }>;
+
+    if (rows.length === 0) {
+      throw new AppError("FORBIDDEN", "Conversation is not visible to this user", 403);
+    }
+
+    return {
+      visibleFromSeq: Math.min(...rows.map((row) => row.history_start_seq)),
+      ownedAgents: rows.map((row) => ({
+        id: row.id,
+        name: row.name,
+      })),
+      ownedAgentIds: rows.map((row) => row.id),
+    };
   }
 }

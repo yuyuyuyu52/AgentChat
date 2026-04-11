@@ -1,5 +1,6 @@
-import { randomUUID } from "node:crypto";
+import { randomUUID, timingSafeEqual } from "node:crypto";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { URLSearchParams } from "node:url";
 import { parse as parseUrl } from "node:url";
 import {
   ClientRequestSchema,
@@ -16,8 +17,13 @@ import {
 } from "@agentchat/protocol";
 import { WebSocketServer, type WebSocket } from "ws";
 import { z } from "zod";
+import { renderAdminPage, renderAppPage, renderLandingPage } from "./admin-ui.js";
 import { AppError, asAppError } from "./errors.js";
-import { AgentChatStore, type CreateAccountInput, type SendMessageInput } from "./store.js";
+import {
+  AgentChatStore,
+  type CreateAccountInput,
+  type SendMessageInput,
+} from "./store.js";
 
 type ConnectionState = {
   socket: WebSocket;
@@ -31,6 +37,30 @@ export type AgentChatServerOptions = {
   host?: string | undefined;
   port?: number | undefined;
   databasePath?: string | undefined;
+  adminPassword?: string | undefined;
+  googleAuth?:
+    | {
+        clientId: string;
+        clientSecret: string;
+        redirectUri: string;
+      }
+    | undefined;
+};
+
+type AdminSession = {
+  createdAt: number;
+};
+
+type UserSession = {
+  createdAt: number;
+  subject: string;
+  email: string;
+  name: string;
+  picture?: string;
+};
+
+type OAuthState = {
+  createdAt: number;
 };
 
 const CreateAccountBodySchema = z.object({
@@ -59,6 +89,24 @@ const SendMessageBodySchema = z.object({
   body: z.string().min(1),
 });
 
+const LoginBodySchema = z.object({
+  password: z.string().min(1),
+});
+
+const GoogleUserInfoSchema = z.object({
+  sub: z.string(),
+  email: z.string().email(),
+  email_verified: z.boolean(),
+  name: z.string().min(1),
+  picture: z.string().optional(),
+});
+
+function redirect(response: ServerResponse, location: string): void {
+  response.statusCode = 302;
+  response.setHeader("location", location);
+  response.end();
+}
+
 function jsonResponse(response: ServerResponse, statusCode: number, payload: unknown): void {
   response.statusCode = statusCode;
   response.setHeader("content-type", "application/json; charset=utf-8");
@@ -81,15 +129,28 @@ export class AgentChatServer {
   readonly store: AgentChatStore;
 
   private readonly requestedPort: number;
+  private readonly adminPassword: string | undefined;
+  private readonly googleAuth:
+    | {
+        clientId: string;
+        clientSecret: string;
+        redirectUri: string;
+      }
+    | undefined;
   private readonly httpServer;
   private readonly wsServer: WebSocketServer;
   private readonly connections = new Map<WebSocket, ConnectionState>();
   private readonly accountConnections = new Map<string, Set<ConnectionState>>();
+  private readonly adminSessions = new Map<string, AdminSession>();
+  private readonly userSessions = new Map<string, UserSession>();
+  private readonly oauthStates = new Map<string, OAuthState>();
   private actualPort = 0;
 
   constructor(options: AgentChatServerOptions = {}) {
     this.host = options.host ?? "127.0.0.1";
     this.requestedPort = options.port ?? 43110;
+    this.adminPassword = options.adminPassword;
+    this.googleAuth = options.googleAuth;
     this.store = new AgentChatStore(
       options.databasePath ?? new URL("../../data/agentchat.sqlite", import.meta.url).pathname,
     );
@@ -185,12 +246,12 @@ export class AgentChatServer {
     return this.store.createAccount(input);
   }
 
-  listAccounts(): Account[] {
-    return this.store.listAccounts();
+  listAccounts(ownerSubject?: string): Account[] {
+    return this.store.listAccounts(ownerSubject);
   }
 
-  resetToken(accountId: string): { accountId: string; token: string } {
-    return this.store.resetToken(accountId);
+  resetToken(accountId: string, ownerSubject?: string): { accountId: string; token: string } {
+    return this.store.resetToken(accountId, ownerSubject);
   }
 
   createFriendship(accountA: string, accountB: string): {
@@ -239,6 +300,10 @@ export class AgentChatServer {
     return this.store.listConversations(accountId);
   }
 
+  listOwnedConversations(ownerSubject: string) {
+    return this.store.listOwnedConversations(ownerSubject);
+  }
+
   listConversationMessages(
     accountId: string,
     conversationId: string,
@@ -246,6 +311,15 @@ export class AgentChatServer {
     limit?: number,
   ): Message[] {
     return this.store.listMessages(accountId, conversationId, before, limit);
+  }
+
+  listOwnedConversationMessages(
+    ownerSubject: string,
+    conversationId: string,
+    before?: number,
+    limit?: number,
+  ) {
+    return this.store.listOwnedConversationMessages(ownerSubject, conversationId, before, limit);
   }
 
   listFriends(accountId: string) {
@@ -260,6 +334,112 @@ export class AgentChatServer {
     try {
       const url = parseUrl(request.url ?? "", true);
       const method = request.method ?? "GET";
+      const isAdminAuthorized = this.isAdminAuthorized(request);
+      const userSession = this.getUserSession(request);
+
+      if (method === "GET" && url.pathname === "/") {
+        response.statusCode = 200;
+        response.setHeader("content-type", "text/html; charset=utf-8");
+        response.end(
+          renderLandingPage({
+            isLoggedIn: Boolean(userSession),
+            appPath: "/app",
+            loginPath: "/auth/google/login",
+          }),
+        );
+        return;
+      }
+
+      if (method === "GET" && url.pathname === "/app") {
+        if (!userSession) {
+          redirect(response, "/auth/google/login");
+          return;
+        }
+        response.statusCode = 200;
+        response.setHeader("content-type", "text/html; charset=utf-8");
+        response.end(
+          renderAppPage({
+            userName: userSession.name,
+            userEmail: userSession.email,
+            logoutPath: "/auth/logout",
+          }),
+        );
+        return;
+      }
+
+      if (method === "GET" && url.pathname === "/auth/google/login") {
+        this.ensureGoogleAuthConfigured();
+        const state = randomUUID();
+        this.oauthStates.set(state, {
+          createdAt: Date.now(),
+        });
+        const authUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");
+        authUrl.searchParams.set("client_id", this.googleAuth!.clientId);
+        authUrl.searchParams.set("redirect_uri", this.googleAuth!.redirectUri);
+        authUrl.searchParams.set("response_type", "code");
+        authUrl.searchParams.set("scope", "openid email profile");
+        authUrl.searchParams.set("state", state);
+        authUrl.searchParams.set("prompt", "select_account");
+        redirect(response, authUrl.toString());
+        return;
+      }
+
+      if (method === "GET" && url.pathname === "/auth/google/callback") {
+        this.ensureGoogleAuthConfigured();
+        const code = typeof url.query.code === "string" ? url.query.code : undefined;
+        const state = typeof url.query.state === "string" ? url.query.state : undefined;
+        if (!code || !state || !this.oauthStates.has(state)) {
+          throw new AppError("UNAUTHORIZED", "Invalid Google OAuth callback", 401);
+        }
+        this.oauthStates.delete(state);
+        const profile = await this.exchangeGoogleCodeForProfile(code);
+        const sessionId = randomUUID();
+        this.userSessions.set(
+          sessionId,
+          profile.picture
+            ? {
+                createdAt: Date.now(),
+                subject: profile.sub,
+                email: profile.email,
+                name: profile.name,
+                picture: profile.picture,
+              }
+            : {
+                createdAt: Date.now(),
+                subject: profile.sub,
+                email: profile.email,
+                name: profile.name,
+              },
+        );
+        response.setHeader(
+          "set-cookie",
+          this.makeSessionCookie("agentchat_user_session", sessionId, {
+            maxAge: 60 * 60 * 24 * 7,
+          }),
+        );
+        redirect(response, "/app");
+        return;
+      }
+
+      if (method === "GET" && url.pathname === "/auth/logout") {
+        const sessionId = this.getCookie(request, "agentchat_user_session");
+        if (sessionId) {
+          this.userSessions.delete(sessionId);
+        }
+        response.setHeader(
+          "set-cookie",
+          this.makeSessionCookie("agentchat_user_session", "", { maxAge: 0 }),
+        );
+        redirect(response, "/");
+        return;
+      }
+
+      if (method === "GET" && url.pathname === "/admin/ui") {
+        response.statusCode = 200;
+        response.setHeader("content-type", "text/html; charset=utf-8");
+        response.end(renderAdminPage(isAdminAuthorized));
+        return;
+      }
 
       if (method === "GET" && url.pathname === "/admin/health") {
         jsonResponse(response, 200, {
@@ -267,9 +447,109 @@ export class AgentChatServer {
           httpUrl: this.httpUrl || DEFAULT_HTTP_URL,
           wsUrl: this.wsUrl || DEFAULT_WS_URL,
           databasePath: this.store.databasePath,
+          adminAuthEnabled: Boolean(this.adminPassword),
+          googleAuthEnabled: Boolean(this.googleAuth),
         });
         return;
       }
+
+      if (method === "POST" && url.pathname === "/admin/login") {
+        const body = request.headers["content-type"]?.includes("application/x-www-form-urlencoded")
+          ? LoginBodySchema.parse(await this.readForm(request))
+          : LoginBodySchema.parse(await readJson(request));
+        this.assertAdminPassword(body.password);
+        const sessionId = randomUUID();
+        this.adminSessions.set(sessionId, {
+          createdAt: Date.now(),
+        });
+        response.setHeader(
+          "set-cookie",
+          this.makeSessionCookie("agentchat_admin_session", sessionId, {
+            maxAge: 60 * 60 * 8,
+          }),
+        );
+        if (request.headers["content-type"]?.includes("application/x-www-form-urlencoded")) {
+          redirect(response, "/admin/ui");
+          return;
+        }
+        jsonResponse(response, 200, { ok: true });
+        return;
+      }
+
+      if (method === "POST" && url.pathname === "/admin/logout") {
+        const sessionId = this.getAdminSessionId(request);
+        if (sessionId) {
+          this.adminSessions.delete(sessionId);
+        }
+        response.setHeader(
+          "set-cookie",
+          this.makeSessionCookie("agentchat_admin_session", "", { maxAge: 0 }),
+        );
+        if (request.headers.accept?.includes("text/html")) {
+          redirect(response, "/admin/ui");
+          return;
+        }
+        jsonResponse(response, 200, { ok: true });
+        return;
+      }
+
+      if (method === "GET" && url.pathname === "/app/api/accounts") {
+        const session = this.requireUserSession(request);
+        jsonResponse(response, 200, this.listAccounts(session.subject));
+        return;
+      }
+
+      if (method === "GET" && url.pathname === "/app/api/conversations") {
+        const session = this.requireUserSession(request);
+        jsonResponse(response, 200, this.listOwnedConversations(session.subject));
+        return;
+      }
+
+      const appConversationMessagesMatch =
+        url.pathname?.match(/^\/app\/api\/conversations\/([^/]+)\/messages$/);
+      if (method === "GET" && appConversationMessagesMatch) {
+        const session = this.requireUserSession(request);
+        const before = typeof url.query.before === "string" ? Number(url.query.before) : undefined;
+        const limit = typeof url.query.limit === "string" ? Number(url.query.limit) : undefined;
+        jsonResponse(
+          response,
+          200,
+          this.listOwnedConversationMessages(
+            session.subject,
+            appConversationMessagesMatch[1]!,
+            before,
+            limit,
+          ),
+        );
+        return;
+      }
+
+      if (method === "POST" && url.pathname === "/app/api/accounts") {
+        const session = this.requireUserSession(request);
+        const body = CreateAccountBodySchema.parse(await readJson(request));
+        jsonResponse(
+          response,
+          201,
+          this.createAccount({
+            ...body,
+            owner: {
+              subject: session.subject,
+              email: session.email,
+              name: session.name,
+            },
+          }),
+        );
+        return;
+      }
+
+      const appAccountTokenMatch = url.pathname?.match(/^\/app\/api\/accounts\/([^/]+)\/reset-token$/);
+      if (method === "POST" && appAccountTokenMatch) {
+        const session = this.requireUserSession(request);
+        jsonResponse(response, 200, this.resetToken(appAccountTokenMatch[1]!, session.subject));
+        return;
+      }
+
+      this.requireAdminAuthorization(request);
 
       if (method === "POST" && url.pathname === "/admin/init") {
         jsonResponse(response, 200, {
@@ -558,5 +838,160 @@ export class AgentChatServer {
       throw new AppError("UNAUTHORIZED", "Must connect before calling this method", 401);
     }
     return connection.accountId;
+  }
+
+  private requireAdminAuthorization(request: IncomingMessage): void {
+    if (!this.isAdminAuthorized(request)) {
+      throw new AppError("UNAUTHORIZED", "Admin authorization required", 401);
+    }
+  }
+
+  private requireUserSession(request: IncomingMessage): UserSession {
+    const session = this.getUserSession(request);
+    if (!session) {
+      throw new AppError("UNAUTHORIZED", "Google login required", 401);
+    }
+    return session;
+  }
+
+  private isAdminAuthorized(request: IncomingMessage): boolean {
+    if (!this.adminPassword) {
+      return true;
+    }
+
+    const headerPassword = request.headers["x-admin-password"];
+    if (typeof headerPassword === "string" && this.passwordMatches(headerPassword)) {
+      return true;
+    }
+
+    const sessionId = this.getAdminSessionId(request);
+    if (!sessionId) {
+      return false;
+    }
+
+    return this.adminSessions.has(sessionId);
+  }
+
+  private assertAdminPassword(password: string): void {
+    if (!this.adminPassword) {
+      return;
+    }
+    if (!this.passwordMatches(password)) {
+      throw new AppError("UNAUTHORIZED", "Invalid admin password", 401);
+    }
+  }
+
+  private passwordMatches(password: string): boolean {
+    if (!this.adminPassword) {
+      return true;
+    }
+
+    const left = Buffer.from(password);
+    const right = Buffer.from(this.adminPassword);
+    if (left.length !== right.length) {
+      return false;
+    }
+    return timingSafeEqual(left, right);
+  }
+
+  private getAdminSessionId(request: IncomingMessage): string | undefined {
+    return this.getCookie(request, "agentchat_admin_session");
+  }
+
+  private getUserSession(request: IncomingMessage): UserSession | undefined {
+    const sessionId = this.getCookie(request, "agentchat_user_session");
+    if (!sessionId) {
+      return undefined;
+    }
+    return this.userSessions.get(sessionId);
+  }
+
+  private getCookie(request: IncomingMessage, name: string): string | undefined {
+    const header = request.headers.cookie;
+    if (!header) {
+      return undefined;
+    }
+
+    const cookies = header.split(";").map((part) => part.trim());
+    for (const cookie of cookies) {
+      const [cookieName, ...valueParts] = cookie.split("=");
+      if (cookieName === name) {
+        return valueParts.join("=") || undefined;
+      }
+    }
+    return undefined;
+  }
+
+  private makeSessionCookie(
+    name: string,
+    value: string,
+    options: { maxAge: number },
+  ): string {
+    return [
+      `${name}=${value}`,
+      "Path=/",
+      "HttpOnly",
+      "SameSite=Lax",
+      `Max-Age=${options.maxAge}`,
+    ].join("; ");
+  }
+
+  private ensureGoogleAuthConfigured(): void {
+    if (!this.googleAuth) {
+      throw new AppError("SERVICE_UNAVAILABLE", "Google OAuth is not configured", 503);
+    }
+  }
+
+  private async exchangeGoogleCodeForProfile(
+    code: string,
+  ): Promise<z.infer<typeof GoogleUserInfoSchema>> {
+    this.ensureGoogleAuthConfigured();
+    const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+      method: "POST",
+      headers: {
+        "content-type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        code,
+        client_id: this.googleAuth!.clientId,
+        client_secret: this.googleAuth!.clientSecret,
+        redirect_uri: this.googleAuth!.redirectUri,
+        grant_type: "authorization_code",
+      }),
+    });
+
+    if (!tokenResponse.ok) {
+      throw new AppError("UNAUTHORIZED", "Google token exchange failed", 401);
+    }
+
+    const tokenPayload = (await tokenResponse.json()) as { access_token?: string };
+    if (!tokenPayload.access_token) {
+      throw new AppError("UNAUTHORIZED", "Missing Google access token", 401);
+    }
+
+    const profileResponse = await fetch("https://openidconnect.googleapis.com/v1/userinfo", {
+      headers: {
+        authorization: `Bearer ${tokenPayload.access_token}`,
+      },
+    });
+
+    if (!profileResponse.ok) {
+      throw new AppError("UNAUTHORIZED", "Failed to fetch Google user profile", 401);
+    }
+
+    const profile = GoogleUserInfoSchema.parse(await profileResponse.json());
+    if (!profile.email_verified) {
+      throw new AppError("UNAUTHORIZED", "Google email must be verified", 401);
+    }
+    return profile;
+  }
+
+  private async readForm(request: IncomingMessage): Promise<Record<string, string>> {
+    const chunks: Buffer[] = [];
+    for await (const chunk of request) {
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    }
+    const params = new URLSearchParams(Buffer.concat(chunks).toString("utf8"));
+    return Object.fromEntries(params.entries());
   }
 }

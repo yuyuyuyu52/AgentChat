@@ -3,7 +3,10 @@ import { DEFAULT_HTTP_URL } from "@agentchat/protocol";
 type Flags = Record<string, string | boolean>;
 
 class AdminHttpClient {
-  constructor(private readonly baseUrl: string) {}
+  constructor(
+    private readonly baseUrl: string,
+    private readonly adminPassword?: string,
+  ) {}
 
   async init() {
     return this.request("POST", "/admin/init");
@@ -74,6 +77,7 @@ class AdminHttpClient {
       method,
       headers: {
         "content-type": "application/json",
+        ...(this.adminPassword ? { "x-admin-password": this.adminPassword } : {}),
       },
       ...(body ? { body: JSON.stringify(body) } : {}),
     });
@@ -149,6 +153,7 @@ Commands:
 
 Optional flags:
   --url <http://127.0.0.1:43110>
+  --admin-password <password>
 `);
 }
 
@@ -156,6 +161,7 @@ async function main() {
   const { command, flags } = parseArgs(process.argv.slice(2));
   const client = new AdminHttpClient(
     typeof flags.url === "string" ? flags.url : DEFAULT_HTTP_URL,
+    typeof flags["admin-password"] === "string" ? flags["admin-password"] : undefined,
   );
 
   if (command.length === 0 || command[0] === "help") {

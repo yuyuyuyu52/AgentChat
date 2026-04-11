@@ -16,6 +16,17 @@ async function createServer() {
   return { server, directory };
 }
 
+async function createProtectedServer() {
+  const directory = await mkdtemp(join(tmpdir(), "agentchat-auth-"));
+  const server = new AgentChatServer({
+    port: 0,
+    databasePath: join(directory, "agentchat.sqlite"),
+    adminPassword: "secret-pass",
+  });
+  await server.start();
+  return { server, directory };
+}
+
 async function expectEvent<T>(
   client: AgentChatClient,
   eventName: "message.created" | "conversation.created" | "presence.updated",
@@ -65,6 +76,190 @@ describe("AgentChat MVP", () => {
         recipientId: charlie.id,
         body: "hello",
       })).toThrowError(/not friends/i);
+  });
+
+  it("requires admin authorization for browser and API management flows", async () => {
+    const resource = await createProtectedServer();
+    resources.push(resource);
+    const { server } = resource;
+
+    const uiResponse = await fetch(`${server.httpUrl}/admin/ui`);
+    expect(uiResponse.status).toBe(200);
+    expect(await uiResponse.text()).toContain("Operator access");
+
+    const unauthorized = await fetch(`${server.httpUrl}/admin/accounts`);
+    expect(unauthorized.status).toBe(401);
+
+    const login = await fetch(`${server.httpUrl}/admin/login`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ password: "secret-pass" }),
+    });
+    expect(login.status).toBe(200);
+    const cookie = login.headers.get("set-cookie");
+    expect(cookie).toContain("agentchat_admin_session=");
+
+    const create = await fetch(`${server.httpUrl}/admin/accounts`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        cookie: cookie ?? "",
+      },
+      body: JSON.stringify({ name: "browser-created", type: "agent" }),
+    });
+    expect(create.status).toBe(201);
+    const payload = (await create.json()) as { id: string; token: string };
+    expect(payload.id).toMatch(/^acct_/);
+    expect(payload.token).toBeTruthy();
+  });
+
+  it("serves a landing page and scopes app accounts to the logged-in Google user", async () => {
+    const resource = await createServer();
+    resources.push(resource);
+    const { server } = resource;
+
+    const landing = await fetch(`${server.httpUrl}/`);
+    expect(landing.status).toBe(200);
+    expect(await landing.text()).toContain("Sign in with Google");
+
+    const appRedirect = await fetch(`${server.httpUrl}/app`, {
+      redirect: "manual",
+    });
+    expect(appRedirect.status).toBe(302);
+    expect(appRedirect.headers.get("location")).toBe("/auth/google/login");
+
+    const sessionId = "user-session-1";
+    (server as unknown as {
+      userSessions: Map<string, { createdAt: number; subject: string; email: string; name: string }>;
+    }).userSessions.set(sessionId, {
+      createdAt: Date.now(),
+      subject: "google-sub-1",
+      email: "owner@example.com",
+      name: "Owner",
+    });
+
+    const owned = server.createAccount({
+      name: "owner-bot",
+      owner: {
+        subject: "google-sub-1",
+        email: "owner@example.com",
+        name: "Owner",
+      },
+    });
+    server.createAccount({
+      name: "other-bot",
+      owner: {
+        subject: "google-sub-2",
+        email: "other@example.com",
+        name: "Other",
+      },
+    });
+
+    const accountsResponse = await fetch(`${server.httpUrl}/app/api/accounts`, {
+      headers: {
+        cookie: `agentchat_user_session=${sessionId}`,
+      },
+    });
+    expect(accountsResponse.status).toBe(200);
+    const accounts = (await accountsResponse.json()) as Array<{ id: string; name: string }>;
+    expect(accounts).toHaveLength(1);
+    expect(accounts[0]?.name).toBe("owner-bot");
+
+    const resetAllowed = await fetch(
+      `${server.httpUrl}/app/api/accounts/${owned.id}/reset-token`,
+      {
+        method: "POST",
+        headers: {
+          cookie: `agentchat_user_session=${sessionId}`,
+        },
+      },
+    );
+    expect(resetAllowed.status).toBe(200);
+  });
+
+  it("lets a user read conversations for owned agents and blocks unrelated conversations", async () => {
+    const resource = await createServer();
+    resources.push(resource);
+    const { server } = resource;
+
+    const ownerAgent = server.createAccount({
+      name: "owner-agent",
+      owner: {
+        subject: "owner-sub",
+        email: "owner@example.com",
+        name: "Owner",
+      },
+    });
+    const peer = server.createAccount({ name: "peer" });
+    const outsiderA = server.createAccount({ name: "outsider-a" });
+    const outsiderB = server.createAccount({ name: "outsider-b" });
+
+    const dm = server.createFriendship(ownerAgent.id, peer.id);
+    server.sendAdminMessage({
+      senderId: peer.id,
+      conversationId: dm.conversationId,
+      body: "dm hello",
+    });
+
+    const outsiderDm = server.createFriendship(outsiderA.id, outsiderB.id);
+    server.sendAdminMessage({
+      senderId: outsiderA.id,
+      conversationId: outsiderDm.conversationId,
+      body: "private outsider message",
+    });
+
+    const sessionId = "user-session-2";
+    (server as unknown as {
+      userSessions: Map<string, { createdAt: number; subject: string; email: string; name: string }>;
+    }).userSessions.set(sessionId, {
+      createdAt: Date.now(),
+      subject: "owner-sub",
+      email: "owner@example.com",
+      name: "Owner",
+    });
+
+    const conversationsResponse = await fetch(`${server.httpUrl}/app/api/conversations`, {
+      headers: {
+        cookie: `agentchat_user_session=${sessionId}`,
+      },
+    });
+    expect(conversationsResponse.status).toBe(200);
+    const conversations = (await conversationsResponse.json()) as Array<{
+      id: string;
+      title: string;
+      ownedAgents: Array<{ name: string }>;
+    }>;
+    expect(conversations).toHaveLength(1);
+    expect(conversations[0]?.id).toBe(dm.conversationId);
+    expect(conversations[0]?.ownedAgents[0]?.name).toBe("owner-agent");
+
+    const messagesResponse = await fetch(
+      `${server.httpUrl}/app/api/conversations/${dm.conversationId}/messages?limit=20`,
+      {
+        headers: {
+          cookie: `agentchat_user_session=${sessionId}`,
+        },
+      },
+    );
+    expect(messagesResponse.status).toBe(200);
+    const messages = (await messagesResponse.json()) as Array<{ body: string; senderName: string }>;
+    expect(messages).toHaveLength(1);
+    expect(messages[0]).toMatchObject({
+      body: "dm hello",
+      senderName: "peer",
+    });
+
+    const forbidden = await fetch(
+      `${server.httpUrl}/app/api/conversations/${outsiderDm.conversationId}/messages`,
+      {
+        headers: {
+          cookie: `agentchat_user_session=${sessionId}`,
+        },
+      },
+    );
+    expect(forbidden.status).toBe(403);
   });
 
   it("delivers DM messages in realtime and keeps history across reconnects", async () => {

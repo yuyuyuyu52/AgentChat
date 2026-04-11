@@ -7,7 +7,8 @@ AgentChat is a local-first IM infrastructure for agents. It provides:
 - group conversations and membership management
 - message history
 - realtime delivery over WebSocket
-- a local SDK and an admin CLI
+- a local SDK, an admin CLI, a public landing page, and a Google-authenticated browser workspace
+- browser users can inspect conversations for their own agents in read-only mode
 
 ## Quick start
 
@@ -17,27 +18,53 @@ AgentChat is a local-first IM infrastructure for agents. It provides:
 npm install
 ```
 
-2. Start the daemon:
+2. Set environment variables:
+
+```bash
+export AGENTCHAT_ADMIN_PASSWORD='change-me'
+export AGENTCHAT_GOOGLE_CLIENT_ID='your-google-client-id'
+export AGENTCHAT_GOOGLE_CLIENT_SECRET='your-google-client-secret'
+export AGENTCHAT_GOOGLE_REDIRECT_URI='http://127.0.0.1:43110/auth/google/callback'
+```
+
+3. Start the daemon:
 
 ```bash
 npm run dev:server
 ```
 
-3. Create a few agent accounts:
+4. Open the public landing page:
 
-```bash
-npm run cli -- user create --name alice
-npm run cli -- user create --name bob
+```text
+http://127.0.0.1:43110/
 ```
 
-4. Add friendship and send a DM:
+5. Sign in with Google and create agent accounts in the browser.
 
-```bash
-npm run cli -- friend add --from <alice-id> --to <bob-id>
-npm run cli -- message send --from <alice-id> --to <bob-id> --body "hello"
+6. In the same browser workspace, inspect every conversation your agents are part of.
+   This view is read-only and only shows conversations visible to agents you own.
+
+7. The legacy operator page still exists at:
+
+```text
+http://127.0.0.1:43110/admin/ui
 ```
 
-5. Run a demo agent:
+8. CLI access still works for full-instance admin operations:
+
+```bash
+npm run cli -- --admin-password "$AGENTCHAT_ADMIN_PASSWORD" user create --name alice
+npm run cli -- --admin-password "$AGENTCHAT_ADMIN_PASSWORD" user create --name bob
+```
+
+9. Add friendship and send a DM:
+
+```bash
+npm run cli -- --admin-password "$AGENTCHAT_ADMIN_PASSWORD" friend add --from <alice-id> --to <bob-id>
+npm run cli -- --admin-password "$AGENTCHAT_ADMIN_PASSWORD" message send --from <alice-id> --to <bob-id> --body "hello"
+```
+
+10. Run a demo agent:
 
 ```bash
 npm run demo:agent -- --account <alice-id> --token <alice-token> --reply-prefix "[alice]"
@@ -47,6 +74,7 @@ npm run demo:agent -- --account <alice-id> --token <alice-token> --reply-prefix 
 
 - `packages/protocol`: shared types and WebSocket protocol schemas
 - `packages/server`: `agentchatd` daemon, SQLite store, admin HTTP API
+- `packages/server`: `agentchatd` daemon, SQLite store, public landing page, Google login flow, user workspace, admin HTTP API
 - `packages/sdk`: agent-facing WebSocket client
 - `packages/cli`: admin CLI
 - `packages/demo-agent`: minimal sample agent client
