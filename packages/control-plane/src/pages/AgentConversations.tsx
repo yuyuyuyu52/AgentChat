@@ -8,35 +8,38 @@ import {
   Clock,
   Bot,
 } from "lucide-react";
-import type { Account, ConversationSummary } from "@agentchat/protocol";
+import type { Account } from "@agentchat/protocol";
 import {
-  listAdminAccountConversations,
-  listAdminAccounts,
-} from "@/lib/admin-api";
+  listWorkspaceAccounts,
+  listWorkspaceConversations,
+  type OwnedConversationSummary,
+} from "@/lib/app-api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
+function belongsToAgent(conversation: OwnedConversationSummary, agentId: string): boolean {
+  return conversation.ownedAgents.some((agent) => agent.id === agentId);
+}
+
 function conversationLabel(
-  conversation: ConversationSummary,
+  conversation: OwnedConversationSummary,
   agentId: string,
   accountsById: Map<string, Account>,
 ): string {
   if (conversation.kind === "group" && conversation.title) {
     return conversation.title;
   }
-
-  const peers = conversation.memberIds
+  return conversation.memberIds
     .filter((memberId) => memberId !== agentId)
-    .map((memberId) => accountsById.get(memberId)?.name ?? memberId);
-
-  return peers.join(", ") || conversation.id;
+    .map((memberId) => accountsById.get(memberId)?.name ?? memberId)
+    .join(", ");
 }
 
 export default function AgentConversations() {
   const { agentId } = useParams();
   const [accounts, setAccounts] = React.useState<Account[]>([]);
-  const [conversations, setConversations] = React.useState<ConversationSummary[]>([]);
+  const [conversations, setConversations] = React.useState<OwnedConversationSummary[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -46,27 +49,18 @@ export default function AgentConversations() {
     }
 
     let active = true;
-
     void (async () => {
       try {
         setLoading(true);
         const [nextAccounts, nextConversations] = await Promise.all([
-          listAdminAccounts(),
-          listAdminAccountConversations(agentId),
+          listWorkspaceAccounts(),
+          listWorkspaceConversations(),
         ]);
-
         if (!active) {
           return;
         }
-
         setAccounts(nextAccounts);
-        setConversations(
-          [...nextConversations].sort((left, right) =>
-            (right.lastMessage?.createdAt ?? right.createdAt).localeCompare(
-              left.lastMessage?.createdAt ?? left.createdAt,
-            ),
-          ),
-        );
+        setConversations(nextConversations.filter((conversation) => belongsToAgent(conversation, agentId)));
         setError(null);
       } catch (nextError) {
         if (active) {
@@ -88,12 +82,12 @@ export default function AgentConversations() {
     () => new Map(accounts.map((account) => [account.id, account])),
     [accounts],
   );
-  const account = agentId ? accountsById.get(agentId) : undefined;
+  const agent = agentId ? accountsById.get(agentId) : undefined;
 
   return (
     <div className="p-8 space-y-8 max-w-5xl mx-auto">
       <div className="flex items-center gap-4">
-        <Link to="/agents">
+        <Link to="/app/agents">
           <Button variant="ghost" size="icon" className="text-slate-500 hover:text-white">
             <ArrowLeft className="w-5 h-5" />
           </Button>
@@ -103,8 +97,8 @@ export default function AgentConversations() {
             <Bot className="w-6 h-6 text-blue-500" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-white tracking-tight">{account?.name ?? agentId}</h2>
-            <p className="text-sm text-slate-500">Conversations & Message Streams</p>
+            <h2 className="text-2xl font-bold text-white tracking-tight">{agent?.name ?? agentId}</h2>
+            <p className="text-sm text-slate-500">Conversations your selected agent can access.</p>
           </div>
         </div>
       </div>
@@ -119,7 +113,7 @@ export default function AgentConversations() {
         <div className="grid grid-cols-1 gap-4">
           {conversations.length > 0 ? (
             conversations.map((conversation) => (
-              <Link key={conversation.id} to={`/agents/${agentId}/conversations/${conversation.id}`}>
+              <Link key={conversation.id} to={`/app/agents/${agentId}/conversations/${conversation.id}`}>
                 <Card className="bg-[#0D0D0F] border-white/5 hover:bg-white/[0.02] transition-all cursor-pointer group">
                   <CardContent className="p-6 flex items-center gap-6">
                     <div className="w-12 h-12 rounded-full bg-blue-500/10 flex items-center justify-center border border-blue-500/20 group-hover:scale-110 transition-transform">
@@ -127,7 +121,6 @@ export default function AgentConversations() {
                         ? <Users className="w-6 h-6 text-blue-500" />
                         : <MessageSquare className="w-6 h-6 text-blue-500" />}
                     </div>
-
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <h3 className="text-lg font-bold text-white truncate">
@@ -137,17 +130,14 @@ export default function AgentConversations() {
                           {conversation.kind}
                         </Badge>
                       </div>
-                      <p className="text-sm text-slate-500 truncate">
-                        {conversation.lastMessage?.body ?? "No messages yet."}
-                      </p>
+                      <p className="text-sm text-slate-500 truncate">{conversation.lastMessage?.body ?? "No messages yet."}</p>
                     </div>
-
                     <div className="text-right">
                       <div className="flex items-center justify-end gap-2 text-[10px] text-slate-600 font-mono mb-2">
                         <Clock className="w-3 h-3" />
                         {new Date(conversation.lastMessage?.createdAt ?? conversation.createdAt).toLocaleString()}
                       </div>
-                      <ChevronRight className="w-5 h-5 text-slate-700 group-hover:text-blue-500 transition-colors ml-auto" />
+                      <ChevronRight className="w-5 h-5 text-slate-700 group-hover:text-blue-500 transition-colors" />
                     </div>
                   </CardContent>
                 </Card>
@@ -156,7 +146,7 @@ export default function AgentConversations() {
           ) : (
             <div className="text-center py-20 border border-dashed border-white/10 rounded-2xl">
               <MessageSquare className="w-12 h-12 text-slate-700 mx-auto mb-4" />
-              <p className="text-slate-500">No active conversations found for this account.</p>
+              <p className="text-slate-500">No visible conversations found for this agent.</p>
             </div>
           )}
         </div>

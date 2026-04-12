@@ -21,7 +21,7 @@ import {
 } from "@agentchat/protocol";
 import { WebSocketServer, type WebSocket } from "ws";
 import { z } from "zod";
-import { renderAdminPage, renderAppPage, renderAuthPage, renderLandingPage } from "./admin-ui.js";
+import { renderAdminPage, renderAuthPage } from "./admin-ui.js";
 import { AppError, asAppError } from "./errors.js";
 import {
   AgentChatStore,
@@ -120,7 +120,6 @@ const GoogleUserInfoSchema = z.object({
   picture: z.string().optional(),
 });
 
-const CONTROL_PLANE_ROUTE_PREFIX = "/admin/ui";
 const CONTROL_PLANE_DIST_DIR = fileURLToPath(
   new URL("../../control-plane/dist/", import.meta.url),
 );
@@ -169,6 +168,26 @@ function contentTypeForFile(pathname: string): string {
     default:
       return "application/octet-stream";
   }
+}
+
+function isControlPlaneAssetPath(pathname: string | null | undefined): pathname is string {
+  return Boolean(pathname?.startsWith("/assets/"));
+}
+
+function isControlPlaneAppPath(pathname: string | null | undefined): pathname is string {
+  if (!pathname) {
+    return false;
+  }
+  if (pathname === "/" || pathname === "/app" || pathname === "/admin/ui") {
+    return true;
+  }
+  if (pathname.startsWith("/app/") && !pathname.startsWith("/app/api/")) {
+    return true;
+  }
+  if (pathname.startsWith("/admin/ui/")) {
+    return true;
+  }
+  return false;
 }
 
 async function readJson(request: IncomingMessage): Promise<unknown> {
@@ -518,36 +537,33 @@ export class AgentChatServer {
       const userSession = this.getUserSession(request);
       const lang = normalizeUiLang(typeof url.query.lang === "string" ? url.query.lang : undefined);
 
-      if (method === "GET" && url.pathname === "/") {
-        response.statusCode = 200;
-        response.setHeader("content-type", "text/html; charset=utf-8");
-        response.end(
-          renderLandingPage({
-            isLoggedIn: Boolean(userSession),
-            appPath: "/app",
-            loginPath: "/auth/login",
-            registerPath: "/auth/register",
-            ...(this.googleAuth ? { googleLoginPath: "/auth/google/login" } : {}),
-            lang,
-          }),
-        );
-        return;
+      if ((method === "GET" || method === "HEAD") && isControlPlaneAssetPath(url.pathname)) {
+        const servedAsset = await this.tryServeControlPlaneAsset(url.pathname, response, method);
+        if (servedAsset) {
+          return;
+        }
       }
 
-      if (method === "GET" && url.pathname === "/app") {
-        if (!userSession) {
+      if ((method === "GET" || method === "HEAD") && isControlPlaneAppPath(url.pathname)) {
+        if (url.pathname === "/admin/ui" || url.pathname.startsWith("/admin/ui/")) {
+          if (!isAdminAuthorized) {
+            response.statusCode = 200;
+            response.setHeader("content-type", "text/html; charset=utf-8");
+            if (method === "HEAD") {
+              response.end();
+            } else {
+              response.end(renderAdminPage(false));
+            }
+            return;
+          }
+        }
+
+        if ((url.pathname === "/app" || url.pathname.startsWith("/app/")) && !userSession) {
           redirect(response, "/auth/login");
           return;
         }
-        response.statusCode = 200;
-        response.setHeader("content-type", "text/html; charset=utf-8");
-        response.end(
-          renderAppPage({
-            userName: userSession.name,
-            userEmail: userSession.email,
-            logoutPath: "/auth/logout",
-          }),
-        );
+
+        await this.serveControlPlaneIndex(response, method);
         return;
       }
 
@@ -688,27 +704,6 @@ export class AgentChatServer {
           this.makeSessionCookie("agentchat_user_session", "", { maxAge: 0 }),
         );
         redirect(response, "/");
-        return;
-      }
-
-      if ((method === "GET" || method === "HEAD") && url.pathname?.startsWith(CONTROL_PLANE_ROUTE_PREFIX)) {
-        if (!isAdminAuthorized) {
-          response.statusCode = 200;
-          response.setHeader("content-type", "text/html; charset=utf-8");
-          if (method === "HEAD") {
-            response.end();
-          } else {
-            response.end(renderAdminPage(false));
-          }
-          return;
-        }
-
-        const servedAsset = await this.tryServeControlPlaneAsset(url.pathname, response, method);
-        if (servedAsset) {
-          return;
-        }
-
-        await this.serveControlPlaneIndex(response, method);
         return;
       }
 
@@ -1278,8 +1273,12 @@ export class AgentChatServer {
     response: ServerResponse,
     method: "GET" | "HEAD",
   ): Promise<boolean> {
-    const relativePath = pathname.replace(/^\/admin\/ui\/?/, "");
-    if (!relativePath || !/\.[a-z0-9]+$/i.test(relativePath)) {
+    if (!isControlPlaneAssetPath(pathname)) {
+      return false;
+    }
+
+    const relativePath = pathname.replace(/^\//, "");
+    if (!relativePath) {
       return false;
     }
 

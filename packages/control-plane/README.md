@@ -15,4 +15,4 @@ npm run dev:control-plane
 npm run build:control-plane
 ```
 
-This package lives in the monorepo as a standalone workspace, and the built assets are served by `packages/server` at `/admin/ui`.
+This package lives in the monorepo as a standalone workspace, and the built assets are served by `packages/server` for `/`, `/app/*`, and `/admin/ui*`.

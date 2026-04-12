@@ -2,30 +2,28 @@ import React from "react";
 import { useParams, Link } from "react-router-dom";
 import {
   ArrowLeft,
-  Send,
   Bot,
   User,
   MoreVertical,
-  ShieldCheck,
+  Eye,
   Clock,
   Terminal,
 } from "lucide-react";
-import type { Account, ConversationSummary, Message } from "@agentchat/protocol";
+import type { Account } from "@agentchat/protocol";
 import {
-  listAdminAccountConversations,
-  listAdminAccounts,
-  listAdminConversationMessages,
-  sendAdminMessage,
-} from "@/lib/admin-api";
+  listWorkspaceAccounts,
+  listWorkspaceConversationMessages,
+  listWorkspaceConversations,
+  type OwnedConversationMessage,
+  type OwnedConversationSummary,
+} from "@/lib/app-api";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
 
 function conversationTitle(
-  conversation: ConversationSummary | undefined,
+  conversation: OwnedConversationSummary | undefined,
   agentId: string | undefined,
   accountsById: Map<string, Account>,
 ): string {
@@ -44,34 +42,29 @@ function conversationTitle(
 export default function ChatView() {
   const { agentId, convId } = useParams();
   const [accounts, setAccounts] = React.useState<Account[]>([]);
-  const [conversation, setConversation] = React.useState<ConversationSummary | undefined>();
-  const [messages, setMessages] = React.useState<Message[]>([]);
-  const [inputValue, setInputValue] = React.useState("");
+  const [conversation, setConversation] = React.useState<OwnedConversationSummary | undefined>();
+  const [messages, setMessages] = React.useState<OwnedConversationMessage[]>([]);
   const [loading, setLoading] = React.useState(true);
-  const [sending, setSending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const scrollRef = React.useRef<HTMLDivElement>(null);
 
   React.useEffect(() => {
-    if (!agentId || !convId) {
+    if (!convId) {
       return;
     }
 
     let active = true;
-
     void (async () => {
       try {
         setLoading(true);
         const [nextAccounts, nextConversations, nextMessages] = await Promise.all([
-          listAdminAccounts(),
-          listAdminAccountConversations(agentId),
-          listAdminConversationMessages(agentId, convId),
+          listWorkspaceAccounts(),
+          listWorkspaceConversations(),
+          listWorkspaceConversationMessages(convId),
         ]);
-
         if (!active) {
           return;
         }
-
         setAccounts(nextAccounts);
         setConversation(nextConversations.find((item) => item.id === convId));
         setMessages(nextMessages);
@@ -90,7 +83,7 @@ export default function ChatView() {
     return () => {
       active = false;
     };
-  }, [agentId, convId]);
+  }, [convId]);
 
   React.useEffect(() => {
     if (scrollRef.current) {
@@ -102,29 +95,6 @@ export default function ChatView() {
     () => new Map(accounts.map((account) => [account.id, account])),
     [accounts],
   );
-
-  const handleSendMessage = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!agentId || !convId || !inputValue.trim()) {
-      return;
-    }
-
-    try {
-      setSending(true);
-      const result = await sendAdminMessage({
-        senderId: agentId,
-        conversationId: convId,
-        body: inputValue.trim(),
-      });
-      setMessages((current) => [...current, result.message]);
-      setConversation(result.conversation);
-      setInputValue("");
-    } catch (nextError) {
-      toast.error(nextError instanceof Error ? nextError.message : "Failed to send message");
-    } finally {
-      setSending(false);
-    }
-  };
 
   if (loading) {
     return <div className="p-8 text-slate-500">Loading conversation...</div>;
@@ -138,7 +108,7 @@ export default function ChatView() {
     <div className="flex flex-col h-full bg-[#0A0A0B]">
       <header className="h-16 border-b border-white/5 flex items-center justify-between px-6 bg-[#0D0D0F]/50 backdrop-blur-md">
         <div className="flex items-center gap-4">
-          <Link to={`/agents/${agentId}/conversations`}>
+          <Link to={`/app/agents/${agentId}/conversations`}>
             <Button variant="ghost" size="icon" className="text-slate-500 hover:text-white">
               <ArrowLeft className="w-5 h-5" />
             </Button>
@@ -148,13 +118,11 @@ export default function ChatView() {
               <Bot className="w-5 h-5 text-blue-500" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-white">
-                {conversationTitle(conversation, agentId, accountsById)}
-              </h3>
+              <h3 className="text-sm font-bold text-white">{conversationTitle(conversation, agentId, accountsById)}</h3>
               <div className="flex items-center gap-2">
                 <span className="text-[10px] text-green-500 flex items-center gap-1">
-                  <div className="w-1 h-1 rounded-full bg-green-500" />
-                  Admin Stream
+                  <Eye className="w-3 h-3" />
+                  Read-only
                 </span>
                 <span className="text-[10px] text-slate-600 font-mono">ID: {convId}</span>
               </div>
@@ -180,32 +148,25 @@ export default function ChatView() {
           </div>
 
           {messages.map((message) => {
-            const sender = accountsById.get(message.senderId);
-            const isCurrentAgent = message.senderId === agentId;
+            const isSelectedAgent = message.senderId === agentId;
             return (
               <div
                 key={message.id}
-                className={cn(
-                  "flex gap-4 group",
-                  isCurrentAgent ? "flex-row-reverse" : "flex-row",
-                )}
+                className={cn("flex gap-4 group", isSelectedAgent ? "flex-row-reverse" : "flex-row")}
               >
                 <div className={cn(
                   "w-8 h-8 rounded-lg shrink-0 flex items-center justify-center border",
-                  isCurrentAgent ? "bg-blue-500/10 border-blue-500/20" : "bg-slate-700/10 border-slate-700/20",
+                  isSelectedAgent ? "bg-blue-500/10 border-blue-500/20" : "bg-slate-700/10 border-slate-700/20",
                 )}>
-                  {isCurrentAgent
+                  {isSelectedAgent
                     ? <Bot className="w-4 h-4 text-blue-500" />
                     : <User className="w-4 h-4 text-slate-400" />}
                 </div>
 
-                <div className={cn(
-                  "flex flex-col max-w-[80%]",
-                  isCurrentAgent ? "items-end" : "items-start",
-                )}>
+                <div className={cn("flex flex-col max-w-[80%]", isSelectedAgent ? "items-end" : "items-start")}>
                   <div className="flex items-center gap-2 mb-1 px-1">
                     <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">
-                      {sender?.name ?? message.senderId}
+                      {message.senderName}
                     </span>
                     <span className="text-[10px] text-slate-700 font-mono">
                       {new Date(message.createdAt).toLocaleTimeString()}
@@ -213,7 +174,7 @@ export default function ChatView() {
                   </div>
                   <div className={cn(
                     "px-4 py-2 rounded-2xl text-sm leading-relaxed",
-                    isCurrentAgent
+                    isSelectedAgent
                       ? "bg-blue-600 text-white rounded-tr-none"
                       : "bg-white/5 text-slate-200 border border-white/5 rounded-tl-none",
                   )}>
@@ -229,39 +190,22 @@ export default function ChatView() {
       <footer className="p-6 border-t border-white/5 bg-[#0D0D0F]/50">
         <div className="max-w-3xl mx-auto">
           <div className="mb-4 flex items-center gap-2 px-3 py-2 bg-yellow-500/5 border border-yellow-500/10 rounded-lg">
-            <ShieldCheck className="w-3 h-3 text-yellow-500" />
+            <Eye className="w-3 h-3 text-yellow-500" />
             <p className="text-[10px] text-yellow-500/80 font-medium">
-              Messages sent here are issued as the selected account: <span className="font-bold">{accountsById.get(agentId)?.name ?? agentId}</span>
+              User workspace message view is read-only. Sending messages still goes through agents or admin tools.
             </p>
           </div>
-          <form onSubmit={handleSendMessage} className="relative">
-            <Input
-              placeholder="Type a message..."
-              className="pr-12 h-12 bg-white/5 border-white/10 text-white focus-visible:ring-blue-500 rounded-xl"
-              value={inputValue}
-              onChange={(event) => setInputValue(event.target.value)}
-            />
-            <Button
-              type="submit"
-              size="icon"
-              className="absolute right-1.5 top-1.5 h-9 w-9 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
-              disabled={sending || !inputValue.trim()}
-            >
-              <Send className="w-4 h-4" />
-            </Button>
-          </form>
           <div className="mt-3 flex items-center justify-between px-1">
             <div className="flex items-center gap-4">
-              <button type="button" className="text-[10px] text-slate-500 hover:text-slate-300 flex items-center gap-1 transition-colors">
+              <span className="text-[10px] text-slate-500 flex items-center gap-1">
                 <Terminal className="w-3 h-3" />
-                Live API
-              </button>
-              <button type="button" className="text-[10px] text-slate-500 hover:text-slate-300 flex items-center gap-1 transition-colors">
+                API-backed history
+              </span>
+              <span className="text-[10px] text-slate-500 flex items-center gap-1">
                 <Clock className="w-3 h-3" />
                 Seq #{messages.at(-1)?.seq ?? 0}
-              </button>
+              </span>
             </div>
-            <span className="text-[10px] text-slate-600 font-mono">Press Enter to send</span>
           </div>
         </div>
       </footer>

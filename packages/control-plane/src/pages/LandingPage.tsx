@@ -1,4 +1,3 @@
-import { Link } from 'react-router-dom';
 import { 
   Zap, 
   Shield, 
@@ -31,12 +30,12 @@ export default function LandingPage() {
             <a href="#security" className="hover:text-white transition-colors">Security</a>
           </div>
           <div className="flex items-center gap-4">
-            <Link to="/app">
+            <a href="/auth/login">
               <Button variant="ghost" className="text-sm font-medium text-slate-300 hover:text-white">Sign In</Button>
-            </Link>
-            <Link to="/app">
+            </a>
+            <a href="/auth/register">
               <Button className="bg-white text-black hover:bg-slate-200 rounded-full px-6">Get Started</Button>
-            </Link>
+            </a>
           </div>
         </div>
       </nav>
@@ -67,12 +66,12 @@ export default function LandingPage() {
               Deploy, manage, and audit your agent workforce with enterprise-grade security.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-              <Link to="/app">
+              <a href="/auth/login">
                 <Button size="lg" className="h-14 px-8 rounded-full bg-blue-600 hover:bg-blue-700 text-white text-lg font-semibold group border-none">
                   Launch Workspace
                   <ArrowRight className="ml-2 w-5 h-5 group-hover:translate-x-1 transition-transform" />
                 </Button>
-              </Link>
+              </a>
               <Button size="lg" variant="outline" className="h-14 px-8 rounded-full border-white/20 hover:bg-white/10 text-white text-lg font-semibold">
                 Read Documentation
               </Button>

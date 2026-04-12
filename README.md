@@ -70,7 +70,8 @@ npm run dev:server
 http://127.0.0.1:43110/
 ```
 
-5. Sign in with email/password in the browser and create agent accounts.
+5. Sign in with email/password in the browser and open the workspace at `/app`.
+   In the same frontend bundle, `/` is the landing page, `/app/*` is the user workspace, and `/admin/ui*` is the admin UI.
    A seeded demo user is available out of the box:
 
 ```text
@@ -156,7 +157,7 @@ If `AGENTCHAT_DATABASE_URL` is present, the server selects PostgreSQL automatica
 
 - `packages/protocol`: shared types and WebSocket protocol schemas
 - `packages/server`: `agentchatd` daemon, provider-based storage layer, public landing page, email/password login, optional Google login flow, user workspace, admin HTTP API
-- `packages/control-plane`: React/Vite control-plane frontend served by `packages/server` at `/admin/ui`
+- `packages/control-plane`: React/Vite frontend bundle served by `packages/server` for `/`, `/app/*`, and `/admin/ui*`
 - `packages/sdk`: agent-facing WebSocket client
 - `packages/cli`: installable admin and agent CLI
 - `packages/demo-agent`: minimal sample agent client

@@ -9,7 +9,7 @@ import {
   Bot,
 } from "lucide-react";
 import type { AuditLog } from "@agentchat/protocol";
-import { listAdminAuditLogs } from "@/lib/admin-api";
+import { listWorkspaceAuditLogs } from "@/lib/app-api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -47,11 +47,10 @@ export default function AuditLogs() {
 
   React.useEffect(() => {
     let active = true;
-
     void (async () => {
       try {
         setLoading(true);
-        const nextLogs = await listAdminAuditLogs({ limit: 200 });
+        const nextLogs = await listWorkspaceAuditLogs({ limit: 200 });
         if (active) {
           setLogs(nextLogs);
           setError(null);
@@ -66,7 +65,6 @@ export default function AuditLogs() {
         }
       }
     })();
-
     return () => {
       active = false;
     };
@@ -101,7 +99,7 @@ export default function AuditLogs() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = "agentchat-audit-logs.csv";
+    link.download = "agentchat-workspace-audit.csv";
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -110,10 +108,8 @@ export default function AuditLogs() {
     <div className="p-8 space-y-8 max-w-7xl mx-auto">
       <div className="flex flex-col md:flex-row items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-white tracking-tight">Audit Infrastructure</h2>
-          <p className="text-sm text-slate-500">
-            Immutable records streamed from the server-side audit log.
-          </p>
+          <h2 className="text-2xl font-bold text-white tracking-tight">Audit Logs</h2>
+          <p className="text-sm text-slate-500">Events for the agents owned by your current user session.</p>
         </div>
         <div className="flex items-center gap-3">
           <Button
@@ -130,7 +126,7 @@ export default function AuditLogs() {
 
       <Card className="bg-[#0D0D0F] border-white/5">
         <CardHeader className="border-b border-white/5 px-6 py-4">
-          <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center justify-between">
             <div className="relative w-full max-w-md">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
               <Input
@@ -142,7 +138,7 @@ export default function AuditLogs() {
             </div>
             <div className="flex items-center gap-2 text-xs text-slate-500">
               <Clock className="w-3 h-3" />
-              {loading ? "Syncing..." : `${filteredLogs.length} records loaded`}
+              {loading ? "Syncing..." : `${filteredLogs.length} visible events`}
             </div>
           </div>
         </CardHeader>
@@ -171,9 +167,7 @@ export default function AuditLogs() {
                 const status = summarizeStatus(log);
                 return (
                   <TableRow key={log.id} className="border-white/5 hover:bg-white/[0.02] transition-colors group">
-                    <TableCell className="text-xs font-mono text-slate-500">
-                      {new Date(log.createdAt).toLocaleString()}
-                    </TableCell>
+                    <TableCell className="text-xs font-mono text-slate-500">{new Date(log.createdAt).toLocaleString()}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         {log.actorAccountId ? (
@@ -181,9 +175,7 @@ export default function AuditLogs() {
                         ) : (
                           <User className="w-3 h-3 text-blue-400" />
                         )}
-                        <span className="text-xs font-mono text-slate-300">
-                          {log.actorName ?? log.actorAccountId ?? "system"}
-                        </span>
+                        <span className="text-xs font-mono text-slate-300">{log.actorName ?? log.actorAccountId ?? "system"}</span>
                       </div>
                     </TableCell>
                     <TableCell>
@@ -191,9 +183,7 @@ export default function AuditLogs() {
                         {log.eventType}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-xs font-mono text-slate-500">
-                      {summarizeTarget(log)}
-                    </TableCell>
+                    <TableCell className="text-xs font-mono text-slate-500">{summarizeTarget(log)}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1.5">
                         {status === "success" ? (
@@ -201,10 +191,7 @@ export default function AuditLogs() {
                         ) : (
                           <AlertCircle className="w-3 h-3 text-red-500" />
                         )}
-                        <span className={cn(
-                          "text-[10px] font-bold uppercase tracking-tighter",
-                          status === "success" ? "text-green-500" : "text-red-500",
-                        )}>
+                        <span className={cn("text-[10px] font-bold uppercase tracking-tighter", status === "success" ? "text-green-500" : "text-red-500")}>
                           {status}
                         </span>
                       </div>
