@@ -16,6 +16,9 @@ export type ConversationKind = z.infer<typeof ConversationKindSchema>;
 export const MessageKindSchema = z.enum(["text"]);
 export type MessageKind = z.infer<typeof MessageKindSchema>;
 
+export const PlazaPostKindSchema = z.enum(["text"]);
+export type PlazaPostKind = z.infer<typeof PlazaPostKindSchema>;
+
 export const AccountSchema = z.object({
   id: z.string(),
   type: AccountTypeSchema,
@@ -40,6 +43,15 @@ export const MessageSchema = z.object({
   seq: z.number().int().positive(),
 });
 export type Message = z.infer<typeof MessageSchema>;
+
+export const PlazaPostSchema = z.object({
+  id: z.string(),
+  author: AccountSchema,
+  body: z.string(),
+  kind: PlazaPostKindSchema,
+  createdAt: z.string(),
+});
+export type PlazaPost = z.infer<typeof PlazaPostSchema>;
 
 export const ConversationSummarySchema = z.object({
   id: z.string(),
@@ -195,6 +207,44 @@ const ListAuditLogsRequestSchema = RequestEnvelopeSchema.extend({
   }),
 });
 
+const SubscribePlazaRequestSchema = RequestEnvelopeSchema.extend({
+  type: z.literal("subscribe_plaza"),
+  payload: z.object({
+    limit: z.number().int().positive().max(100).optional(),
+  }).optional(),
+});
+
+const ListPlazaPostsRequestSchema = RequestEnvelopeSchema.extend({
+  type: z.literal("list_plaza_posts"),
+  payload: z.object({
+    authorAccountId: z.string().optional(),
+    beforeCreatedAt: z.string().optional(),
+    beforeId: z.string().optional(),
+    limit: z.number().int().positive().max(100).optional(),
+  }).refine(
+    (value) =>
+      (!value.beforeCreatedAt && !value.beforeId)
+      || (Boolean(value.beforeCreatedAt) && Boolean(value.beforeId)),
+    {
+      message: "beforeCreatedAt and beforeId must be provided together",
+    },
+  ),
+});
+
+const GetPlazaPostRequestSchema = RequestEnvelopeSchema.extend({
+  type: z.literal("get_plaza_post"),
+  payload: z.object({
+    postId: z.string(),
+  }),
+});
+
+const CreatePlazaPostRequestSchema = RequestEnvelopeSchema.extend({
+  type: z.literal("create_plaza_post"),
+  payload: z.object({
+    body: z.string().min(1),
+  }),
+});
+
 export const ClientRequestSchema = z.discriminatedUnion("type", [
   ConnectRequestSchema,
   SubscribeConversationsRequestSchema,
@@ -211,6 +261,10 @@ export const ClientRequestSchema = z.discriminatedUnion("type", [
   AddGroupMemberRequestSchema,
   ListConversationMembersRequestSchema,
   ListAuditLogsRequestSchema,
+  SubscribePlazaRequestSchema,
+  ListPlazaPostsRequestSchema,
+  GetPlazaPostRequestSchema,
+  CreatePlazaPostRequestSchema,
 ]);
 export type ClientRequest = z.infer<typeof ClientRequestSchema>;
 
@@ -263,11 +317,18 @@ export const PresenceUpdatedEventSchema = z.object({
   }),
 });
 
+export const PlazaPostCreatedEventSchema = z.object({
+  type: z.literal("event"),
+  event: z.literal("plaza_post.created"),
+  payload: PlazaPostSchema,
+});
+
 export const ServerEventSchema = z.discriminatedUnion("event", [
   ConversationCreatedEventSchema,
   ConversationMemberAddedEventSchema,
   MessageCreatedEventSchema,
   PresenceUpdatedEventSchema,
+  PlazaPostCreatedEventSchema,
 ]);
 export type ServerEvent = z.infer<typeof ServerEventSchema>;
 
@@ -289,6 +350,7 @@ export type EventPayloadMap = {
     accountId: string;
     status: PresenceStatus;
   };
+  "plaza_post.created": PlazaPost;
 };
 
 export function makeResponse(id: string, payload: unknown): ServerResponse {

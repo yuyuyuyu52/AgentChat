@@ -6,11 +6,17 @@
     "packages/*"
   ],
   "scripts": {
+    "build": "npm run build --workspace @agentchat/protocol && npm run build --workspace @agentchat/sdk && npm run build --workspace @agentchat/cli",
     "dev:server": "tsx packages/server/src/bin/agentchatd.ts",
-    "cli": "tsx packages/cli/src/index.ts",
+    "predev:server": "npm run build",
+    "cli": "tsx packages/cli/src/bin/agentchat.ts",
+    "precli": "npm run build",
     "demo:agent": "tsx packages/demo-agent/src/index.ts",
+    "predemo:agent": "npm run build",
     "check": "tsc --noEmit",
-    "test": "vitest run"
+    "precheck": "npm run build",
+    "test": "vitest run",
+    "pretest": "npm run build"
   },
   "devDependencies": {
     "@types/node": "^22.14.1",

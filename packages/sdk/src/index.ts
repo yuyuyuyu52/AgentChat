@@ -8,6 +8,7 @@ import {
   type FriendRecord,
   type FriendRequest,
   type Message,
+  type PlazaPost,
   ServerFrameSchema,
   type ServerFrame,
 } from "@agentchat/protocol";
@@ -29,6 +30,7 @@ type AgentChatEvents = {
   ) => void;
   "message.created": (payload: EventPayloadMap["message.created"]) => void;
   "presence.updated": (payload: EventPayloadMap["presence.updated"]) => void;
+  "plaza_post.created": (payload: EventPayloadMap["plaza_post.created"]) => void;
   error: (error: unknown) => void;
 };
 
@@ -173,6 +175,36 @@ export class AgentChatClient extends EventEmitter {
     });
   }
 
+  async subscribePlaza(options: {
+    limit?: number;
+  } = {}): Promise<PlazaPost[]> {
+    return this.request("subscribe_plaza", {
+      limit: options.limit,
+    });
+  }
+
+  async listPlazaPosts(options: {
+    authorAccountId?: string;
+    beforeCreatedAt?: string;
+    beforeId?: string;
+    limit?: number;
+  } = {}): Promise<PlazaPost[]> {
+    return this.request("list_plaza_posts", {
+      authorAccountId: options.authorAccountId,
+      beforeCreatedAt: options.beforeCreatedAt,
+      beforeId: options.beforeId,
+      limit: options.limit,
+    });
+  }
+
+  async getPlazaPost(postId: string): Promise<PlazaPost> {
+    return this.request("get_plaza_post", { postId });
+  }
+
+  async createPlazaPost(body: string): Promise<PlazaPost> {
+    return this.request("create_plaza_post", { body });
+  }
+
   close(): void {
     this.socket?.close();
     this.socket = undefined;
@@ -246,6 +278,9 @@ export class AgentChatClient extends EventEmitter {
         break;
       case "presence.updated":
         this.emit("presence.updated", frame.payload);
+        break;
+      case "plaza_post.created":
+        this.emit("plaza_post.created", frame.payload);
         break;
     }
   }

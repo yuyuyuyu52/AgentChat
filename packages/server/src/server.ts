@@ -13,6 +13,7 @@ import {
   type AuthAccount,
   type ConversationSummary,
   type Message,
+  type PlazaPost,
   type ServerEvent,
 } from "@agentchat/protocol";
 import { WebSocketServer, type WebSocket } from "ws";
@@ -30,6 +31,7 @@ type ConnectionState = {
   accountId?: string;
   subscribedConversationIds: Set<string>;
   subscribedConversationFeed: boolean;
+  subscribedPlazaFeed: boolean;
   sessionId?: string;
 };
 
@@ -199,6 +201,7 @@ export class AgentChatServer {
         socket,
         subscribedConversationIds: new Set(),
         subscribedConversationFeed: false,
+        subscribedPlazaFeed: false,
       };
       this.connections.set(socket, state);
       socket.on("message", (data) => {
@@ -441,6 +444,25 @@ export class AgentChatServer {
     } = {},
   ) {
     return this.store.listOwnedAuditLogs(ownerSubject, options);
+  }
+
+  async createPlazaPost(authorAccountId: string, body: string): Promise<PlazaPost> {
+    const post = await this.store.createPlazaPost(authorAccountId, body);
+    this.broadcastPlazaPostCreated(post);
+    return post;
+  }
+
+  async listPlazaPosts(options: {
+    authorAccountId?: string;
+    beforeCreatedAt?: string;
+    beforeId?: string;
+    limit?: number;
+  } = {}) {
+    return this.store.listPlazaPosts(options);
+  }
+
+  async getPlazaPost(postId: string): Promise<PlazaPost> {
+    return this.store.getPlazaPost(postId);
   }
 
   private async handleHttpRequest(request: IncomingMessage, response: ServerResponse) {
@@ -999,6 +1021,50 @@ export class AgentChatServer {
           this.sendResponse(connection, request.id, result);
           return;
         }
+        case "subscribe_plaza": {
+          this.requireAuthenticated(connection);
+          connection.subscribedPlazaFeed = true;
+          this.sendResponse(
+            connection,
+            request.id,
+            await this.listPlazaPosts({
+              ...(request.payload?.limit ? { limit: request.payload.limit } : {}),
+            }),
+          );
+          return;
+        }
+        case "list_plaza_posts": {
+          this.requireAuthenticated(connection);
+          this.sendResponse(
+            connection,
+            request.id,
+            await this.listPlazaPosts({
+              ...(request.payload.authorAccountId
+                ? { authorAccountId: request.payload.authorAccountId }
+                : {}),
+              ...(request.payload.beforeCreatedAt
+                ? { beforeCreatedAt: request.payload.beforeCreatedAt }
+                : {}),
+              ...(request.payload.beforeId ? { beforeId: request.payload.beforeId } : {}),
+              ...(request.payload.limit ? { limit: request.payload.limit } : {}),
+            }),
+          );
+          return;
+        }
+        case "get_plaza_post": {
+          this.requireAuthenticated(connection);
+          this.sendResponse(connection, request.id, await this.getPlazaPost(request.payload.postId));
+          return;
+        }
+        case "create_plaza_post": {
+          const accountId = this.requireAuthenticated(connection);
+          this.sendResponse(
+            connection,
+            request.id,
+            await this.createPlazaPost(accountId, request.payload.body),
+          );
+          return;
+        }
       }
     } catch (error) {
       const appError = error instanceof z.ZodError
@@ -1077,6 +1143,15 @@ export class AgentChatServer {
         event,
         (connection) => connection.subscribedConversationIds.has(message.conversationId),
       );
+    }
+  }
+
+  private broadcastPlazaPostCreated(post: PlazaPost): void {
+    const event = makeEvent("plaza_post.created", post);
+    for (const connection of this.connections.values()) {
+      if (connection.accountId && connection.subscribedPlazaFeed) {
+        connection.socket.send(JSON.stringify(event));
+      }
     }
   }
 

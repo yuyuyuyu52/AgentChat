@@ -3,8 +3,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { AgentChatClient } from "@agentchat/sdk";
+import { ServerFrameSchema } from "@agentchat/protocol";
 import { AgentChatServer } from "@agentchat/server";
 import { afterEach, describe, expect, it } from "vitest";
+import WebSocket from "ws";
 
 async function createServer() {
   const directory = await mkdtemp(join(tmpdir(), "agentchat-"));
@@ -29,7 +31,11 @@ async function createProtectedServer() {
 
 async function expectEvent<T>(
   client: AgentChatClient,
-  eventName: "message.created" | "conversation.created" | "presence.updated",
+  eventName:
+    | "message.created"
+    | "conversation.created"
+    | "presence.updated"
+    | "plaza_post.created",
 ): Promise<T> {
   return await new Promise<T>((resolve, reject) => {
     const timeout = setTimeout(() => {
@@ -410,6 +416,107 @@ describe("AgentChat MVP", () => {
     betaClient.close();
     gammaClient.close();
     intruderClient.close();
+  });
+
+  it("lets agents publish and consume plaza posts", async () => {
+    const resource = await createServer();
+    resources.push(resource);
+    const { server } = resource;
+
+    const alpha = await server.createAccount({ name: "alpha-plaza" });
+    const beta = await server.createAccount({ name: "beta-plaza" });
+    const moderator = await server.createAccount({
+      name: "mod-plaza",
+      type: "admin",
+    });
+
+    const alphaClient = new AgentChatClient({ url: server.wsUrl });
+    const betaClient = new AgentChatClient({ url: server.wsUrl });
+    const moderatorClient = new AgentChatClient({ url: server.wsUrl });
+
+    await alphaClient.connect(alpha.id, alpha.token);
+    await betaClient.connect(beta.id, beta.token);
+    await moderatorClient.connect(moderator.id, moderator.token);
+
+    expect(await betaClient.subscribePlaza({ limit: 10 })).toEqual([]);
+
+    const betaRealtime = expectEvent<{
+      id: string;
+      body: string;
+      author: { id: string; name: string };
+    }>(betaClient, "plaza_post.created");
+
+    const first = await alphaClient.createPlazaPost("  hello plaza  ");
+    expect(first).toMatchObject({
+      body: "hello plaza",
+      author: { id: alpha.id, name: "alpha-plaza" },
+    });
+    await expect(betaRealtime).resolves.toMatchObject({
+      id: first.id,
+      body: "hello plaza",
+      author: { id: alpha.id },
+    });
+
+    const second = await alphaClient.createPlazaPost("alpha again");
+    const third = await betaClient.createPlazaPost("beta joins");
+
+    const feed = await betaClient.listPlazaPosts({ limit: 10 });
+    expect(feed.map((post) => post.id)).toEqual([third.id, second.id, first.id]);
+
+    const authorFeed = await betaClient.listPlazaPosts({
+      authorAccountId: alpha.id,
+      limit: 10,
+    });
+    expect(authorFeed.map((post) => post.id)).toEqual([second.id, first.id]);
+
+    const detail = await betaClient.getPlazaPost(first.id);
+    expect(detail).toMatchObject({
+      id: first.id,
+      body: "hello plaza",
+      author: { id: alpha.id, name: "alpha-plaza" },
+    });
+
+    const firstPage = await betaClient.listPlazaPosts({ limit: 2 });
+    expect(firstPage.map((post) => post.id)).toEqual([third.id, second.id]);
+
+    const secondPage = await betaClient.listPlazaPosts({
+      limit: 2,
+      beforeCreatedAt: firstPage[1]!.createdAt,
+      beforeId: firstPage[1]!.id,
+    });
+    expect(secondPage.map((post) => post.id)).toEqual([first.id]);
+
+    await expect(moderatorClient.createPlazaPost("mod says hi")).rejects.toThrow(/only agent/i);
+
+    const rawSocket = new WebSocket(server.wsUrl);
+    await new Promise<void>((resolve, reject) => {
+      rawSocket.once("open", () => resolve());
+      rawSocket.once("error", reject);
+    });
+    const unauthorizedFrame = await new Promise<unknown>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error("Timed out waiting for unauthorized plaza error"));
+      }, 2_000);
+      rawSocket.once("message", (raw) => {
+        clearTimeout(timeout);
+        resolve(JSON.parse(raw.toString()));
+      });
+      rawSocket.send(JSON.stringify({
+        id: "unauth-plaza",
+        type: "list_plaza_posts",
+        payload: {},
+      }));
+    });
+    expect(ServerFrameSchema.parse(unauthorizedFrame)).toMatchObject({
+      type: "error",
+      id: "unauth-plaza",
+      error: { code: "UNAUTHORIZED" },
+    });
+    rawSocket.close();
+
+    alphaClient.close();
+    betaClient.close();
+    moderatorClient.close();
   });
 
   it("delivers DM messages in realtime and keeps history across reconnects", async () => {

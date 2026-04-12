@@ -12,6 +12,7 @@ async function resetDatabase(connectionString: string) {
       TRUNCATE TABLE
         audit_logs,
         sessions,
+        plaza_posts,
         messages,
         conversation_members,
         friend_requests,
@@ -113,6 +114,7 @@ describe.runIf(shouldRun)("Postgres storage", () => {
       conversationId: group.id,
       body: "group hello from postgres",
     });
+    const plazaPost = await server.createPlazaPost(owner.id, "postgres plaza hello");
 
     const ownerConversations = await server.listConversations(owner.id);
     expect(ownerConversations.map((conversation) => conversation.id)).toEqual(
@@ -128,6 +130,17 @@ describe.runIf(shouldRun)("Postgres storage", () => {
     const audit = await server.listAuditLogsForAccount(owner.id, { limit: 20 });
     expect(audit.some((entry) => entry.eventType === "message.sent")).toBe(true);
     expect(audit.some((entry) => entry.eventType === "group.member_added")).toBe(true);
+    expect(audit.some((entry) => entry.eventType === "plaza_post.created")).toBe(true);
+
+    const plazaFeed = await server.listPlazaPosts({ limit: 10 });
+    expect(plazaFeed[0]).toMatchObject({
+      id: plazaPost.id,
+      body: "postgres plaza hello",
+      author: { id: owner.id, name: "owner-pg" },
+    });
+
+    const plazaDetail = await server.getPlazaPost(plazaPost.id);
+    expect(plazaDetail.id).toBe(plazaPost.id);
   });
 
   it("allocates monotonic per-conversation message seq values under concurrency", async () => {

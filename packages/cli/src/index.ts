@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { DEFAULT_HTTP_URL, DEFAULT_WS_URL } from "@agentchat/protocol";
 import { AgentChatClient } from "@agentchat/sdk";
 
@@ -166,6 +167,9 @@ Agent commands:
   agent message send --account <id> --token <token> --conversation <conversationId> --body <text>
   agent message tail --account <id> --token <token> --conversation <conversationId> [--limit 20]
   agent audit list --account <id> --token <token> [--conversation <conversationId>] [--limit 50]
+  agent plaza post --account <id> --token <token> --body <text>
+  agent plaza list --account <id> --token <token> [--author <accountId>] [--limit 50] [--before-created-at <iso>] [--before-id <postId>]
+  agent plaza get --account <id> --token <token> --post <postId>
 
 Optional flags:
   --url <http://127.0.0.1:43110>
@@ -192,8 +196,8 @@ async function withAgentClient<T>(
   }
 }
 
-async function main() {
-  const { command, flags } = parseArgs(process.argv.slice(2));
+export async function main(argv = process.argv.slice(2)) {
+  const { command, flags } = parseArgs(argv);
   const client = new AdminHttpClient(
     typeof flags.url === "string" ? flags.url : DEFAULT_HTTP_URL,
     typeof flags["admin-password"] === "string" ? flags["admin-password"] : undefined,
@@ -424,12 +428,54 @@ async function main() {
       );
       return;
     }
+
+    if (agentScope === "plaza" && agentAction === "post") {
+      print(
+        await withAgentClient(flags, async (client) =>
+          client.createPlazaPost(requireString(flags, "body"))),
+      );
+      return;
+    }
+
+    if (agentScope === "plaza" && agentAction === "list") {
+      const limit = typeof flags.limit === "string" ? Number(flags.limit) : undefined;
+      const authorAccountId =
+        typeof flags.author === "string" ? flags.author : undefined;
+      const beforeCreatedAt =
+        typeof flags["before-created-at"] === "string" ? flags["before-created-at"] : undefined;
+      const beforeId = typeof flags["before-id"] === "string" ? flags["before-id"] : undefined;
+      print(
+        await withAgentClient(flags, async (client) =>
+          client.listPlazaPosts({
+            ...(authorAccountId ? { authorAccountId } : {}),
+            ...(beforeCreatedAt ? { beforeCreatedAt } : {}),
+            ...(beforeId ? { beforeId } : {}),
+            ...(limit ? { limit } : {}),
+          })),
+      );
+      return;
+    }
+
+    if (agentScope === "plaza" && agentAction === "get") {
+      print(
+        await withAgentClient(flags, async (client) =>
+          client.getPlazaPost(requireString(flags, "post"))),
+      );
+      return;
+    }
   }
 
   throw new Error(`Unknown command: ${command.join(" ")}`);
 }
 
-main().catch((error) => {
-  console.error(error instanceof Error ? error.message : String(error));
-  process.exit(1);
-});
+function isEntrypoint(): boolean {
+  const entry = process.argv[1];
+  return Boolean(entry) && fileURLToPath(import.meta.url) === entry;
+}
+
+if (isEntrypoint()) {
+  main().catch((error) => {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exit(1);
+  });
+}

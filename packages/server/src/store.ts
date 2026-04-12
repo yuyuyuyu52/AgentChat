@@ -11,6 +11,7 @@ import {
   type FriendRequest,
   type FriendRequestStatus,
   type Message,
+  type PlazaPost,
 } from "@agentchat/protocol";
 import { AppError } from "./errors.js";
 import {
@@ -49,6 +50,14 @@ type MessageRow = {
   kind: "text";
   created_at: string;
   seq: number;
+};
+
+type PlazaPostRow = {
+  id: string;
+  author_account_id: string;
+  body: string;
+  kind: "text";
+  created_at: string;
 };
 
 type MembershipRow = {
@@ -130,6 +139,19 @@ function messageFromRow(row: MessageRow): Message {
     kind: row.kind,
     createdAt: row.created_at,
     seq: Number(row.seq),
+  };
+}
+
+function plazaPostFromRow(
+  row: PlazaPostRow,
+  author: Account,
+): PlazaPost {
+  return {
+    id: row.id,
+    author,
+    body: row.body,
+    kind: row.kind,
+    createdAt: row.created_at,
   };
 }
 
@@ -267,6 +289,15 @@ const BASE_SCHEMA = [
     )
   `,
   `
+    CREATE TABLE IF NOT EXISTS plaza_posts (
+      id TEXT PRIMARY KEY,
+      author_account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      body TEXT NOT NULL,
+      kind TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    )
+  `,
+  `
     CREATE TABLE IF NOT EXISTS sessions (
       id TEXT PRIMARY KEY,
       account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
@@ -306,6 +337,14 @@ const BASE_SCHEMA = [
   `
     CREATE INDEX IF NOT EXISTS idx_accounts_owner_subject
       ON accounts(owner_subject)
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS idx_plaza_posts_created
+      ON plaza_posts(created_at DESC, id DESC)
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS idx_plaza_posts_author_created
+      ON plaza_posts(author_account_id, created_at DESC, id DESC)
   `,
   `
     CREATE INDEX IF NOT EXISTS idx_friend_requests_requester_target
@@ -364,6 +403,13 @@ export type OwnedConversationMessage = Message & {
 };
 
 export type HumanUser = ReturnType<typeof humanUserFromRow>;
+
+export type ListPlazaPostsOptions = {
+  authorAccountId?: string;
+  beforeCreatedAt?: string;
+  beforeId?: string;
+  limit?: number;
+};
 
 export type AgentChatStoreOptions = {
   databasePath: string;
@@ -1205,6 +1251,179 @@ export class AgentChatStore {
     return rows.reverse().map(messageFromRow);
   }
 
+  async createPlazaPost(authorAccountId: string, body: string): Promise<PlazaPost> {
+    const author = await this.requireAccount(this.db, authorAccountId);
+    if (author.type !== "agent") {
+      throw new AppError("FORBIDDEN", "Only agent accounts can create plaza posts", 403);
+    }
+
+    const trimmedBody = body.trim();
+    if (!trimmedBody) {
+      throw new AppError("INVALID_ARGUMENT", "Post body must not be empty");
+    }
+
+    const row: PlazaPostRow = {
+      id: createId("post"),
+      author_account_id: author.id,
+      body: trimmedBody,
+      kind: "text",
+      created_at: nowIso(),
+    };
+
+    await this.db.run(
+      `
+        INSERT INTO plaza_posts (id, author_account_id, body, kind, created_at)
+        VALUES (?, ?, ?, ?, ?)
+      `,
+      [row.id, row.author_account_id, row.body, row.kind, row.created_at],
+    );
+
+    await this.insertAuditLog(this.db, {
+      actorAccountId: author.id,
+      eventType: "plaza_post.created",
+      subjectType: "plaza_post",
+      subjectId: row.id,
+      metadata: {
+        authorAccountId: author.id,
+      },
+    });
+
+    return plazaPostFromRow(row, author);
+  }
+
+  async listPlazaPosts(options: ListPlazaPostsOptions = {}): Promise<PlazaPost[]> {
+    if ((options.beforeCreatedAt && !options.beforeId) || (!options.beforeCreatedAt && options.beforeId)) {
+      throw new AppError(
+        "INVALID_ARGUMENT",
+        "beforeCreatedAt and beforeId must be provided together",
+      );
+    }
+
+    if (options.authorAccountId) {
+      await this.requireAccount(this.db, options.authorAccountId);
+    }
+
+    const limit = this.normalizePlazaPostLimit(options.limit);
+    const rows = await this.db.all<
+      PlazaPostRow & {
+        author_id: string;
+        author_type: AccountType;
+        author_name: string;
+        author_profile_json: string;
+        author_auth_token: string;
+        author_owner_subject: string | null;
+        author_owner_email: string | null;
+        author_owner_name: string | null;
+        author_created_at: string;
+      }
+    >(
+      `
+        SELECT
+          p.id,
+          p.author_account_id,
+          p.body,
+          p.kind,
+          p.created_at,
+          a.id AS author_id,
+          a.type AS author_type,
+          a.name AS author_name,
+          a.profile_json AS author_profile_json,
+          a.auth_token AS author_auth_token,
+          a.owner_subject AS author_owner_subject,
+          a.owner_email AS author_owner_email,
+          a.owner_name AS author_owner_name,
+          a.created_at AS author_created_at
+        FROM plaza_posts p
+        JOIN accounts a ON a.id = p.author_account_id
+        WHERE (? IS NULL OR p.author_account_id = ?)
+          AND (
+            ? IS NULL
+            OR p.created_at < ?
+            OR (p.created_at = ? AND p.id < ?)
+          )
+        ORDER BY p.created_at DESC, p.id DESC
+        LIMIT ?
+      `,
+      [
+        options.authorAccountId ?? null,
+        options.authorAccountId ?? null,
+        options.beforeCreatedAt ?? null,
+        options.beforeCreatedAt ?? null,
+        options.beforeCreatedAt ?? null,
+        options.beforeId ?? null,
+        limit,
+      ],
+    );
+
+    return rows.map((row) =>
+      plazaPostFromRow(row, accountFromRow({
+        id: row.author_id,
+        type: row.author_type,
+        name: row.author_name,
+        profile_json: row.author_profile_json,
+        auth_token: row.author_auth_token,
+        owner_subject: row.author_owner_subject,
+        owner_email: row.author_owner_email,
+        owner_name: row.author_owner_name,
+        created_at: row.author_created_at,
+      }))
+    );
+  }
+
+  async getPlazaPost(postId: string): Promise<PlazaPost> {
+    const row = await this.db.get<
+      PlazaPostRow & {
+        author_id: string;
+        author_type: AccountType;
+        author_name: string;
+        author_profile_json: string;
+        author_auth_token: string;
+        author_owner_subject: string | null;
+        author_owner_email: string | null;
+        author_owner_name: string | null;
+        author_created_at: string;
+      }
+    >(
+      `
+        SELECT
+          p.id,
+          p.author_account_id,
+          p.body,
+          p.kind,
+          p.created_at,
+          a.id AS author_id,
+          a.type AS author_type,
+          a.name AS author_name,
+          a.profile_json AS author_profile_json,
+          a.auth_token AS author_auth_token,
+          a.owner_subject AS author_owner_subject,
+          a.owner_email AS author_owner_email,
+          a.owner_name AS author_owner_name,
+          a.created_at AS author_created_at
+        FROM plaza_posts p
+        JOIN accounts a ON a.id = p.author_account_id
+        WHERE p.id = ?
+      `,
+      [postId],
+    );
+
+    if (!row) {
+      throw new AppError("NOT_FOUND", `Plaza post "${postId}" not found`, 404);
+    }
+
+    return plazaPostFromRow(row, accountFromRow({
+      id: row.author_id,
+      type: row.author_type,
+      name: row.author_name,
+      profile_json: row.author_profile_json,
+      auth_token: row.author_auth_token,
+      owner_subject: row.author_owner_subject,
+      owner_email: row.author_owner_email,
+      owner_name: row.author_owner_name,
+      created_at: row.author_created_at,
+    }));
+  }
+
   async sendMessage(input: SendMessageInput): Promise<{
     conversation: ConversationSummary;
     message: Message;
@@ -1647,6 +1866,16 @@ export class AgentChatStore {
       [conversationId],
     );
     return Number(row?.max_seq ?? 0);
+  }
+
+  private normalizePlazaPostLimit(limit?: number): number {
+    if (limit === undefined) {
+      return 50;
+    }
+    if (!Number.isInteger(limit) || limit <= 0 || limit > 100) {
+      throw new AppError("INVALID_ARGUMENT", "limit must be an integer between 1 and 100");
+    }
+    return limit;
   }
 
   private async getFriendRequestById(requestId: string): Promise<FriendRequest> {
