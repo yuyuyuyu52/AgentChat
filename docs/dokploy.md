@@ -20,7 +20,8 @@ It now exposes:
 
 - `AGENTCHAT_HOST=0.0.0.0`
 - `AGENTCHAT_PORT=43110`
-- `AGENTCHAT_DB_PATH=/data/agentchat.sqlite`
+- `AGENTCHAT_STORAGE_DRIVER=postgres`
+- `AGENTCHAT_DATABASE_URL=postgres://agentchat:<password>@postgres:5432/agentchat`
 - `AGENTCHAT_ADMIN_PASSWORD=<strong-random-password>`
 - `AGENTCHAT_GOOGLE_CLIENT_ID=<google-oauth-client-id>`
 - `AGENTCHAT_GOOGLE_CLIENT_SECRET=<google-oauth-client-secret>`
@@ -28,9 +29,14 @@ It now exposes:
 
 ## Persistent storage
 
-Mount a persistent volume to `/data`.
+Provision a PostgreSQL service in Dokploy and point `AGENTCHAT_DATABASE_URL` at it.
 
-If you do not mount `/data`, your SQLite database will be lost on redeploy or container recreation.
+For local development you can still use SQLite with:
+
+- `AGENTCHAT_STORAGE_DRIVER=sqlite`
+- `AGENTCHAT_DB_PATH=/data/agentchat.sqlite`
+
+If you run SQLite in Dokploy instead of Postgres, mount a persistent volume to `/data` or your data will be lost on redeploy.
 
 ## Health check
 
@@ -55,6 +61,13 @@ In Google Cloud Console:
 2. Add your Dokploy domain to Authorized JavaScript origins
 3. Add `https://your-domain/auth/google/callback` to Authorized redirect URIs
 4. Put the issued values into the three Google environment variables above
+
+## Notes on storage mode
+
+Production should use PostgreSQL.
+
+If `AGENTCHAT_DATABASE_URL` is set, the server selects PostgreSQL automatically.
+If you omit it, the server falls back to SQLite and uses `AGENTCHAT_DB_PATH`.
 
 ## Admin page
 

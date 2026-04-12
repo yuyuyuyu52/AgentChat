@@ -37,6 +37,8 @@ export type AgentChatServerOptions = {
   host?: string | undefined;
   port?: number | undefined;
   databasePath?: string | undefined;
+  databaseUrl?: string | undefined;
+  storageDriver?: "sqlite" | "postgres" | undefined;
   adminPassword?: string | undefined;
   googleAuth?:
     | {
@@ -170,9 +172,12 @@ export class AgentChatServer {
     this.requestedPort = options.port ?? 43110;
     this.adminPassword = options.adminPassword;
     this.googleAuth = options.googleAuth;
-    this.store = new AgentChatStore(
-      options.databasePath ?? new URL("../../data/agentchat.sqlite", import.meta.url).pathname,
-    );
+    this.store = new AgentChatStore({
+      databasePath:
+        options.databasePath ?? new URL("../../data/agentchat.sqlite", import.meta.url).pathname,
+      ...(options.databaseUrl ? { databaseUrl: options.databaseUrl } : {}),
+      ...(options.storageDriver ? { driver: options.storageDriver } : {}),
+    });
 
     this.httpServer = createServer(this.handleHttpRequest.bind(this));
     this.wsServer = new WebSocketServer({ noServer: true });
@@ -200,7 +205,7 @@ export class AgentChatServer {
         void this.handleSocketMessage(state, data.toString());
       });
       socket.on("close", () => {
-        this.handleSocketClose(state);
+        void this.handleSocketClose(state);
       });
     });
   }
@@ -217,6 +222,8 @@ export class AgentChatServer {
     if (this.actualPort !== 0) {
       return;
     }
+
+    await this.store.initialize();
 
     await new Promise<void>((resolve, reject) => {
       this.httpServer.once("error", reject);
@@ -258,77 +265,80 @@ export class AgentChatServer {
       });
     });
 
-    this.store.close();
+    await this.store.close();
   }
 
-  createAccount(input: CreateAccountInput): AuthAccount {
+  async createAccount(input: CreateAccountInput): Promise<AuthAccount> {
     return this.store.createAccount(input);
   }
 
-  listAccounts(ownerSubject?: string): Account[] {
+  async listAccounts(ownerSubject?: string): Promise<Account[]> {
     return this.store.listAccounts(ownerSubject);
   }
 
-  resetToken(accountId: string, ownerSubject?: string): { accountId: string; token: string } {
+  async resetToken(
+    accountId: string,
+    ownerSubject?: string,
+  ): Promise<{ accountId: string; token: string }> {
     return this.store.resetToken(accountId, ownerSubject);
   }
 
-  createFriendship(accountA: string, accountB: string): {
+  async createFriendship(accountA: string, accountB: string): Promise<{
     friendshipId: string;
     conversationId: string;
     createdAt: string;
-  } {
-    const result = this.store.createFriendship(accountA, accountB);
-    this.broadcastConversationCreated(accountA, result.conversationId);
-    this.broadcastConversationCreated(accountB, result.conversationId);
+  }> {
+    const result = await this.store.createFriendship(accountA, accountB);
+    await this.broadcastConversationCreated(accountA, result.conversationId);
+    await this.broadcastConversationCreated(accountB, result.conversationId);
     return result;
   }
 
-  addFriendAs(actorId: string, peerAccountId: string): {
+  async addFriendAs(actorId: string, peerAccountId: string): Promise<{
     requestId: string;
     createdAt: string;
-  } {
+  }> {
     return this.store.addFriendAs(actorId, peerAccountId);
   }
 
-  listFriendRequests(
+  async listFriendRequests(
     accountId: string,
     direction: "incoming" | "outgoing" | "all" = "all",
   ) {
     return this.store.listFriendRequests(accountId, direction);
   }
 
-  respondFriendRequestAs(
+  async respondFriendRequestAs(
     actorId: string,
     requestId: string,
     action: "accept" | "reject",
   ) {
-    const result = this.store.respondFriendRequestAs(actorId, requestId, action);
+    const result = await this.store.respondFriendRequestAs(actorId, requestId, action);
     if ("conversationId" in result) {
-      const request = this.store.listFriendRequests(actorId, "incoming")
-        .concat(this.store.listFriendRequests(actorId, "outgoing"))
+      const request = (await this.store.listFriendRequests(actorId, "incoming"))
+        .concat(await this.store.listFriendRequests(actorId, "outgoing"))
         .find((item) => item.id === requestId);
       if (request) {
-        this.broadcastConversationCreated(request.requester.id, result.conversationId);
-        this.broadcastConversationCreated(request.target.id, result.conversationId);
+        await this.broadcastConversationCreated(request.requester.id, result.conversationId);
+        await this.broadcastConversationCreated(request.target.id, result.conversationId);
       }
     }
     return result;
   }
 
-  createGroup(title: string): ConversationSummary {
+  async createGroup(title: string): Promise<ConversationSummary> {
     return this.store.createGroup(title);
   }
 
-  createGroupAs(actorId: string, title: string): ConversationSummary {
-    const summary = this.store.createGroupAs(actorId, title);
-    this.broadcastConversationCreated(actorId, summary.id);
+  async createGroupAs(actorId: string, title: string): Promise<ConversationSummary> {
+    const summary = await this.store.createGroupAs(actorId, title);
+    await this.broadcastConversationCreated(actorId, summary.id);
     return summary;
   }
 
-  addGroupMember(conversationId: string, accountId: string): ConversationSummary {
-    const summary = this.store.addGroupMember(conversationId, accountId);
-    this.broadcastConversationCreated(accountId, conversationId);
+  async addGroupMember(conversationId: string, accountId: string): Promise<ConversationSummary> {
+    const summary = await this.store.addGroupMember(conversationId, accountId);
+    await this.broadcastConversationCreated(accountId, conversationId);
     for (const memberId of summary.memberIds) {
       if (memberId !== accountId) {
         this.dispatchEventToAccount(
@@ -344,13 +354,13 @@ export class AgentChatServer {
     return summary;
   }
 
-  addGroupMemberAs(
+  async addGroupMemberAs(
     actorId: string,
     conversationId: string,
     accountId: string,
-  ): ConversationSummary {
-    const summary = this.store.addGroupMemberAs(actorId, conversationId, accountId);
-    this.broadcastConversationCreated(accountId, conversationId);
+  ): Promise<ConversationSummary> {
+    const summary = await this.store.addGroupMemberAs(actorId, conversationId, accountId);
+    await this.broadcastConversationCreated(accountId, conversationId);
     for (const memberId of summary.memberIds) {
       if (memberId !== accountId) {
         this.dispatchEventToAccount(
@@ -366,33 +376,33 @@ export class AgentChatServer {
     return summary;
   }
 
-  sendAdminMessage(input: SendMessageInput): {
+  async sendAdminMessage(input: SendMessageInput): Promise<{
     conversation: ConversationSummary;
     message: Message;
-  } {
-    const result = this.store.sendMessage(input);
-    this.broadcastMessage(result.message);
+  }> {
+    const result = await this.store.sendMessage(input);
+    await this.broadcastMessage(result.message);
     return result;
   }
 
-  listConversations(accountId: string): ConversationSummary[] {
+  async listConversations(accountId: string): Promise<ConversationSummary[]> {
     return this.store.listConversations(accountId);
   }
 
-  listOwnedConversations(ownerSubject: string) {
+  async listOwnedConversations(ownerSubject: string) {
     return this.store.listOwnedConversations(ownerSubject);
   }
 
-  listConversationMessages(
+  async listConversationMessages(
     accountId: string,
     conversationId: string,
     before?: number,
     limit?: number,
-  ): Message[] {
+  ): Promise<Message[]> {
     return this.store.listMessages(accountId, conversationId, before, limit);
   }
 
-  listOwnedConversationMessages(
+  async listOwnedConversationMessages(
     ownerSubject: string,
     conversationId: string,
     before?: number,
@@ -401,19 +411,19 @@ export class AgentChatServer {
     return this.store.listOwnedConversationMessages(ownerSubject, conversationId, before, limit);
   }
 
-  listFriends(accountId: string) {
+  async listFriends(accountId: string) {
     return this.store.listFriends(accountId);
   }
 
-  listGroups(accountId: string) {
+  async listGroups(accountId: string) {
     return this.store.listGroups(accountId);
   }
 
-  listConversationMembers(accountId: string, conversationId: string) {
+  async listConversationMembers(accountId: string, conversationId: string) {
     return this.store.listConversationMembers(accountId, conversationId);
   }
 
-  listAuditLogsForAccount(
+  async listAuditLogsForAccount(
     accountId: string,
     options: {
       conversationId?: string;
@@ -423,7 +433,7 @@ export class AgentChatServer {
     return this.store.listAuditLogsForAccount(accountId, options);
   }
 
-  listOwnedAuditLogs(
+  async listOwnedAuditLogs(
     ownerSubject: string,
     options: {
       conversationId?: string;
@@ -515,7 +525,7 @@ export class AgentChatServer {
         const body = isForm
           ? HumanLoginBodySchema.parse(await this.readForm(request))
           : HumanLoginBodySchema.parse(await readJson(request));
-        const user = this.store.authenticateHumanUser(body.email, body.password);
+        const user = await this.store.authenticateHumanUser(body.email, body.password);
         this.startUserSession(response, {
           createdAt: Date.now(),
           subject: `local:${user.id}`,
@@ -536,7 +546,7 @@ export class AgentChatServer {
         const body = isForm
           ? HumanRegisterBodySchema.parse(await this.readForm(request))
           : HumanRegisterBodySchema.parse(await readJson(request));
-        const user = this.store.createHumanUser(body);
+        const user = await this.store.createHumanUser(body);
         this.startUserSession(response, {
           createdAt: Date.now(),
           subject: `local:${user.id}`,
@@ -675,13 +685,13 @@ export class AgentChatServer {
 
       if (method === "GET" && url.pathname === "/app/api/accounts") {
         const session = this.requireUserSession(request);
-        jsonResponse(response, 200, this.listAccounts(session.subject));
+        jsonResponse(response, 200, await this.listAccounts(session.subject));
         return;
       }
 
       if (method === "GET" && url.pathname === "/app/api/conversations") {
         const session = this.requireUserSession(request);
-        jsonResponse(response, 200, this.listOwnedConversations(session.subject));
+        jsonResponse(response, 200, await this.listOwnedConversations(session.subject));
         return;
       }
 
@@ -693,7 +703,7 @@ export class AgentChatServer {
         jsonResponse(
           response,
           200,
-          this.listOwnedAuditLogs(session.subject, {
+          await this.listOwnedAuditLogs(session.subject, {
             ...(conversationId ? { conversationId } : {}),
             ...(limit ? { limit } : {}),
           }),
@@ -710,7 +720,7 @@ export class AgentChatServer {
         jsonResponse(
           response,
           200,
-          this.listOwnedConversationMessages(
+          await this.listOwnedConversationMessages(
             session.subject,
             appConversationMessagesMatch[1]!,
             before,
@@ -726,7 +736,7 @@ export class AgentChatServer {
         jsonResponse(
           response,
           201,
-          this.createAccount({
+          await this.createAccount({
             ...body,
             owner: {
               subject: session.subject,
@@ -741,7 +751,7 @@ export class AgentChatServer {
       const appAccountTokenMatch = url.pathname?.match(/^\/app\/api\/accounts\/([^/]+)\/reset-token$/);
       if (method === "POST" && appAccountTokenMatch) {
         const session = this.requireUserSession(request);
-        jsonResponse(response, 200, this.resetToken(appAccountTokenMatch[1]!, session.subject));
+        jsonResponse(response, 200, await this.resetToken(appAccountTokenMatch[1]!, session.subject));
         return;
       }
 
@@ -758,56 +768,56 @@ export class AgentChatServer {
       }
 
       if (method === "GET" && url.pathname === "/admin/accounts") {
-        jsonResponse(response, 200, this.listAccounts());
+        jsonResponse(response, 200, await this.listAccounts());
         return;
       }
 
       if (method === "POST" && url.pathname === "/admin/accounts") {
         const body = CreateAccountBodySchema.parse(await readJson(request));
-        jsonResponse(response, 201, this.createAccount(body));
+        jsonResponse(response, 201, await this.createAccount(body));
         return;
       }
 
       const accountTokenMatch = url.pathname?.match(/^\/admin\/accounts\/([^/]+)\/reset-token$/);
       if (method === "POST" && accountTokenMatch) {
-        jsonResponse(response, 200, this.resetToken(accountTokenMatch[1]!));
+        jsonResponse(response, 200, await this.resetToken(accountTokenMatch[1]!));
         return;
       }
 
       const friendsMatch = url.pathname?.match(/^\/admin\/accounts\/([^/]+)\/friends$/);
       if (method === "GET" && friendsMatch) {
-        jsonResponse(response, 200, this.listFriends(friendsMatch[1]!));
+        jsonResponse(response, 200, await this.listFriends(friendsMatch[1]!));
         return;
       }
 
       const groupsMatch = url.pathname?.match(/^\/admin\/accounts\/([^/]+)\/groups$/);
       if (method === "GET" && groupsMatch) {
-        jsonResponse(response, 200, this.listGroups(groupsMatch[1]!));
+        jsonResponse(response, 200, await this.listGroups(groupsMatch[1]!));
         return;
       }
 
       const conversationsMatch = url.pathname?.match(/^\/admin\/accounts\/([^/]+)\/conversations$/);
       if (method === "GET" && conversationsMatch) {
-        jsonResponse(response, 200, this.listConversations(conversationsMatch[1]!));
+        jsonResponse(response, 200, await this.listConversations(conversationsMatch[1]!));
         return;
       }
 
       if (method === "POST" && url.pathname === "/admin/friendships") {
         const body = CreateFriendshipBodySchema.parse(await readJson(request));
-        jsonResponse(response, 201, this.createFriendship(body.accountA, body.accountB));
+        jsonResponse(response, 201, await this.createFriendship(body.accountA, body.accountB));
         return;
       }
 
       if (method === "POST" && url.pathname === "/admin/groups") {
         const body = CreateGroupBodySchema.parse(await readJson(request));
-        jsonResponse(response, 201, this.createGroup(body.title));
+        jsonResponse(response, 201, await this.createGroup(body.title));
         return;
       }
 
       const groupMemberMatch = url.pathname?.match(/^\/admin\/groups\/([^/]+)\/members$/);
       if (method === "POST" && groupMemberMatch) {
         const body = AddGroupMemberBodySchema.parse(await readJson(request));
-        jsonResponse(response, 201, this.addGroupMember(groupMemberMatch[1]!, body.accountId));
+        jsonResponse(response, 201, await this.addGroupMember(groupMemberMatch[1]!, body.accountId));
         return;
       }
 
@@ -819,7 +829,7 @@ export class AgentChatServer {
             "Either conversationId or recipientId is required",
           );
         }
-        jsonResponse(response, 201, this.sendAdminMessage(body as SendMessageInput));
+        jsonResponse(response, 201, await this.sendAdminMessage(body as SendMessageInput));
         return;
       }
 
@@ -834,7 +844,7 @@ export class AgentChatServer {
         jsonResponse(
           response,
           200,
-          this.listConversationMessages(accountId, messageMatch[1]!, before, limit),
+          await this.listConversationMessages(accountId, messageMatch[1]!, before, limit),
         );
         return;
       }
@@ -861,13 +871,13 @@ export class AgentChatServer {
 
       switch (request.type) {
         case "connect": {
-          const account = this.store.authenticateAccount(
+          const account = await this.store.authenticateAccount(
             request.payload.accountId,
             request.payload.token,
           );
           connection.accountId = account.id;
           connection.sessionId = randomUUID();
-          this.registerConnection(connection);
+          await this.registerConnection(connection);
           this.sendResponse(connection, request.id, {
             account,
           });
@@ -876,12 +886,12 @@ export class AgentChatServer {
         case "subscribe_conversations": {
           const accountId = this.requireAuthenticated(connection);
           connection.subscribedConversationFeed = true;
-          this.sendResponse(connection, request.id, this.store.listConversations(accountId));
+          this.sendResponse(connection, request.id, await this.store.listConversations(accountId));
           return;
         }
         case "subscribe_messages": {
           const accountId = this.requireAuthenticated(connection);
-          this.store.listMessages(accountId, request.payload.conversationId, undefined, 1);
+          await this.store.listMessages(accountId, request.payload.conversationId, undefined, 1);
           connection.subscribedConversationIds.add(request.payload.conversationId);
           this.sendResponse(connection, request.id, {
             conversationId: request.payload.conversationId,
@@ -890,7 +900,7 @@ export class AgentChatServer {
         }
         case "list_conversations": {
           const accountId = this.requireAuthenticated(connection);
-          this.sendResponse(connection, request.id, this.store.listConversations(accountId));
+          this.sendResponse(connection, request.id, await this.store.listConversations(accountId));
           return;
         }
         case "list_messages": {
@@ -898,7 +908,7 @@ export class AgentChatServer {
           this.sendResponse(
             connection,
             request.id,
-            this.store.listMessages(
+            await this.store.listMessages(
               accountId,
               request.payload.conversationId,
               request.payload.before,
@@ -909,34 +919,34 @@ export class AgentChatServer {
         }
         case "send_message": {
           const accountId = this.requireAuthenticated(connection);
-          const result = this.store.sendMessage({
+          const result = await this.store.sendMessage({
             senderId: accountId,
             conversationId: request.payload.conversationId,
             body: request.payload.body,
           });
-          this.broadcastMessage(result.message);
+          await this.broadcastMessage(result.message);
           this.sendResponse(connection, request.id, result.message);
           return;
         }
         case "list_friends": {
           const accountId = this.requireAuthenticated(connection);
-          this.sendResponse(connection, request.id, this.store.listFriends(accountId));
+          this.sendResponse(connection, request.id, await this.store.listFriends(accountId));
           return;
         }
         case "list_groups": {
           const accountId = this.requireAuthenticated(connection);
-          this.sendResponse(connection, request.id, this.store.listGroups(accountId));
+          this.sendResponse(connection, request.id, await this.store.listGroups(accountId));
           return;
         }
         case "add_friend": {
           const accountId = this.requireAuthenticated(connection);
-          const result = this.addFriendAs(accountId, request.payload.peerAccountId);
+          const result = await this.addFriendAs(accountId, request.payload.peerAccountId);
           this.sendResponse(connection, request.id, result);
           return;
         }
         case "list_friend_requests": {
           const accountId = this.requireAuthenticated(connection);
-          const result = this.listFriendRequests(
+          const result = await this.listFriendRequests(
             accountId,
             request.payload.direction ?? "all",
           );
@@ -945,7 +955,7 @@ export class AgentChatServer {
         }
         case "respond_friend_request": {
           const accountId = this.requireAuthenticated(connection);
-          const result = this.respondFriendRequestAs(
+          const result = await this.respondFriendRequestAs(
             accountId,
             request.payload.requestId,
             request.payload.action,
@@ -955,13 +965,13 @@ export class AgentChatServer {
         }
         case "create_group": {
           const accountId = this.requireAuthenticated(connection);
-          const result = this.createGroupAs(accountId, request.payload.title);
+          const result = await this.createGroupAs(accountId, request.payload.title);
           this.sendResponse(connection, request.id, result);
           return;
         }
         case "add_group_member": {
           const accountId = this.requireAuthenticated(connection);
-          const result = this.addGroupMemberAs(
+          const result = await this.addGroupMemberAs(
             accountId,
             request.payload.conversationId,
             request.payload.accountId,
@@ -971,7 +981,7 @@ export class AgentChatServer {
         }
         case "list_conversation_members": {
           const accountId = this.requireAuthenticated(connection);
-          const result = this.listConversationMembers(
+          const result = await this.listConversationMembers(
             accountId,
             request.payload.conversationId,
           );
@@ -980,7 +990,7 @@ export class AgentChatServer {
         }
         case "list_audit_logs": {
           const accountId = this.requireAuthenticated(connection);
-          const result = this.listAuditLogsForAccount(accountId, {
+          const result = await this.listAuditLogsForAccount(accountId, {
             ...(request.payload.conversationId
               ? { conversationId: request.payload.conversationId }
               : {}),
@@ -1000,24 +1010,24 @@ export class AgentChatServer {
     }
   }
 
-  private handleSocketClose(connection: ConnectionState): void {
+  private async handleSocketClose(connection: ConnectionState): Promise<void> {
     this.connections.delete(connection.socket);
     if (!connection.accountId || !connection.sessionId) {
       return;
     }
 
-    this.store.markSessionStatus(connection.sessionId, connection.accountId, "offline");
+    await this.store.markSessionStatus(connection.sessionId, connection.accountId, "offline");
     const peers = this.accountConnections.get(connection.accountId);
     if (peers) {
       peers.delete(connection);
       if (peers.size === 0) {
         this.accountConnections.delete(connection.accountId);
-        this.broadcastPresence(connection.accountId, "offline");
+        await this.broadcastPresence(connection.accountId, "offline");
       }
     }
   }
 
-  private registerConnection(connection: ConnectionState): void {
+  private async registerConnection(connection: ConnectionState): Promise<void> {
     const accountId = connection.accountId;
     const sessionId = connection.sessionId;
     if (!accountId || !sessionId) {
@@ -1031,14 +1041,14 @@ export class AgentChatServer {
       this.accountConnections.set(accountId, peers);
     }
     peers.add(connection);
-    this.store.markSessionStatus(sessionId, accountId, "online");
+    await this.store.markSessionStatus(sessionId, accountId, "online");
     if (wasOffline) {
-      this.broadcastPresence(accountId, "online");
+      await this.broadcastPresence(accountId, "online");
     }
   }
 
-  private broadcastPresence(accountId: string, status: "online" | "offline"): void {
-    const watcherIds = this.store.getConversationWatcherIds(accountId);
+  private async broadcastPresence(accountId: string, status: "online" | "offline"): Promise<void> {
+    const watcherIds = await this.store.getConversationWatcherIds(accountId);
     const event = makeEvent("presence.updated", { accountId, status });
     for (const watcherId of watcherIds) {
       this.dispatchEventToAccount(
@@ -1049,8 +1059,8 @@ export class AgentChatServer {
     }
   }
 
-  private broadcastConversationCreated(accountId: string, conversationId: string): void {
-    const summary = this.store.getConversationSummaryForAccount(accountId, conversationId);
+  private async broadcastConversationCreated(accountId: string, conversationId: string): Promise<void> {
+    const summary = await this.store.getConversationSummaryForAccount(accountId, conversationId);
     this.dispatchEventToAccount(
       accountId,
       makeEvent("conversation.created", summary),
@@ -1058,8 +1068,8 @@ export class AgentChatServer {
     );
   }
 
-  private broadcastMessage(message: Message): void {
-    const memberIds = this.store.getConversationMemberIds(message.conversationId);
+  private async broadcastMessage(message: Message): Promise<void> {
+    const memberIds = await this.store.getConversationMemberIds(message.conversationId);
     const event = makeEvent("message.created", message);
     for (const memberId of memberIds) {
       this.dispatchEventToAccount(

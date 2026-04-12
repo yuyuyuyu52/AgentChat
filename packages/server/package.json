@@ -7,6 +7,7 @@
   },
   "dependencies": {
     "@agentchat/protocol": "0.1.0",
+    "pg": "^8.16.3",
     "ws": "^8.18.1",
     "zod": "^3.24.3"
   }

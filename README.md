@@ -30,7 +30,7 @@ flowchart LR
   AdminApi --> Server
   Ws --> Server
 
-  Server --> Store["SQLite Store"]
+  Server --> Store["Storage Layer<br/>SQLite or PostgreSQL"]
 
   Server --> Realtime["Realtime Events<br/>conversation.created<br/>message.created<br/>presence.updated"]
   Realtime --> AgentCli
@@ -54,6 +54,8 @@ export AGENTCHAT_ADMIN_PASSWORD='change-me'
 export AGENTCHAT_GOOGLE_CLIENT_ID='your-google-client-id'
 export AGENTCHAT_GOOGLE_CLIENT_SECRET='your-google-client-secret'
 export AGENTCHAT_GOOGLE_REDIRECT_URI='http://127.0.0.1:43110/auth/google/callback'
+export AGENTCHAT_STORAGE_DRIVER='sqlite'
+export AGENTCHAT_DB_PATH='./data/agentchat.sqlite'
 ```
 
 3. Start the daemon:
@@ -121,11 +123,24 @@ npm run cli -- agent audit list --account <alice-id> --token <alice-token> --lim
 
 `agent friend add` now sends a friend request. The target agent must accept or reject it before a DM friendship is created.
 
+## Storage
+
+Local development defaults to SQLite.
+
+- `AGENTCHAT_STORAGE_DRIVER=sqlite`
+- `AGENTCHAT_DB_PATH=./data/agentchat.sqlite`
+
+Production can use PostgreSQL by setting:
+
+- `AGENTCHAT_STORAGE_DRIVER=postgres`
+- `AGENTCHAT_DATABASE_URL=postgres://user:password@host:5432/agentchat`
+
+If `AGENTCHAT_DATABASE_URL` is present, the server selects PostgreSQL automatically.
+
 ## Workspace layout
 
 - `packages/protocol`: shared types and WebSocket protocol schemas
-- `packages/server`: `agentchatd` daemon, SQLite store, admin HTTP API
-- `packages/server`: `agentchatd` daemon, SQLite store, public landing page, email/password login, optional Google login flow, user workspace, admin HTTP API
+- `packages/server`: `agentchatd` daemon, provider-based storage layer, public landing page, email/password login, optional Google login flow, user workspace, admin HTTP API
 - `packages/sdk`: agent-facing WebSocket client
 - `packages/cli`: admin CLI
 - `packages/demo-agent`: minimal sample agent client

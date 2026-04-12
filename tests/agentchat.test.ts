@@ -62,20 +62,21 @@ describe("AgentChat MVP", () => {
     resources.push(resource);
     const { server } = resource;
 
-    const alice = server.createAccount({ name: "alice" });
-    const bob = server.createAccount({ name: "bob" });
-    const charlie = server.createAccount({ name: "charlie" });
+    const alice = await server.createAccount({ name: "alice" });
+    const bob = await server.createAccount({ name: "bob" });
+    const charlie = await server.createAccount({ name: "charlie" });
 
-    const first = server.createFriendship(alice.id, bob.id);
-    const second = server.createFriendship(bob.id, alice.id);
+    const first = await server.createFriendship(alice.id, bob.id);
+    const second = await server.createFriendship(bob.id, alice.id);
 
     expect(second.conversationId).toBe(first.conversationId);
-    expect(() =>
+    await expect(
       server.sendAdminMessage({
         senderId: alice.id,
         recipientId: charlie.id,
         body: "hello",
-      })).toThrowError(/not friends/i);
+      }),
+    ).rejects.toThrow(/not friends/i);
   });
 
   it("requires admin authorization for browser and API management flows", async () => {
@@ -156,7 +157,7 @@ describe("AgentChat MVP", () => {
       authProvider: "google",
     });
 
-    const owned = server.createAccount({
+    const owned = await server.createAccount({
       name: "owner-bot",
       owner: {
         subject: "google-sub-1",
@@ -164,7 +165,7 @@ describe("AgentChat MVP", () => {
         name: "Owner",
       },
     });
-    server.createAccount({
+    await server.createAccount({
       name: "other-bot",
       owner: {
         subject: "google-sub-2",
@@ -200,7 +201,7 @@ describe("AgentChat MVP", () => {
     resources.push(resource);
     const { server } = resource;
 
-    const ownerAgent = server.createAccount({
+    const ownerAgent = await server.createAccount({
       name: "owner-agent",
       owner: {
         subject: "owner-sub",
@@ -208,19 +209,19 @@ describe("AgentChat MVP", () => {
         name: "Owner",
       },
     });
-    const peer = server.createAccount({ name: "peer" });
-    const outsiderA = server.createAccount({ name: "outsider-a" });
-    const outsiderB = server.createAccount({ name: "outsider-b" });
+    const peer = await server.createAccount({ name: "peer" });
+    const outsiderA = await server.createAccount({ name: "outsider-a" });
+    const outsiderB = await server.createAccount({ name: "outsider-b" });
 
-    const dm = server.createFriendship(ownerAgent.id, peer.id);
-    server.sendAdminMessage({
+    const dm = await server.createFriendship(ownerAgent.id, peer.id);
+    await server.sendAdminMessage({
       senderId: peer.id,
       conversationId: dm.conversationId,
       body: "dm hello",
     });
 
-    const outsiderDm = server.createFriendship(outsiderA.id, outsiderB.id);
-    server.sendAdminMessage({
+    const outsiderDm = await server.createFriendship(outsiderA.id, outsiderB.id);
+    await server.sendAdminMessage({
       senderId: outsiderA.id,
       conversationId: outsiderDm.conversationId,
       body: "private outsider message",
@@ -351,10 +352,10 @@ describe("AgentChat MVP", () => {
     resources.push(resource);
     const { server } = resource;
 
-    const alpha = server.createAccount({ name: "alpha" });
-    const beta = server.createAccount({ name: "beta" });
-    const gamma = server.createAccount({ name: "gamma" });
-    const intruder = server.createAccount({ name: "intruder" });
+    const alpha = await server.createAccount({ name: "alpha" });
+    const beta = await server.createAccount({ name: "beta" });
+    const gamma = await server.createAccount({ name: "gamma" });
+    const intruder = await server.createAccount({ name: "intruder" });
 
     const alphaClient = new AgentChatClient({ url: server.wsUrl });
     const betaClient = new AgentChatClient({ url: server.wsUrl });
@@ -416,9 +417,9 @@ describe("AgentChat MVP", () => {
     resources.push(resource);
     const { server } = resource;
 
-    const alice = server.createAccount({ name: "alice" });
-    const bob = server.createAccount({ name: "bob" });
-    const friendship = server.createFriendship(alice.id, bob.id);
+    const alice = await server.createAccount({ name: "alice" });
+    const bob = await server.createAccount({ name: "bob" });
+    const friendship = await server.createFriendship(alice.id, bob.id);
 
     const aliceClient = new AgentChatClient({ url: server.wsUrl });
     const bobClient = new AgentChatClient({ url: server.wsUrl });
@@ -466,16 +467,16 @@ describe("AgentChat MVP", () => {
     resources.push(resource);
     const { server } = resource;
 
-    const alice = server.createAccount({ name: "alice" });
-    const bob = server.createAccount({ name: "bob" });
-    const charlie = server.createAccount({ name: "charlie" });
+    const alice = await server.createAccount({ name: "alice" });
+    const bob = await server.createAccount({ name: "bob" });
+    const charlie = await server.createAccount({ name: "charlie" });
 
-    const group = server.createGroup("core");
-    server.addGroupMember(group.id, alice.id);
-    server.addGroupMember(group.id, bob.id);
+    const group = await server.createGroup("core");
+    await server.addGroupMember(group.id, alice.id);
+    await server.addGroupMember(group.id, bob.id);
 
     for (let index = 1; index <= 60; index += 1) {
-      server.sendAdminMessage({
+      await server.sendAdminMessage({
         senderId: alice.id,
         conversationId: group.id,
         body: `m${index}`,
@@ -487,7 +488,7 @@ describe("AgentChat MVP", () => {
 
     await expect(charlieClient.listMessages(group.id)).rejects.toThrow(/forbidden/i);
 
-    server.addGroupMember(group.id, charlie.id);
+    await server.addGroupMember(group.id, charlie.id);
     const groupList = await charlieClient.listGroups();
     expect(groupList.map((conversation) => conversation.id)).toContain(group.id);
 
@@ -498,7 +499,7 @@ describe("AgentChat MVP", () => {
 
     await charlieClient.subscribeMessages(group.id);
     const eventPromise = expectEvent<{ body: string }>(charlieClient, "message.created");
-    server.sendAdminMessage({
+    await server.sendAdminMessage({
       senderId: bob.id,
       conversationId: group.id,
       body: "m61",

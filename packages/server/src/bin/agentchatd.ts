@@ -2,7 +2,14 @@ import { AgentChatServer } from "../index.js";
 
 const port = process.env.AGENTCHAT_PORT ? Number(process.env.AGENTCHAT_PORT) : undefined;
 const host = process.env.AGENTCHAT_HOST;
+const storageDriver =
+  process.env.AGENTCHAT_STORAGE_DRIVER === "postgres"
+    ? "postgres"
+    : process.env.AGENTCHAT_STORAGE_DRIVER === "sqlite"
+      ? "sqlite"
+      : undefined;
 const databasePath = process.env.AGENTCHAT_DB_PATH;
+const databaseUrl = process.env.AGENTCHAT_DATABASE_URL;
 const adminPassword = process.env.AGENTCHAT_ADMIN_PASSWORD;
 const googleClientId = process.env.AGENTCHAT_GOOGLE_CLIENT_ID;
 const googleClientSecret = process.env.AGENTCHAT_GOOGLE_CLIENT_SECRET;
@@ -11,7 +18,9 @@ const googleRedirectUri = process.env.AGENTCHAT_GOOGLE_REDIRECT_URI;
 const server = new AgentChatServer({
   host,
   port,
+  storageDriver,
   databasePath,
+  databaseUrl,
   adminPassword,
   googleAuth:
     googleClientId && googleClientSecret && googleRedirectUri
@@ -27,7 +36,7 @@ await server.start();
 
 console.log(`agentchatd listening on ${server.httpUrl}`);
 console.log(`WebSocket endpoint: ${server.wsUrl}`);
-console.log(`Database: ${server.store.databasePath}`);
+console.log(`Storage: ${server.store.driver} (${server.store.databasePath})`);
 console.log(`Admin auth: ${adminPassword ? "enabled" : "disabled"}`);
 console.log(
   `Google auth: ${googleClientId && googleClientSecret && googleRedirectUri ? "enabled" : "disabled"}`,

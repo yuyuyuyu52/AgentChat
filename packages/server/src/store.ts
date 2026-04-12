@@ -1,7 +1,4 @@
 import { randomBytes, randomUUID, scryptSync, timingSafeEqual } from "node:crypto";
-import { mkdirSync } from "node:fs";
-import { dirname } from "node:path";
-import { DatabaseSync } from "node:sqlite";
 import {
   type Account,
   type AccountType,
@@ -16,6 +13,14 @@ import {
   type Message,
 } from "@agentchat/protocol";
 import { AppError } from "./errors.js";
+import {
+  createDatabaseAdapter,
+  resolveStorageDriver,
+  type DatabaseAdapter,
+  type Queryable,
+  type SqlValue,
+  type StorageDriver,
+} from "./db.js";
 
 type AccountRow = {
   id: string;
@@ -124,7 +129,7 @@ function messageFromRow(row: MessageRow): Message {
     body: row.body,
     kind: row.kind,
     createdAt: row.created_at,
-    seq: row.seq,
+    seq: Number(row.seq),
   };
 }
 
@@ -186,6 +191,140 @@ function humanUserFromRow(row: HumanUserRow) {
   };
 }
 
+function uniqueViolation(error: unknown, driver: StorageDriver): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+  if (driver === "postgres") {
+    return "code" in error && (error as { code?: string }).code === "23505";
+  }
+  return /unique/i.test(error.message);
+}
+
+const BASE_SCHEMA = [
+  `
+    CREATE TABLE IF NOT EXISTS accounts (
+      id TEXT PRIMARY KEY,
+      type TEXT NOT NULL,
+      name TEXT NOT NULL UNIQUE,
+      profile_json TEXT NOT NULL,
+      auth_token TEXT NOT NULL,
+      owner_subject TEXT,
+      owner_email TEXT,
+      owner_name TEXT,
+      created_at TEXT NOT NULL
+    )
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS conversations (
+      id TEXT PRIMARY KEY,
+      kind TEXT NOT NULL,
+      title TEXT,
+      created_at TEXT NOT NULL
+    )
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS friendships (
+      id TEXT PRIMARY KEY,
+      account_a TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      account_b TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      status TEXT NOT NULL,
+      dm_conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+      created_at TEXT NOT NULL,
+      UNIQUE(account_a, account_b)
+    )
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS friend_requests (
+      id TEXT PRIMARY KEY,
+      requester_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      target_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      status TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      responded_at TEXT
+    )
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS conversation_members (
+      conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+      account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      role TEXT NOT NULL,
+      joined_at TEXT NOT NULL,
+      history_start_seq INTEGER NOT NULL DEFAULT 1,
+      PRIMARY KEY (conversation_id, account_id)
+    )
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS messages (
+      id TEXT PRIMARY KEY,
+      conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+      sender_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      body TEXT NOT NULL,
+      kind TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      seq INTEGER NOT NULL,
+      UNIQUE(conversation_id, seq)
+    )
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS sessions (
+      id TEXT PRIMARY KEY,
+      account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      status TEXT NOT NULL,
+      last_seen_at TEXT NOT NULL
+    )
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS audit_logs (
+      id TEXT PRIMARY KEY,
+      actor_account_id TEXT REFERENCES accounts(id) ON DELETE SET NULL,
+      event_type TEXT NOT NULL,
+      subject_type TEXT NOT NULL,
+      subject_id TEXT NOT NULL,
+      conversation_id TEXT REFERENCES conversations(id) ON DELETE SET NULL,
+      metadata_json TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    )
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS human_users (
+      id TEXT PRIMARY KEY,
+      email TEXT NOT NULL UNIQUE,
+      name TEXT NOT NULL,
+      password_hash TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    )
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS idx_conversation_members_account
+      ON conversation_members(account_id)
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS idx_messages_conversation_seq
+      ON messages(conversation_id, seq)
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS idx_accounts_owner_subject
+      ON accounts(owner_subject)
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS idx_friend_requests_requester_target
+      ON friend_requests(requester_id, target_id, status)
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS idx_audit_logs_conversation_created
+      ON audit_logs(conversation_id, created_at)
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS idx_audit_logs_actor_created
+      ON audit_logs(actor_account_id, created_at)
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS idx_human_users_email
+      ON human_users(email)
+  `,
+];
+
 export type CreateAccountInput = {
   name: string;
   type?: AccountType | undefined;
@@ -226,26 +365,45 @@ export type OwnedConversationMessage = Message & {
 
 export type HumanUser = ReturnType<typeof humanUserFromRow>;
 
+export type AgentChatStoreOptions = {
+  databasePath: string;
+  databaseUrl?: string;
+  driver?: StorageDriver;
+};
+
 export class AgentChatStore {
-  readonly db: DatabaseSync;
   readonly databasePath: string;
+  readonly driver: StorageDriver;
 
-  constructor(databasePath: string) {
-    this.databasePath = databasePath;
-    if (databasePath !== ":memory:") {
-      mkdirSync(dirname(databasePath), { recursive: true });
+  private readonly db: DatabaseAdapter;
+  private initialized = false;
+
+  constructor(options: AgentChatStoreOptions) {
+    this.driver = resolveStorageDriver({
+      ...(options.driver ? { driver: options.driver } : {}),
+      ...(options.databaseUrl ? { databaseUrl: options.databaseUrl } : {}),
+    });
+    this.db = createDatabaseAdapter(options);
+    this.databasePath = this.db.descriptor;
+  }
+
+  async initialize(): Promise<void> {
+    if (this.initialized) {
+      return;
     }
-    this.db = new DatabaseSync(databasePath);
-    this.db.exec("PRAGMA foreign_keys = ON;");
-    this.initSchema();
-    this.seedDefaultHumanUser();
+    for (const statement of BASE_SCHEMA) {
+      await this.db.exec(statement);
+    }
+    await this.ensureAccountOwnerColumns();
+    await this.seedDefaultHumanUser();
+    this.initialized = true;
   }
 
-  close(): void {
-    this.db.close();
+  async close(): Promise<void> {
+    await this.db.close();
   }
 
-  createAccount(input: CreateAccountInput): AuthAccount {
+  async createAccount(input: CreateAccountInput): Promise<AuthAccount> {
     const createdAt = nowIso();
     const token = randomUUID();
     const row: AccountRow = {
@@ -261,16 +419,14 @@ export class AgentChatStore {
     };
 
     try {
-      this.db
-        .prepare(
-          `
-            INSERT INTO accounts (
-              id, type, name, profile_json, auth_token, owner_subject, owner_email, owner_name, created_at
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-          `,
-        )
-        .run(
+      await this.db.run(
+        `
+          INSERT INTO accounts (
+            id, type, name, profile_json, auth_token, owner_subject, owner_email, owner_name, created_at
+          )
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `,
+        [
           row.id,
           row.type,
           row.name,
@@ -280,9 +436,13 @@ export class AgentChatStore {
           row.owner_email,
           row.owner_name,
           row.created_at,
-        );
+        ],
+      );
     } catch (error) {
-      throw new AppError("CONFLICT", `Account name "${row.name}" already exists`, 409);
+      if (uniqueViolation(error, this.driver)) {
+        throw new AppError("CONFLICT", `Account name "${row.name}" already exists`, 409);
+      }
+      throw error;
     }
 
     return {
@@ -291,38 +451,37 @@ export class AgentChatStore {
     };
   }
 
-  listAccounts(ownerSubject?: string): Account[] {
-    const statement = ownerSubject
-      ? this.db.prepare(
-          `
-            SELECT id, type, name, profile_json, auth_token, owner_subject, owner_email, owner_name, created_at
-            FROM accounts
-            WHERE owner_subject = ?
-            ORDER BY created_at ASC
-          `,
-        )
-      : this.db.prepare(
-          `
-            SELECT id, type, name, profile_json, auth_token, owner_subject, owner_email, owner_name, created_at
-            FROM accounts
-            ORDER BY created_at ASC
-          `,
-        );
-    const rows = (ownerSubject ? statement.all(ownerSubject) : statement.all()) as AccountRow[];
+  async listAccounts(ownerSubject?: string): Promise<Account[]> {
+    const rows = ownerSubject
+      ? await this.db.all<AccountRow>(
+        `
+          SELECT id, type, name, profile_json, auth_token, owner_subject, owner_email, owner_name, created_at
+          FROM accounts
+          WHERE owner_subject = ?
+          ORDER BY created_at ASC
+        `,
+        [ownerSubject],
+      )
+      : await this.db.all<AccountRow>(
+        `
+          SELECT id, type, name, profile_json, auth_token, owner_subject, owner_email, owner_name, created_at
+          FROM accounts
+          ORDER BY created_at ASC
+        `,
+      );
 
     return rows.map(accountFromRow);
   }
 
-  authenticateAccount(accountId: string, token: string): Account {
-    const row = this.db
-      .prepare(
-        `
-          SELECT id, type, name, profile_json, auth_token, owner_subject, owner_email, owner_name, created_at
-          FROM accounts
-          WHERE id = ? AND auth_token = ?
-        `,
-      )
-      .get(accountId, token) as AccountRow | undefined;
+  async authenticateAccount(accountId: string, token: string): Promise<Account> {
+    const row = await this.db.get<AccountRow>(
+      `
+        SELECT id, type, name, profile_json, auth_token, owner_subject, owner_email, owner_name, created_at
+        FROM accounts
+        WHERE id = ? AND auth_token = ?
+      `,
+      [accountId, token],
+    );
 
     if (!row) {
       throw new AppError("UNAUTHORIZED", "Invalid account credentials", 401);
@@ -331,13 +490,14 @@ export class AgentChatStore {
     return accountFromRow(row);
   }
 
-  resetToken(accountId: string, ownerSubject?: string): { accountId: string; token: string } {
-    this.requireAccount(accountId, ownerSubject);
+  async resetToken(
+    accountId: string,
+    ownerSubject?: string,
+  ): Promise<{ accountId: string; token: string }> {
+    await this.requireAccount(this.db, accountId, ownerSubject);
     const token = randomUUID();
-    this.db
-      .prepare("UPDATE accounts SET auth_token = ? WHERE id = ?")
-      .run(token, accountId);
-    this.insertAuditLog({
+    await this.db.run("UPDATE accounts SET auth_token = ? WHERE id = ?", [token, accountId]);
+    await this.insertAuditLog(this.db, {
       actorAccountId: accountId,
       eventType: "account.token_reset",
       subjectType: "account",
@@ -347,11 +507,11 @@ export class AgentChatStore {
     return { accountId, token };
   }
 
-  createHumanUser(input: {
+  async createHumanUser(input: {
     email: string;
     name: string;
     password: string;
-  }): HumanUser {
+  }): Promise<HumanUser> {
     const createdAt = nowIso();
     const row: HumanUserRow = {
       id: createId("user"),
@@ -362,34 +522,35 @@ export class AgentChatStore {
     };
 
     try {
-      this.db
-        .prepare(
-          `
-            INSERT INTO human_users (
-              id, email, name, password_hash, created_at
-            )
-            VALUES (?, ?, ?, ?, ?)
-          `,
-        )
-        .run(row.id, row.email, row.name, row.password_hash, row.created_at);
+      await this.db.run(
+        `
+          INSERT INTO human_users (
+            id, email, name, password_hash, created_at
+          )
+          VALUES (?, ?, ?, ?, ?)
+        `,
+        [row.id, row.email, row.name, row.password_hash, row.created_at],
+      );
     } catch (error) {
-      throw new AppError("CONFLICT", `User email "${row.email}" already exists`, 409);
+      if (uniqueViolation(error, this.driver)) {
+        throw new AppError("CONFLICT", `User email "${row.email}" already exists`, 409);
+      }
+      throw error;
     }
 
     return humanUserFromRow(row);
   }
 
-  authenticateHumanUser(email: string, password: string): HumanUser {
+  async authenticateHumanUser(email: string, password: string): Promise<HumanUser> {
     const normalizedEmail = normalizeEmail(email);
-    const row = this.db
-      .prepare(
-        `
-          SELECT id, email, name, password_hash, created_at
-          FROM human_users
-          WHERE email = ?
-        `,
-      )
-      .get(normalizedEmail) as HumanUserRow | undefined;
+    const row = await this.db.get<HumanUserRow>(
+      `
+        SELECT id, email, name, password_hash, created_at
+        FROM human_users
+        WHERE email = ?
+      `,
+      [normalizedEmail],
+    );
 
     if (!row || !verifyPassword(password, row.password_hash)) {
       throw new AppError("UNAUTHORIZED", "Invalid email or password", 401);
@@ -398,96 +559,87 @@ export class AgentChatStore {
     return humanUserFromRow(row);
   }
 
-  getHumanUserByEmail(email: string): HumanUser | undefined {
-    const row = this.db
-      .prepare(
-        `
-          SELECT id, email, name, password_hash, created_at
-          FROM human_users
-          WHERE email = ?
-        `,
-      )
-      .get(normalizeEmail(email)) as HumanUserRow | undefined;
+  async getHumanUserByEmail(email: string): Promise<HumanUser | undefined> {
+    const row = await this.db.get<HumanUserRow>(
+      `
+        SELECT id, email, name, password_hash, created_at
+        FROM human_users
+        WHERE email = ?
+      `,
+      [normalizeEmail(email)],
+    );
 
     return row ? humanUserFromRow(row) : undefined;
   }
 
-  createFriendship(accountA: string, accountB: string): {
+  async createFriendship(accountA: string, accountB: string): Promise<{
     friendshipId: string;
     conversationId: string;
     createdAt: string;
-  } {
+  }> {
     if (accountA === accountB) {
       throw new AppError("INVALID_ARGUMENT", "Cannot friend the same account");
     }
 
-    this.requireAccount(accountA);
-    this.requireAccount(accountB);
+    return this.db.transaction(async (tx) => {
+      await this.requireAccount(tx, accountA);
+      await this.requireAccount(tx, accountB);
 
-    const [left, right] = normalizeFriendshipPair(accountA, accountB);
-    const existing = this.db
-      .prepare(
+      const [left, right] = normalizeFriendshipPair(accountA, accountB);
+      const existing = await tx.get<FriendshipRow>(
         `
           SELECT id, account_a, account_b, status, dm_conversation_id, created_at
           FROM friendships
           WHERE account_a = ? AND account_b = ? AND status = 'active'
         `,
-      )
-      .get(left, right) as FriendshipRow | undefined;
+        [left, right],
+      );
 
-    if (existing) {
-      return {
-        friendshipId: existing.id,
-        conversationId: existing.dm_conversation_id,
-        createdAt: existing.created_at,
-      };
-    }
+      if (existing) {
+        return {
+          friendshipId: existing.id,
+          conversationId: existing.dm_conversation_id,
+          createdAt: existing.created_at,
+        };
+      }
 
-    const createdAt = nowIso();
-    const friendshipId = createId("fr");
-    const conversationId = createId("conv");
+      const createdAt = nowIso();
+      const friendshipId = createId("fr");
+      const conversationId = createId("conv");
 
-    this.transaction(() => {
-      this.db
-        .prepare(
-          `
-            INSERT INTO conversations (id, kind, title, created_at)
-            VALUES (?, 'dm', NULL, ?)
-          `,
-        )
-        .run(conversationId, createdAt);
+      await tx.run(
+        `
+          INSERT INTO conversations (id, kind, title, created_at)
+          VALUES (?, 'dm', NULL, ?)
+        `,
+        [conversationId, createdAt],
+      );
+      await tx.run(
+        `
+          INSERT INTO conversation_members
+            (conversation_id, account_id, role, joined_at, history_start_seq)
+          VALUES (?, ?, 'member', ?, 1)
+        `,
+        [conversationId, left, createdAt],
+      );
+      await tx.run(
+        `
+          INSERT INTO conversation_members
+            (conversation_id, account_id, role, joined_at, history_start_seq)
+          VALUES (?, ?, 'member', ?, 1)
+        `,
+        [conversationId, right, createdAt],
+      );
+      await tx.run(
+        `
+          INSERT INTO friendships
+            (id, account_a, account_b, status, dm_conversation_id, created_at)
+          VALUES (?, ?, ?, 'active', ?, ?)
+        `,
+        [friendshipId, left, right, conversationId, createdAt],
+      );
 
-      this.db
-        .prepare(
-          `
-            INSERT INTO conversation_members
-              (conversation_id, account_id, role, joined_at, history_start_seq)
-            VALUES (?, ?, 'member', ?, 1)
-          `,
-        )
-        .run(conversationId, left, createdAt);
-
-      this.db
-        .prepare(
-          `
-            INSERT INTO conversation_members
-              (conversation_id, account_id, role, joined_at, history_start_seq)
-            VALUES (?, ?, 'member', ?, 1)
-          `,
-        )
-        .run(conversationId, right, createdAt);
-
-      this.db
-        .prepare(
-          `
-            INSERT INTO friendships
-              (id, account_a, account_b, status, dm_conversation_id, created_at)
-            VALUES (?, ?, ?, 'active', ?, ?)
-          `,
-        )
-        .run(friendshipId, left, right, conversationId, createdAt);
-
-      this.insertAuditLog({
+      await this.insertAuditLog(tx, {
         actorAccountId: accountA,
         eventType: "friendship.created",
         subjectType: "friendship",
@@ -498,47 +650,48 @@ export class AgentChatStore {
           accountB: right,
         },
       });
-    });
 
-    return {
-      friendshipId,
-      conversationId,
-      createdAt,
-    };
+      return {
+        friendshipId,
+        conversationId,
+        createdAt,
+      };
+    });
   }
 
-  listFriends(accountId: string): FriendRecord[] {
-    this.requireAccount(accountId);
-    const rows = this.db
-      .prepare(
-        `
-          SELECT
-            a.id,
-            a.type,
-            a.name,
-            a.profile_json,
-            a.auth_token,
-            a.owner_subject,
-            a.owner_email,
-            a.owner_name,
-            a.created_at,
-            f.dm_conversation_id,
-            f.created_at AS friendship_created_at
-          FROM friendships f
-          JOIN accounts a
-            ON a.id = CASE
-              WHEN f.account_a = ? THEN f.account_b
-              ELSE f.account_a
-            END
-          WHERE (f.account_a = ? OR f.account_b = ?)
-            AND f.status = 'active'
-          ORDER BY a.name ASC
-        `,
-      )
-      .all(accountId, accountId, accountId) as (AccountRow & {
-      dm_conversation_id: string;
-      friendship_created_at: string;
-    })[];
+  async listFriends(accountId: string): Promise<FriendRecord[]> {
+    await this.requireAccount(this.db, accountId);
+    const rows = await this.db.all<
+      AccountRow & {
+        dm_conversation_id: string;
+        friendship_created_at: string;
+      }
+    >(
+      `
+        SELECT
+          a.id,
+          a.type,
+          a.name,
+          a.profile_json,
+          a.auth_token,
+          a.owner_subject,
+          a.owner_email,
+          a.owner_name,
+          a.created_at,
+          f.dm_conversation_id,
+          f.created_at AS friendship_created_at
+        FROM friendships f
+        JOIN accounts a
+          ON a.id = CASE
+            WHEN f.account_a = ? THEN f.account_b
+            ELSE f.account_a
+          END
+        WHERE (f.account_a = ? OR f.account_b = ?)
+          AND f.status = 'active'
+        ORDER BY a.name ASC
+      `,
+      [accountId, accountId, accountId],
+    );
 
     return rows.map((row) => ({
       account: accountFromRow(row),
@@ -547,18 +700,17 @@ export class AgentChatStore {
     }));
   }
 
-  createGroup(title: string): ConversationSummary {
+  async createGroup(title: string): Promise<ConversationSummary> {
     const conversationId = createId("conv");
     const createdAt = nowIso();
-    this.db
-      .prepare(
-        `
-          INSERT INTO conversations (id, kind, title, created_at)
-          VALUES (?, 'group', ?, ?)
-        `,
-      )
-      .run(conversationId, title, createdAt);
-    this.insertAuditLog({
+    await this.db.run(
+      `
+        INSERT INTO conversations (id, kind, title, created_at)
+        VALUES (?, 'group', ?, ?)
+      `,
+      [conversationId, title, createdAt],
+    );
+    await this.insertAuditLog(this.db, {
       actorAccountId: null,
       eventType: "group.created",
       subjectType: "conversation",
@@ -571,32 +723,28 @@ export class AgentChatStore {
     return this.getConversationSummaryForSystem(conversationId);
   }
 
-  createGroupAs(creatorId: string, title: string): ConversationSummary {
-    this.requireAccount(creatorId);
+  async createGroupAs(creatorId: string, title: string): Promise<ConversationSummary> {
+    await this.requireAccount(this.db, creatorId);
     const conversationId = createId("conv");
     const createdAt = nowIso();
 
-    this.transaction(() => {
-      this.db
-        .prepare(
-          `
-            INSERT INTO conversations (id, kind, title, created_at)
-            VALUES (?, 'group', ?, ?)
-          `,
-        )
-        .run(conversationId, title, createdAt);
-
-      this.db
-        .prepare(
-          `
-            INSERT INTO conversation_members
-              (conversation_id, account_id, role, joined_at, history_start_seq)
-            VALUES (?, ?, 'owner', ?, 1)
-          `,
-        )
-        .run(conversationId, creatorId, createdAt);
-
-      this.insertAuditLog({
+    await this.db.transaction(async (tx) => {
+      await tx.run(
+        `
+          INSERT INTO conversations (id, kind, title, created_at)
+          VALUES (?, 'group', ?, ?)
+        `,
+        [conversationId, title, createdAt],
+      );
+      await tx.run(
+        `
+          INSERT INTO conversation_members
+            (conversation_id, account_id, role, joined_at, history_start_seq)
+          VALUES (?, ?, 'owner', ?, 1)
+        `,
+        [conversationId, creatorId, createdAt],
+      );
+      await this.insertAuditLog(tx, {
         actorAccountId: creatorId,
         eventType: "group.created",
         subjectType: "conversation",
@@ -611,41 +759,39 @@ export class AgentChatStore {
     return this.getConversationSummaryForAccount(creatorId, conversationId);
   }
 
-  addFriendAs(actorId: string, peerAccountId: string): {
+  async addFriendAs(actorId: string, peerAccountId: string): Promise<{
     requestId: string;
     createdAt: string;
-  } {
-    this.requireAccount(actorId);
-    this.requireAccount(peerAccountId);
+  }> {
+    await this.requireAccount(this.db, actorId);
+    await this.requireAccount(this.db, peerAccountId);
     if (actorId === peerAccountId) {
       throw new AppError("INVALID_ARGUMENT", "Cannot send a friend request to self");
     }
 
     const [left, right] = normalizeFriendshipPair(actorId, peerAccountId);
-    const active = this.db
-      .prepare(
-        `
-          SELECT id
-          FROM friendships
-          WHERE account_a = ? AND account_b = ? AND status = 'active'
-        `,
-      )
-      .get(left, right) as { id: string } | undefined;
+    const active = await this.db.get<{ id: string }>(
+      `
+        SELECT id
+        FROM friendships
+        WHERE account_a = ? AND account_b = ? AND status = 'active'
+      `,
+      [left, right],
+    );
     if (active) {
       throw new AppError("CONFLICT", "Accounts are already friends", 409);
     }
 
-    const pendingSameDirection = this.db
-      .prepare(
-        `
-          SELECT id, requester_id, target_id, status, created_at, responded_at
-          FROM friend_requests
-          WHERE requester_id = ? AND target_id = ? AND status = 'pending'
-          ORDER BY created_at DESC
-          LIMIT 1
-        `,
-      )
-      .get(actorId, peerAccountId) as FriendRequestRow | undefined;
+    const pendingSameDirection = await this.db.get<FriendRequestRow>(
+      `
+        SELECT id, requester_id, target_id, status, created_at, responded_at
+        FROM friend_requests
+        WHERE requester_id = ? AND target_id = ? AND status = 'pending'
+        ORDER BY created_at DESC
+        LIMIT 1
+      `,
+      [actorId, peerAccountId],
+    );
     if (pendingSameDirection) {
       return {
         requestId: pendingSameDirection.id,
@@ -653,17 +799,16 @@ export class AgentChatStore {
       };
     }
 
-    const reversePending = this.db
-      .prepare(
-        `
-          SELECT id
-          FROM friend_requests
-          WHERE requester_id = ? AND target_id = ? AND status = 'pending'
-          ORDER BY created_at DESC
-          LIMIT 1
-        `,
-      )
-      .get(peerAccountId, actorId) as { id: string } | undefined;
+    const reversePending = await this.db.get<{ id: string }>(
+      `
+        SELECT id
+        FROM friend_requests
+        WHERE requester_id = ? AND target_id = ? AND status = 'pending'
+        ORDER BY created_at DESC
+        LIMIT 1
+      `,
+      [peerAccountId, actorId],
+    );
     if (reversePending) {
       throw new AppError(
         "CONFLICT",
@@ -674,17 +819,16 @@ export class AgentChatStore {
 
     const requestId = createId("freq");
     const createdAt = nowIso();
-    this.db
-      .prepare(
-        `
-          INSERT INTO friend_requests
-            (id, requester_id, target_id, status, created_at, responded_at)
-          VALUES (?, ?, ?, 'pending', ?, NULL)
-        `,
-      )
-      .run(requestId, actorId, peerAccountId, createdAt);
+    await this.db.run(
+      `
+        INSERT INTO friend_requests
+          (id, requester_id, target_id, status, created_at, responded_at)
+        VALUES (?, ?, ?, 'pending', ?, NULL)
+      `,
+      [requestId, actorId, peerAccountId, createdAt],
+    );
 
-    this.insertAuditLog({
+    await this.insertAuditLog(this.db, {
       actorAccountId: actorId,
       eventType: "friend_request.created",
       subjectType: "friend_request",
@@ -701,11 +845,11 @@ export class AgentChatStore {
     };
   }
 
-  listFriendRequests(
+  async listFriendRequests(
     accountId: string,
     direction: "incoming" | "outgoing" | "all" = "all",
-  ): FriendRequest[] {
-    this.requireAccount(accountId);
+  ): Promise<FriendRequest[]> {
+    await this.requireAccount(this.db, accountId);
     const where =
       direction === "incoming"
         ? "fr.target_id = ?"
@@ -713,42 +857,8 @@ export class AgentChatStore {
           ? "fr.requester_id = ?"
           : "(fr.requester_id = ? OR fr.target_id = ?)";
 
-    const rows = this.db
-      .prepare(
-        `
-          SELECT
-            fr.id,
-            fr.requester_id,
-            fr.target_id,
-            fr.status,
-            fr.created_at,
-            fr.responded_at,
-            req.id AS req_id,
-            req.type AS req_type,
-            req.name AS req_name,
-            req.profile_json AS req_profile_json,
-            req.auth_token AS req_auth_token,
-            req.owner_subject AS req_owner_subject,
-            req.owner_email AS req_owner_email,
-            req.owner_name AS req_owner_name,
-            req.created_at AS req_created_at,
-            tgt.id AS tgt_id,
-            tgt.type AS tgt_type,
-            tgt.name AS tgt_name,
-            tgt.profile_json AS tgt_profile_json,
-            tgt.auth_token AS tgt_auth_token,
-            tgt.owner_subject AS tgt_owner_subject,
-            tgt.owner_email AS tgt_owner_email,
-            tgt.owner_name AS tgt_owner_name,
-            tgt.created_at AS tgt_created_at
-          FROM friend_requests fr
-          JOIN accounts req ON req.id = fr.requester_id
-          JOIN accounts tgt ON tgt.id = fr.target_id
-          WHERE ${where}
-          ORDER BY fr.created_at DESC
-        `,
-      )
-      .all(...(direction === "all" ? [accountId, accountId] : [accountId])) as Array<
+    const params = direction === "all" ? [accountId, accountId] : [accountId];
+    const rows = await this.db.all<
       FriendRequestRow & {
         req_id: string;
         req_type: AccountType;
@@ -769,7 +879,41 @@ export class AgentChatStore {
         tgt_owner_name: string | null;
         tgt_created_at: string;
       }
-    >;
+    >(
+      `
+        SELECT
+          fr.id,
+          fr.requester_id,
+          fr.target_id,
+          fr.status,
+          fr.created_at,
+          fr.responded_at,
+          req.id AS req_id,
+          req.type AS req_type,
+          req.name AS req_name,
+          req.profile_json AS req_profile_json,
+          req.auth_token AS req_auth_token,
+          req.owner_subject AS req_owner_subject,
+          req.owner_email AS req_owner_email,
+          req.owner_name AS req_owner_name,
+          req.created_at AS req_created_at,
+          tgt.id AS tgt_id,
+          tgt.type AS tgt_type,
+          tgt.name AS tgt_name,
+          tgt.profile_json AS tgt_profile_json,
+          tgt.auth_token AS tgt_auth_token,
+          tgt.owner_subject AS tgt_owner_subject,
+          tgt.owner_email AS tgt_owner_email,
+          tgt.owner_name AS tgt_owner_name,
+          tgt.created_at AS tgt_created_at
+        FROM friend_requests fr
+        JOIN accounts req ON req.id = fr.requester_id
+        JOIN accounts tgt ON tgt.id = fr.target_id
+        WHERE ${where}
+        ORDER BY fr.created_at DESC
+      `,
+      params,
+    );
 
     return rows.map((row) => ({
       id: row.id,
@@ -801,27 +945,27 @@ export class AgentChatStore {
     }));
   }
 
-  respondFriendRequestAs(
+  async respondFriendRequestAs(
     actorId: string,
     requestId: string,
     action: "accept" | "reject",
-  ):
+  ): Promise<
     | FriendRequest
     | {
         friendshipId: string;
         conversationId: string;
         createdAt: string;
-      } {
-    this.requireAccount(actorId);
-    const request = this.db
-      .prepare(
-        `
-          SELECT id, requester_id, target_id, status, created_at, responded_at
-          FROM friend_requests
-          WHERE id = ?
-        `,
-      )
-      .get(requestId) as FriendRequestRow | undefined;
+      }
+  > {
+    await this.requireAccount(this.db, actorId);
+    const request = await this.db.get<FriendRequestRow>(
+      `
+        SELECT id, requester_id, target_id, status, created_at, responded_at
+        FROM friend_requests
+        WHERE id = ?
+      `,
+      [requestId],
+    );
 
     if (!request) {
       throw new AppError("NOT_FOUND", `Friend request "${requestId}" not found`, 404);
@@ -834,17 +978,16 @@ export class AgentChatStore {
     }
 
     const respondedAt = nowIso();
-    this.db
-      .prepare(
-        `
-          UPDATE friend_requests
-          SET status = ?, responded_at = ?
-          WHERE id = ?
-        `,
-      )
-      .run(action === "accept" ? "accepted" : "rejected", respondedAt, requestId);
+    await this.db.run(
+      `
+        UPDATE friend_requests
+        SET status = ?, responded_at = ?
+        WHERE id = ?
+      `,
+      [action === "accept" ? "accepted" : "rejected", respondedAt, requestId],
+    );
 
-    this.insertAuditLog({
+    await this.insertAuditLog(this.db, {
       actorAccountId: actorId,
       eventType: `friend_request.${action}ed`,
       subjectType: "friend_request",
@@ -862,42 +1005,41 @@ export class AgentChatStore {
     return this.createFriendship(request.requester_id, request.target_id);
   }
 
-  addGroupMember(conversationId: string, accountId: string): ConversationSummary {
-    const conversation = this.requireConversation(conversationId);
+  async addGroupMember(conversationId: string, accountId: string): Promise<ConversationSummary> {
+    const conversation = await this.requireConversation(this.db, conversationId);
     if (conversation.kind !== "group") {
       throw new AppError("INVALID_ARGUMENT", "Can only add members to group conversations");
     }
 
-    this.requireAccount(accountId);
-    const existing = this.getMembership(conversationId, accountId);
+    await this.requireAccount(this.db, accountId);
+    const existing = await this.getMembership(this.db, conversationId, accountId);
     if (!existing) {
-      const maxSeq = this.getConversationMaxSeq(conversationId);
+      const maxSeq = await this.getConversationMaxSeq(this.db, conversationId);
       const historyStartSeq = Math.max(
         1,
         maxSeq === 0 ? 1 : maxSeq - DEFAULT_GROUP_HISTORY_LIMIT + 1,
       );
-      this.db
-        .prepare(
-          `
-            INSERT INTO conversation_members
-              (conversation_id, account_id, role, joined_at, history_start_seq)
-            VALUES (?, ?, 'member', ?, ?)
-          `,
-        )
-        .run(conversationId, accountId, nowIso(), historyStartSeq);
+      await this.db.run(
+        `
+          INSERT INTO conversation_members
+            (conversation_id, account_id, role, joined_at, history_start_seq)
+          VALUES (?, ?, 'member', ?, ?)
+        `,
+        [conversationId, accountId, nowIso(), historyStartSeq],
+      );
     }
 
     return this.getConversationSummaryForAccount(accountId, conversationId);
   }
 
-  addGroupMemberAs(
+  async addGroupMemberAs(
     actorId: string,
     conversationId: string,
     accountId: string,
-  ): ConversationSummary {
-    this.requireMembership(conversationId, actorId);
-    const summary = this.addGroupMember(conversationId, accountId);
-    this.insertAuditLog({
+  ): Promise<ConversationSummary> {
+    await this.requireMembership(this.db, conversationId, actorId);
+    const summary = await this.addGroupMember(conversationId, accountId);
+    await this.insertAuditLog(this.db, {
       actorAccountId: actorId,
       eventType: "group.member_added",
       subjectType: "account",
@@ -910,122 +1052,116 @@ export class AgentChatStore {
     return summary;
   }
 
-  listGroups(accountId: string): ConversationSummary[] {
-    this.requireAccount(accountId);
-    const ids = this.db
-      .prepare(
-        `
-          SELECT c.id
-          FROM conversations c
-          JOIN conversation_members cm ON cm.conversation_id = c.id
-          WHERE c.kind = 'group' AND cm.account_id = ?
-          ORDER BY c.created_at ASC
-        `,
-      )
-      .all(accountId) as Array<{ id: string }>;
+  async listGroups(accountId: string): Promise<ConversationSummary[]> {
+    await this.requireAccount(this.db, accountId);
+    const ids = await this.db.all<Array<{ id: string }> extends never ? never : { id: string }>(
+      `
+        SELECT c.id
+        FROM conversations c
+        JOIN conversation_members cm ON cm.conversation_id = c.id
+        WHERE c.kind = 'group' AND cm.account_id = ?
+        ORDER BY c.created_at ASC
+      `,
+      [accountId],
+    );
 
-    return ids.map(({ id }) => this.getConversationSummaryForAccount(accountId, id));
+    return Promise.all(ids.map(async ({ id }) => this.getConversationSummaryForAccount(accountId, id)));
   }
 
-  listConversationMembers(accountId: string, conversationId: string): Account[] {
-    this.requireMembership(conversationId, accountId);
-    const rows = this.db
-      .prepare(
-        `
-          SELECT id, type, name, profile_json, auth_token, owner_subject, owner_email, owner_name, created_at
-          FROM accounts
-          WHERE id IN (
-            SELECT account_id
-            FROM conversation_members
-            WHERE conversation_id = ?
-          )
-          ORDER BY name ASC
-        `,
-      )
-      .all(conversationId) as AccountRow[];
+  async listConversationMembers(accountId: string, conversationId: string): Promise<Account[]> {
+    await this.requireMembership(this.db, conversationId, accountId);
+    const rows = await this.db.all<AccountRow>(
+      `
+        SELECT id, type, name, profile_json, auth_token, owner_subject, owner_email, owner_name, created_at
+        FROM accounts
+        WHERE id IN (
+          SELECT account_id
+          FROM conversation_members
+          WHERE conversation_id = ?
+        )
+        ORDER BY name ASC
+      `,
+      [conversationId],
+    );
     return rows.map(accountFromRow);
   }
 
-  listConversations(accountId: string): ConversationSummary[] {
-    this.requireAccount(accountId);
-    const rows = this.db
-      .prepare(
-        `
-          SELECT conversation_id
-          FROM conversation_members
-          WHERE account_id = ?
-          ORDER BY joined_at ASC
-        `,
-      )
-      .all(accountId) as Array<{ conversation_id: string }>;
+  async listConversations(accountId: string): Promise<ConversationSummary[]> {
+    await this.requireAccount(this.db, accountId);
+    const rows = await this.db.all<{ conversation_id: string }>(
+      `
+        SELECT conversation_id
+        FROM conversation_members
+        WHERE account_id = ?
+        ORDER BY joined_at ASC
+      `,
+      [accountId],
+    );
 
-    return rows.map(({ conversation_id }) =>
-      this.getConversationSummaryForAccount(accountId, conversation_id),
+    return Promise.all(
+      rows.map(async ({ conversation_id }) =>
+        this.getConversationSummaryForAccount(accountId, conversation_id)
+      ),
     );
   }
 
-  listOwnedConversations(ownerSubject: string): OwnedConversationSummary[] {
-    const conversations = this.db
-      .prepare(
-        `
-          SELECT DISTINCT c.id, c.kind, c.title, c.created_at
-          FROM conversations c
-          JOIN conversation_members cm ON cm.conversation_id = c.id
-          JOIN accounts a ON a.id = cm.account_id
-          WHERE a.owner_subject = ?
-          ORDER BY COALESCE((
-            SELECT MAX(m.seq)
-            FROM messages m
-            WHERE m.conversation_id = c.id
-          ), 0) DESC, c.created_at DESC
-        `,
-      )
-      .all(ownerSubject) as OwnedConversationRow[];
+  async listOwnedConversations(ownerSubject: string): Promise<OwnedConversationSummary[]> {
+    const conversations = await this.db.all<OwnedConversationRow>(
+      `
+        SELECT DISTINCT c.id, c.kind, c.title, c.created_at
+        FROM conversations c
+        JOIN conversation_members cm ON cm.conversation_id = c.id
+        JOIN accounts a ON a.id = cm.account_id
+        WHERE a.owner_subject = ?
+        ORDER BY COALESCE((
+          SELECT MAX(m.seq)
+          FROM messages m
+          WHERE m.conversation_id = c.id
+        ), 0) DESC, c.created_at DESC
+      `,
+      [ownerSubject],
+    );
 
-    return conversations.map((conversation) =>
-      this.getOwnedConversationSummary(ownerSubject, conversation.id),
+    return Promise.all(
+      conversations.map(async (conversation) =>
+        this.getOwnedConversationSummary(ownerSubject, conversation.id)
+      ),
     );
   }
 
-  listOwnedConversationMessages(
+  async listOwnedConversationMessages(
     ownerSubject: string,
     conversationId: string,
     before?: number,
     limit = 50,
-  ): OwnedConversationMessage[] {
-    const access = this.requireOwnedConversationAccess(ownerSubject, conversationId);
+  ): Promise<OwnedConversationMessage[]> {
+    const access = await this.requireOwnedConversationAccess(ownerSubject, conversationId);
     const rows = before
-      ? (this.db
-          .prepare(
-            `
-              SELECT m.id, m.conversation_id, m.sender_id, m.body, m.kind, m.created_at, m.seq, a.name AS sender_name
-              FROM messages m
-              JOIN accounts a ON a.id = m.sender_id
-              WHERE m.conversation_id = ?
-                AND m.seq >= ?
-                AND m.seq < ?
-              ORDER BY m.seq DESC
-              LIMIT ?
-            `,
-          )
-          .all(conversationId, access.visibleFromSeq, before, limit) as Array<
-          MessageRow & { sender_name: string }
-        >)
-      : (this.db
-          .prepare(
-            `
-              SELECT m.id, m.conversation_id, m.sender_id, m.body, m.kind, m.created_at, m.seq, a.name AS sender_name
-              FROM messages m
-              JOIN accounts a ON a.id = m.sender_id
-              WHERE m.conversation_id = ?
-                AND m.seq >= ?
-              ORDER BY m.seq DESC
-              LIMIT ?
-            `,
-          )
-          .all(conversationId, access.visibleFromSeq, limit) as Array<
-          MessageRow & { sender_name: string }
-        >);
+      ? await this.db.all<MessageRow & { sender_name: string }>(
+        `
+          SELECT m.id, m.conversation_id, m.sender_id, m.body, m.kind, m.created_at, m.seq, a.name AS sender_name
+          FROM messages m
+          JOIN accounts a ON a.id = m.sender_id
+          WHERE m.conversation_id = ?
+            AND m.seq >= ?
+            AND m.seq < ?
+          ORDER BY m.seq DESC
+          LIMIT ?
+        `,
+        [conversationId, access.visibleFromSeq, before, limit],
+      )
+      : await this.db.all<MessageRow & { sender_name: string }>(
+        `
+          SELECT m.id, m.conversation_id, m.sender_id, m.body, m.kind, m.created_at, m.seq, a.name AS sender_name
+          FROM messages m
+          JOIN accounts a ON a.id = m.sender_id
+          WHERE m.conversation_id = ?
+            AND m.seq >= ?
+          ORDER BY m.seq DESC
+          LIMIT ?
+        `,
+        [conversationId, access.visibleFromSeq, limit],
+      );
 
     return rows.reverse().map((row) => ({
       ...messageFromRow(row),
@@ -1033,237 +1169,223 @@ export class AgentChatStore {
     }));
   }
 
-  listMessages(
+  async listMessages(
     accountId: string,
     conversationId: string,
     before?: number,
     limit = 50,
-  ): Message[] {
-    const membership = this.requireMembership(conversationId, accountId);
+  ): Promise<Message[]> {
+    const membership = await this.requireMembership(this.db, conversationId, accountId);
 
     const rows = before
-      ? (this.db
-          .prepare(
-            `
-              SELECT id, conversation_id, sender_id, body, kind, created_at, seq
-              FROM messages
-              WHERE conversation_id = ?
-                AND seq >= ?
-                AND seq < ?
-              ORDER BY seq DESC
-              LIMIT ?
-            `,
-          )
-          .all(
-            conversationId,
-            membership.history_start_seq,
-            before,
-            limit,
-          ) as MessageRow[])
-      : (this.db
-          .prepare(
-            `
-              SELECT id, conversation_id, sender_id, body, kind, created_at, seq
-              FROM messages
-              WHERE conversation_id = ?
-                AND seq >= ?
-              ORDER BY seq DESC
-              LIMIT ?
-            `,
-          )
-          .all(conversationId, membership.history_start_seq, limit) as MessageRow[]);
+      ? await this.db.all<MessageRow>(
+        `
+          SELECT id, conversation_id, sender_id, body, kind, created_at, seq
+          FROM messages
+          WHERE conversation_id = ?
+            AND seq >= ?
+            AND seq < ?
+          ORDER BY seq DESC
+          LIMIT ?
+        `,
+        [conversationId, membership.history_start_seq, before, limit],
+      )
+      : await this.db.all<MessageRow>(
+        `
+          SELECT id, conversation_id, sender_id, body, kind, created_at, seq
+          FROM messages
+          WHERE conversation_id = ?
+            AND seq >= ?
+          ORDER BY seq DESC
+          LIMIT ?
+        `,
+        [conversationId, membership.history_start_seq, limit],
+      );
 
     return rows.reverse().map(messageFromRow);
   }
 
-  sendMessage(input: SendMessageInput): {
+  async sendMessage(input: SendMessageInput): Promise<{
     conversation: ConversationSummary;
     message: Message;
-  } {
-    const sender = this.requireAccount(input.senderId);
+  }> {
+    const sender = await this.requireAccount(this.db, input.senderId);
     if (!input.body.trim()) {
       throw new AppError("INVALID_ARGUMENT", "Message body must not be empty");
     }
 
-    let conversationId: string;
-    if ("recipientId" in input) {
-      const recipientId = input.recipientId;
-      this.requireAccount(recipientId);
-      const [left, right] = normalizeFriendshipPair(sender.id, recipientId);
-      const friendship = this.db
-        .prepare(
+    return this.db.transaction(async (tx) => {
+      let conversationId: string;
+      if ("recipientId" in input) {
+        const recipientId = input.recipientId;
+        await this.requireAccount(tx, recipientId);
+        const [left, right] = normalizeFriendshipPair(sender.id, recipientId);
+        const friendship = await tx.get<FriendshipRow>(
           `
             SELECT id, account_a, account_b, status, dm_conversation_id, created_at
             FROM friendships
             WHERE account_a = ? AND account_b = ? AND status = 'active'
           `,
-        )
-        .get(left, right) as FriendshipRow | undefined;
+          [left, right],
+        );
 
-      if (!friendship) {
-        throw new AppError("FORBIDDEN", "Accounts are not friends", 403);
+        if (!friendship) {
+          throw new AppError("FORBIDDEN", "Accounts are not friends", 403);
+        }
+        conversationId = friendship.dm_conversation_id;
+      } else {
+        conversationId = input.conversationId;
+        await this.requireMembership(tx, conversationId, sender.id);
       }
-      conversationId = friendship.dm_conversation_id;
-    } else {
-      conversationId = input.conversationId;
-      this.requireMembership(conversationId, sender.id);
-    }
 
-    const conversation = this.requireConversation(conversationId);
-    const nextSeq = this.getConversationMaxSeq(conversationId) + 1;
-    const row: MessageRow = {
-      id: createId("msg"),
-      conversation_id: conversationId,
-      sender_id: sender.id,
-      body: input.body.trim(),
-      kind: "text",
-      created_at: nowIso(),
-      seq: nextSeq,
-    };
+      await this.lockConversationForMessage(tx, conversationId);
+      const conversation = await this.requireConversation(tx, conversationId);
+      const nextSeq = (await this.getConversationMaxSeq(tx, conversationId)) + 1;
+      const row: MessageRow = {
+        id: createId("msg"),
+        conversation_id: conversationId,
+        sender_id: sender.id,
+        body: input.body.trim(),
+        kind: "text",
+        created_at: nowIso(),
+        seq: nextSeq,
+      };
 
-    this.db
-      .prepare(
+      await tx.run(
         `
           INSERT INTO messages (id, conversation_id, sender_id, body, kind, created_at, seq)
           VALUES (?, ?, ?, ?, ?, ?, ?)
         `,
-      )
-      .run(
-        row.id,
-        row.conversation_id,
-        row.sender_id,
-        row.body,
-        row.kind,
-        row.created_at,
-        row.seq,
+        [
+          row.id,
+          row.conversation_id,
+          row.sender_id,
+          row.body,
+          row.kind,
+          row.created_at,
+          row.seq,
+        ],
       );
 
-    this.insertAuditLog({
-      actorAccountId: sender.id,
-      eventType: "message.sent",
-      subjectType: "message",
-      subjectId: row.id,
-      conversationId,
-      metadata: {
+      await this.insertAuditLog(tx, {
+        actorAccountId: sender.id,
+        eventType: "message.sent",
+        subjectType: "message",
+        subjectId: row.id,
         conversationId,
-        senderId: sender.id,
-      },
-    });
+        metadata: {
+          conversationId,
+          senderId: sender.id,
+        },
+      });
 
-    return {
-      conversation: this.getConversationSummaryForAccount(sender.id, conversation.id),
-      message: messageFromRow(row),
-    };
+      return {
+        conversation: await this.getConversationSummaryForAccount(sender.id, conversation.id, tx),
+        message: messageFromRow(row),
+      };
+    });
   }
 
-  listAuditLogsForAccount(
+  async listAuditLogsForAccount(
     accountId: string,
     options: {
       conversationId?: string;
       limit?: number;
     } = {},
-  ): AuditLog[] {
-    this.requireAccount(accountId);
+  ): Promise<AuditLog[]> {
+    await this.requireAccount(this.db, accountId);
     const limit = options.limit ?? 50;
     if (options.conversationId) {
-      this.requireMembership(options.conversationId, accountId);
+      await this.requireMembership(this.db, options.conversationId, accountId);
     }
 
-    const rows = this.db
-      .prepare(
-        options.conversationId
-          ? `
-              SELECT al.*, actor.name AS actor_name
-              FROM audit_logs al
-              LEFT JOIN accounts actor ON actor.id = al.actor_account_id
-              WHERE al.conversation_id = ?
-              ORDER BY al.created_at DESC
-              LIMIT ?
-            `
-          : `
-              SELECT DISTINCT al.*, actor.name AS actor_name
-              FROM audit_logs al
-              LEFT JOIN accounts actor ON actor.id = al.actor_account_id
-              LEFT JOIN conversation_members cm ON cm.conversation_id = al.conversation_id
-              WHERE al.actor_account_id = ?
-                 OR al.subject_id = ?
-                 OR cm.account_id = ?
-              ORDER BY al.created_at DESC
-              LIMIT ?
-            `,
-      )
-      .all(
-        ...(options.conversationId
-          ? [options.conversationId, limit]
-          : [accountId, accountId, accountId, limit]),
-      ) as Array<AuditLogRow & { actor_name: string | null }>;
-
-    return rows.map(auditLogFromRow);
-  }
-
-  listOwnedAuditLogs(
-    ownerSubject: string,
-    options: {
-      conversationId?: string;
-      limit?: number;
-    } = {},
-  ): AuditLog[] {
-    const limit = options.limit ?? 50;
-
-    if (options.conversationId) {
-      this.requireOwnedConversationAccess(ownerSubject, options.conversationId);
-      const rows = this.db
-        .prepare(
-          `
+    const rows = await this.db.all<AuditLogRow & { actor_name: string | null }>(
+      options.conversationId
+        ? `
             SELECT al.*, actor.name AS actor_name
             FROM audit_logs al
             LEFT JOIN accounts actor ON actor.id = al.actor_account_id
             WHERE al.conversation_id = ?
             ORDER BY al.created_at DESC
             LIMIT ?
+          `
+        : `
+            SELECT DISTINCT al.*, actor.name AS actor_name
+            FROM audit_logs al
+            LEFT JOIN accounts actor ON actor.id = al.actor_account_id
+            LEFT JOIN conversation_members cm ON cm.conversation_id = al.conversation_id
+            WHERE al.actor_account_id = ?
+               OR al.subject_id = ?
+               OR cm.account_id = ?
+            ORDER BY al.created_at DESC
+            LIMIT ?
           `,
-        )
-        .all(options.conversationId, limit) as Array<AuditLogRow & {
-        actor_name: string | null;
-      }>;
-      return rows.map(auditLogFromRow);
-    }
-
-    const rows = this.db
-      .prepare(
-        `
-          SELECT DISTINCT al.*, actor.name AS actor_name
-          FROM audit_logs al
-          LEFT JOIN accounts actor ON actor.id = al.actor_account_id
-          LEFT JOIN accounts subject_account
-            ON al.subject_type = 'account'
-           AND subject_account.id = al.subject_id
-          LEFT JOIN conversation_members cm
-            ON cm.conversation_id = al.conversation_id
-          LEFT JOIN accounts member_account
-            ON member_account.id = cm.account_id
-          WHERE actor.owner_subject = ?
-             OR subject_account.owner_subject = ?
-             OR member_account.owner_subject = ?
-          ORDER BY al.created_at DESC
-          LIMIT ?
-        `,
-      )
-      .all(ownerSubject, ownerSubject, ownerSubject, limit) as Array<
-      AuditLogRow & { actor_name: string | null }
-    >;
+      options.conversationId
+        ? [options.conversationId, limit]
+        : [accountId, accountId, accountId, limit],
+    );
 
     return rows.map(auditLogFromRow);
   }
 
-  getConversationSummaryForAccount(
+  async listOwnedAuditLogs(
+    ownerSubject: string,
+    options: {
+      conversationId?: string;
+      limit?: number;
+    } = {},
+  ): Promise<AuditLog[]> {
+    const limit = options.limit ?? 50;
+
+    if (options.conversationId) {
+      await this.requireOwnedConversationAccess(ownerSubject, options.conversationId);
+      const rows = await this.db.all<AuditLogRow & { actor_name: string | null }>(
+        `
+          SELECT al.*, actor.name AS actor_name
+          FROM audit_logs al
+          LEFT JOIN accounts actor ON actor.id = al.actor_account_id
+          WHERE al.conversation_id = ?
+          ORDER BY al.created_at DESC
+          LIMIT ?
+        `,
+        [options.conversationId, limit],
+      );
+      return rows.map(auditLogFromRow);
+    }
+
+    const rows = await this.db.all<AuditLogRow & { actor_name: string | null }>(
+      `
+        SELECT DISTINCT al.*, actor.name AS actor_name
+        FROM audit_logs al
+        LEFT JOIN accounts actor ON actor.id = al.actor_account_id
+        LEFT JOIN accounts subject_account
+          ON al.subject_type = 'account'
+         AND subject_account.id = al.subject_id
+        LEFT JOIN conversation_members cm
+          ON cm.conversation_id = al.conversation_id
+        LEFT JOIN accounts member_account
+          ON member_account.id = cm.account_id
+        WHERE actor.owner_subject = ?
+           OR subject_account.owner_subject = ?
+           OR member_account.owner_subject = ?
+        ORDER BY al.created_at DESC
+        LIMIT ?
+      `,
+      [ownerSubject, ownerSubject, ownerSubject, limit],
+    );
+
+    return rows.map(auditLogFromRow);
+  }
+
+  async getConversationSummaryForAccount(
     accountId: string,
     conversationId: string,
-  ): ConversationSummary {
-    const conversation = this.requireConversation(conversationId);
-    const membership = this.requireMembership(conversationId, accountId);
-    const memberIds = this.getConversationMemberIds(conversationId);
-    const lastMessage = this.getLastMessage(conversationId);
+    db: Queryable = this.db,
+  ): Promise<ConversationSummary> {
+    const conversation = await this.requireConversation(db, conversationId);
+    const membership = await this.requireMembership(db, conversationId, accountId);
+    const memberIds = await this.getConversationMemberIds(conversationId, db);
+    const lastMessage = await this.getLastMessage(db, conversationId);
 
     let title = conversation.title ?? "";
     if (conversation.kind === "dm") {
@@ -1271,7 +1393,7 @@ export class AgentChatStore {
       if (!otherId) {
         throw new AppError("INTERNAL_ERROR", "DM conversation missing peer", 500);
       }
-      title = this.requireAccount(otherId).name;
+      title = (await this.requireAccount(db, otherId)).name;
     } else {
       title = conversation.title ?? conversation.id;
     }
@@ -1287,175 +1409,302 @@ export class AgentChatStore {
     };
   }
 
-  getConversationSummaryForSystem(conversationId: string): ConversationSummary {
-    const conversation = this.requireConversation(conversationId);
+  async getConversationSummaryForSystem(conversationId: string): Promise<ConversationSummary> {
+    const conversation = await this.requireConversation(this.db, conversationId);
     return {
       id: conversation.id,
       kind: conversation.kind,
       title: conversation.title ?? conversation.id,
-      memberIds: this.getConversationMemberIds(conversationId),
-      lastMessage: this.getLastMessage(conversationId),
+      memberIds: await this.getConversationMemberIds(conversationId),
+      lastMessage: await this.getLastMessage(this.db, conversationId),
       visibleFromSeq: 1,
       createdAt: conversation.created_at,
     };
   }
 
-  getConversationMemberIds(conversationId: string): string[] {
-    const rows = this.db
-      .prepare(
-        `
-          SELECT account_id
-          FROM conversation_members
-          WHERE conversation_id = ?
-          ORDER BY joined_at ASC
-        `,
-      )
-      .all(conversationId) as Array<{ account_id: string }>;
+  async getConversationMemberIds(
+    conversationId: string,
+    db: Queryable = this.db,
+  ): Promise<string[]> {
+    const rows = await db.all<{ account_id: string }>(
+      `
+        SELECT account_id
+        FROM conversation_members
+        WHERE conversation_id = ?
+        ORDER BY joined_at ASC
+      `,
+      [conversationId],
+    );
     return rows.map((row) => row.account_id);
   }
 
-  markSessionStatus(sessionId: string, accountId: string, status: "online" | "offline"): void {
-    const existing = this.db
-      .prepare("SELECT id FROM sessions WHERE id = ?")
-      .get(sessionId) as { id: string } | undefined;
+  async markSessionStatus(
+    sessionId: string,
+    accountId: string,
+    status: "online" | "offline",
+  ): Promise<void> {
+    const existing = await this.db.get<{ id: string }>(
+      "SELECT id FROM sessions WHERE id = ?",
+      [sessionId],
+    );
     const timestamp = nowIso();
     if (existing) {
-      this.db
-        .prepare(
-          `
-            UPDATE sessions
-            SET status = ?, last_seen_at = ?
-            WHERE id = ?
-          `,
-        )
-        .run(status, timestamp, sessionId);
+      await this.db.run(
+        `
+          UPDATE sessions
+          SET status = ?, last_seen_at = ?
+          WHERE id = ?
+        `,
+        [status, timestamp, sessionId],
+      );
       return;
     }
 
-    this.db
-      .prepare(
-        `
-          INSERT INTO sessions (id, account_id, status, last_seen_at)
-          VALUES (?, ?, ?, ?)
-        `,
-      )
-      .run(sessionId, accountId, status, timestamp);
+    await this.db.run(
+      `
+        INSERT INTO sessions (id, account_id, status, last_seen_at)
+        VALUES (?, ?, ?, ?)
+      `,
+      [sessionId, accountId, status, timestamp],
+    );
   }
 
-  getConversationWatcherIds(accountId: string): string[] {
-    const rows = this.db
-      .prepare(
-        `
-          SELECT DISTINCT cm.account_id
-          FROM conversation_members target
-          JOIN conversation_members cm
-            ON cm.conversation_id = target.conversation_id
-          WHERE target.account_id = ?
-            AND cm.account_id != ?
-        `,
-      )
-      .all(accountId, accountId) as Array<{ account_id: string }>;
+  async getConversationWatcherIds(accountId: string): Promise<string[]> {
+    const rows = await this.db.all<{ account_id: string }>(
+      `
+        SELECT DISTINCT cm.account_id
+        FROM conversation_members target
+        JOIN conversation_members cm
+          ON cm.conversation_id = target.conversation_id
+        WHERE target.account_id = ?
+          AND cm.account_id != ?
+      `,
+      [accountId, accountId],
+    );
     return rows.map((row) => row.account_id);
   }
 
-  getFriendRequestWatcherIds(requestId: string): string[] {
-    const row = this.db
-      .prepare(
-        `
-          SELECT requester_id, target_id
-          FROM friend_requests
-          WHERE id = ?
-        `,
-      )
-      .get(requestId) as { requester_id: string; target_id: string } | undefined;
+  async getFriendRequestWatcherIds(requestId: string): Promise<string[]> {
+    const row = await this.db.get<{ requester_id: string; target_id: string }>(
+      `
+        SELECT requester_id, target_id
+        FROM friend_requests
+        WHERE id = ?
+      `,
+      [requestId],
+    );
     return row ? [row.requester_id, row.target_id] : [];
   }
 
-  private getLastMessage(conversationId: string): Message | null {
-    const row = this.db
-      .prepare(
-        `
-          SELECT id, conversation_id, sender_id, body, kind, created_at, seq
-          FROM messages
-          WHERE conversation_id = ?
-          ORDER BY seq DESC
-          LIMIT 1
-        `,
-      )
-      .get(conversationId) as MessageRow | undefined;
+  private async ensureAccountOwnerColumns(): Promise<void> {
+    const columns = new Set(await this.db.columnNames("accounts"));
+    const missing = ["owner_subject", "owner_email", "owner_name"].filter((name) => !columns.has(name));
+    for (const column of missing) {
+      await this.db.exec(`ALTER TABLE accounts ADD COLUMN ${column} TEXT`);
+    }
+  }
+
+  private async seedDefaultHumanUser(): Promise<void> {
+    if (await this.getHumanUserByEmail("test@example.com")) {
+      return;
+    }
+
+    await this.createHumanUser({
+      name: "Test User",
+      email: "test@example.com",
+      password: "test123456",
+    });
+  }
+
+  private async insertAuditLog(
+    db: Queryable,
+    input: {
+      actorAccountId: string | null;
+      eventType: string;
+      subjectType: string;
+      subjectId: string;
+      conversationId?: string;
+      metadata: Record<string, unknown>;
+    },
+  ): Promise<void> {
+    await db.run(
+      `
+        INSERT INTO audit_logs
+          (id, actor_account_id, event_type, subject_type, subject_id, conversation_id, metadata_json, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `,
+      [
+        createId("audit"),
+        input.actorAccountId,
+        input.eventType,
+        input.subjectType,
+        input.subjectId,
+        input.conversationId ?? null,
+        JSON.stringify(input.metadata),
+        nowIso(),
+      ],
+    );
+  }
+
+  private async getOwnedConversationSummary(
+    ownerSubject: string,
+    conversationId: string,
+  ): Promise<OwnedConversationSummary> {
+    const conversation = await this.requireConversation(this.db, conversationId);
+    const access = await this.requireOwnedConversationAccess(ownerSubject, conversationId);
+    const memberIds = await this.getConversationMemberIds(conversationId);
+    const lastMessage = await this.getLastMessage(this.db, conversationId);
+
+    let title = conversation.title ?? conversation.id;
+    if (conversation.kind === "dm") {
+      const otherId = memberIds.find((memberId) => !access.ownedAgentIds.includes(memberId));
+      if (otherId) {
+        title = (await this.requireAccount(this.db, otherId)).name;
+      }
+    }
+
+    return {
+      id: conversation.id,
+      kind: conversation.kind,
+      title,
+      memberIds,
+      lastMessage,
+      visibleFromSeq: access.visibleFromSeq,
+      createdAt: conversation.created_at,
+      ownedAgents: access.ownedAgentIds.map((id) => ({
+        id,
+        name: access.ownedAgentNames[id] ?? id,
+      })),
+    };
+  }
+
+  private async requireOwnedConversationAccess(
+    ownerSubject: string,
+    conversationId: string,
+  ): Promise<{
+    ownedAgentIds: string[];
+    ownedAgentNames: Record<string, string>;
+    visibleFromSeq: number;
+  }> {
+    const rows = await this.db.all<
+      MembershipRow & {
+        account_name: string;
+      }
+    >(
+      `
+        SELECT
+          cm.conversation_id,
+          cm.account_id,
+          cm.role,
+          cm.joined_at,
+          cm.history_start_seq,
+          a.name AS account_name
+        FROM conversation_members cm
+        JOIN accounts a ON a.id = cm.account_id
+        WHERE cm.conversation_id = ?
+          AND a.owner_subject = ?
+        ORDER BY cm.joined_at ASC
+      `,
+      [conversationId, ownerSubject],
+    );
+
+    if (rows.length === 0) {
+      throw new AppError("FORBIDDEN", "Conversation is not visible to this user", 403);
+    }
+
+    const visibleFromSeq = Math.min(...rows.map((row) => Number(row.history_start_seq)));
+    const ownedAgentIds = rows.map((row) => row.account_id);
+    const ownedAgentNames = Object.fromEntries(rows.map((row) => [row.account_id, row.account_name]));
+
+    return {
+      ownedAgentIds,
+      ownedAgentNames,
+      visibleFromSeq,
+    };
+  }
+
+  private async getLastMessage(db: Queryable, conversationId: string): Promise<Message | null> {
+    const row = await db.get<MessageRow>(
+      `
+        SELECT id, conversation_id, sender_id, body, kind, created_at, seq
+        FROM messages
+        WHERE conversation_id = ?
+        ORDER BY seq DESC
+        LIMIT 1
+      `,
+      [conversationId],
+    );
     return row ? messageFromRow(row) : null;
   }
 
-  private getConversationMaxSeq(conversationId: string): number {
-    const row = this.db
-      .prepare(
-        `
-          SELECT COALESCE(MAX(seq), 0) AS max_seq
-          FROM messages
-          WHERE conversation_id = ?
-        `,
-      )
-      .get(conversationId) as { max_seq: number };
-    return row.max_seq;
+  private async getConversationMaxSeq(db: Queryable, conversationId: string): Promise<number> {
+    const row = await db.get<{ max_seq: number | string }>(
+      `
+        SELECT COALESCE(MAX(seq), 0) AS max_seq
+        FROM messages
+        WHERE conversation_id = ?
+      `,
+      [conversationId],
+    );
+    return Number(row?.max_seq ?? 0);
   }
 
-  private getFriendRequestById(requestId: string): FriendRequest {
-    const row = this.db
-      .prepare(
-        `
-          SELECT
-            fr.id,
-            fr.requester_id,
-            fr.target_id,
-            fr.status,
-            fr.created_at,
-            fr.responded_at,
-            req.id AS req_id,
-            req.type AS req_type,
-            req.name AS req_name,
-            req.profile_json AS req_profile_json,
-            req.auth_token AS req_auth_token,
-            req.owner_subject AS req_owner_subject,
-            req.owner_email AS req_owner_email,
-            req.owner_name AS req_owner_name,
-            req.created_at AS req_created_at,
-            tgt.id AS tgt_id,
-            tgt.type AS tgt_type,
-            tgt.name AS tgt_name,
-            tgt.profile_json AS tgt_profile_json,
-            tgt.auth_token AS tgt_auth_token,
-            tgt.owner_subject AS tgt_owner_subject,
-            tgt.owner_email AS tgt_owner_email,
-            tgt.owner_name AS tgt_owner_name,
-            tgt.created_at AS tgt_created_at
-          FROM friend_requests fr
-          JOIN accounts req ON req.id = fr.requester_id
-          JOIN accounts tgt ON tgt.id = fr.target_id
-          WHERE fr.id = ?
-        `,
-      )
-      .get(requestId) as
-      | (FriendRequestRow & {
-          req_id: string;
-          req_type: AccountType;
-          req_name: string;
-          req_profile_json: string;
-          req_auth_token: string;
-          req_owner_subject: string | null;
-          req_owner_email: string | null;
-          req_owner_name: string | null;
-          req_created_at: string;
-          tgt_id: string;
-          tgt_type: AccountType;
-          tgt_name: string;
-          tgt_profile_json: string;
-          tgt_auth_token: string;
-          tgt_owner_subject: string | null;
-          tgt_owner_email: string | null;
-          tgt_owner_name: string | null;
-          tgt_created_at: string;
-        })
-      | undefined;
+  private async getFriendRequestById(requestId: string): Promise<FriendRequest> {
+    const row = await this.db.get<
+      FriendRequestRow & {
+        req_id: string;
+        req_type: AccountType;
+        req_name: string;
+        req_profile_json: string;
+        req_auth_token: string;
+        req_owner_subject: string | null;
+        req_owner_email: string | null;
+        req_owner_name: string | null;
+        req_created_at: string;
+        tgt_id: string;
+        tgt_type: AccountType;
+        tgt_name: string;
+        tgt_profile_json: string;
+        tgt_auth_token: string;
+        tgt_owner_subject: string | null;
+        tgt_owner_email: string | null;
+        tgt_owner_name: string | null;
+        tgt_created_at: string;
+      }
+    >(
+      `
+        SELECT
+          fr.id,
+          fr.requester_id,
+          fr.target_id,
+          fr.status,
+          fr.created_at,
+          fr.responded_at,
+          req.id AS req_id,
+          req.type AS req_type,
+          req.name AS req_name,
+          req.profile_json AS req_profile_json,
+          req.auth_token AS req_auth_token,
+          req.owner_subject AS req_owner_subject,
+          req.owner_email AS req_owner_email,
+          req.owner_name AS req_owner_name,
+          req.created_at AS req_created_at,
+          tgt.id AS tgt_id,
+          tgt.type AS tgt_type,
+          tgt.name AS tgt_name,
+          tgt.profile_json AS tgt_profile_json,
+          tgt.auth_token AS tgt_auth_token,
+          tgt.owner_subject AS tgt_owner_subject,
+          tgt.owner_email AS tgt_owner_email,
+          tgt.owner_name AS tgt_owner_name,
+          tgt.created_at AS tgt_created_at
+        FROM friend_requests fr
+        JOIN accounts req ON req.id = fr.requester_id
+        JOIN accounts tgt ON tgt.id = fr.target_id
+        WHERE fr.id = ?
+      `,
+      [requestId],
+    );
 
     if (!row) {
       throw new AppError("NOT_FOUND", `Friend request "${requestId}" not found`, 404);
@@ -1491,25 +1740,28 @@ export class AgentChatStore {
     };
   }
 
-  private requireAccount(accountId: string, ownerSubject?: string): Account {
-    const statement = ownerSubject
-      ? this.db.prepare(
-          `
-            SELECT id, type, name, profile_json, auth_token, owner_subject, owner_email, owner_name, created_at
-            FROM accounts
-            WHERE id = ? AND owner_subject = ?
-          `,
-        )
-      : this.db.prepare(
-          `
-            SELECT id, type, name, profile_json, auth_token, owner_subject, owner_email, owner_name, created_at
-            FROM accounts
-            WHERE id = ?
-          `,
-        );
-    const row = (ownerSubject
-      ? statement.get(accountId, ownerSubject)
-      : statement.get(accountId)) as AccountRow | undefined;
+  private async requireAccount(
+    db: Queryable,
+    accountId: string,
+    ownerSubject?: string,
+  ): Promise<Account> {
+    const row = ownerSubject
+      ? await db.get<AccountRow>(
+        `
+          SELECT id, type, name, profile_json, auth_token, owner_subject, owner_email, owner_name, created_at
+          FROM accounts
+          WHERE id = ? AND owner_subject = ?
+        `,
+        [accountId, ownerSubject],
+      )
+      : await db.get<AccountRow>(
+        `
+          SELECT id, type, name, profile_json, auth_token, owner_subject, owner_email, owner_name, created_at
+          FROM accounts
+          WHERE id = ?
+        `,
+        [accountId],
+      );
 
     if (!row) {
       throw new AppError("NOT_FOUND", `Account "${accountId}" not found`, 404);
@@ -1518,286 +1770,59 @@ export class AgentChatStore {
     return accountFromRow(row);
   }
 
-  private requireConversation(conversationId: string): ConversationRow {
-    const row = this.db
-      .prepare(
-        `
-          SELECT id, kind, title, created_at
-          FROM conversations
-          WHERE id = ?
-        `,
-      )
-      .get(conversationId) as ConversationRow | undefined;
+  private async requireConversation(
+    db: Queryable,
+    conversationId: string,
+  ): Promise<ConversationRow> {
+    const row = await db.get<ConversationRow>(
+      `
+        SELECT id, kind, title, created_at
+        FROM conversations
+        WHERE id = ?
+      `,
+      [conversationId],
+    );
     if (!row) {
       throw new AppError("NOT_FOUND", `Conversation "${conversationId}" not found`, 404);
     }
     return row;
   }
 
-  private getMembership(
+  private async getMembership(
+    db: Queryable,
     conversationId: string,
     accountId: string,
-  ): MembershipRow | undefined {
-    return this.db
-      .prepare(
-        `
-          SELECT conversation_id, account_id, role, joined_at, history_start_seq
-          FROM conversation_members
-          WHERE conversation_id = ? AND account_id = ?
-        `,
-      )
-      .get(conversationId, accountId) as MembershipRow | undefined;
+  ): Promise<MembershipRow | undefined> {
+    return db.get<MembershipRow>(
+      `
+        SELECT conversation_id, account_id, role, joined_at, history_start_seq
+        FROM conversation_members
+        WHERE conversation_id = ? AND account_id = ?
+      `,
+      [conversationId, accountId],
+    );
   }
 
-  private requireMembership(conversationId: string, accountId: string): MembershipRow {
-    const membership = this.getMembership(conversationId, accountId);
+  private async requireMembership(
+    db: Queryable,
+    conversationId: string,
+    accountId: string,
+  ): Promise<MembershipRow> {
+    const membership = await this.getMembership(db, conversationId, accountId);
     if (!membership) {
       throw new AppError("FORBIDDEN", "Account is not a member of this conversation", 403);
     }
     return membership;
   }
 
-  private transaction<T>(fn: () => T): T {
-    this.db.exec("BEGIN");
-    try {
-      const value = fn();
-      this.db.exec("COMMIT");
-      return value;
-    } catch (error) {
-      this.db.exec("ROLLBACK");
-      throw error;
-    }
-  }
-
-  private initSchema(): void {
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS accounts (
-        id TEXT PRIMARY KEY,
-        type TEXT NOT NULL,
-        name TEXT NOT NULL UNIQUE,
-        profile_json TEXT NOT NULL,
-        auth_token TEXT NOT NULL,
-        owner_subject TEXT,
-        owner_email TEXT,
-        owner_name TEXT,
-        created_at TEXT NOT NULL
-      );
-
-      CREATE TABLE IF NOT EXISTS friendships (
-        id TEXT PRIMARY KEY,
-        account_a TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
-        account_b TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
-        status TEXT NOT NULL,
-        dm_conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
-        created_at TEXT NOT NULL,
-        UNIQUE(account_a, account_b)
-      );
-
-      CREATE TABLE IF NOT EXISTS friend_requests (
-        id TEXT PRIMARY KEY,
-        requester_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
-        target_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
-        status TEXT NOT NULL,
-        created_at TEXT NOT NULL,
-        responded_at TEXT
-      );
-
-      CREATE TABLE IF NOT EXISTS conversations (
-        id TEXT PRIMARY KEY,
-        kind TEXT NOT NULL,
-        title TEXT,
-        created_at TEXT NOT NULL
-      );
-
-      CREATE TABLE IF NOT EXISTS conversation_members (
-        conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
-        account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
-        role TEXT NOT NULL,
-        joined_at TEXT NOT NULL,
-        history_start_seq INTEGER NOT NULL DEFAULT 1,
-        PRIMARY KEY (conversation_id, account_id)
-      );
-
-      CREATE TABLE IF NOT EXISTS messages (
-        id TEXT PRIMARY KEY,
-        conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
-        sender_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
-        body TEXT NOT NULL,
-        kind TEXT NOT NULL,
-        created_at TEXT NOT NULL,
-        seq INTEGER NOT NULL,
-        UNIQUE(conversation_id, seq)
-      );
-
-      CREATE TABLE IF NOT EXISTS sessions (
-        id TEXT PRIMARY KEY,
-        account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
-        status TEXT NOT NULL,
-        last_seen_at TEXT NOT NULL
-      );
-
-      CREATE TABLE IF NOT EXISTS audit_logs (
-        id TEXT PRIMARY KEY,
-        actor_account_id TEXT REFERENCES accounts(id) ON DELETE SET NULL,
-        event_type TEXT NOT NULL,
-        subject_type TEXT NOT NULL,
-        subject_id TEXT NOT NULL,
-        conversation_id TEXT REFERENCES conversations(id) ON DELETE SET NULL,
-        metadata_json TEXT NOT NULL,
-        created_at TEXT NOT NULL
-      );
-
-      CREATE TABLE IF NOT EXISTS human_users (
-        id TEXT PRIMARY KEY,
-        email TEXT NOT NULL UNIQUE,
-        name TEXT NOT NULL,
-        password_hash TEXT NOT NULL,
-        created_at TEXT NOT NULL
-      );
-
-      CREATE INDEX IF NOT EXISTS idx_conversation_members_account
-        ON conversation_members(account_id);
-
-      CREATE INDEX IF NOT EXISTS idx_messages_conversation_seq
-        ON messages(conversation_id, seq);
-
-      CREATE INDEX IF NOT EXISTS idx_accounts_owner_subject
-        ON accounts(owner_subject);
-
-      CREATE INDEX IF NOT EXISTS idx_friend_requests_requester_target
-        ON friend_requests(requester_id, target_id, status);
-
-      CREATE INDEX IF NOT EXISTS idx_audit_logs_conversation_created
-        ON audit_logs(conversation_id, created_at);
-
-      CREATE INDEX IF NOT EXISTS idx_audit_logs_actor_created
-        ON audit_logs(actor_account_id, created_at);
-
-      CREATE INDEX IF NOT EXISTS idx_human_users_email
-        ON human_users(email);
-    `);
-
-    const columns = this.db.prepare("PRAGMA table_info(accounts)").all() as Array<{
-      name: string;
-    }>;
-    const names = new Set(columns.map((column) => column.name));
-
-    if (!names.has("owner_subject")) {
-      this.db.exec("ALTER TABLE accounts ADD COLUMN owner_subject TEXT;");
-    }
-    if (!names.has("owner_email")) {
-      this.db.exec("ALTER TABLE accounts ADD COLUMN owner_email TEXT;");
-    }
-    if (!names.has("owner_name")) {
-      this.db.exec("ALTER TABLE accounts ADD COLUMN owner_name TEXT;");
-    }
-  }
-
-  private seedDefaultHumanUser(): void {
-    if (this.getHumanUserByEmail("test@example.com")) {
-      return;
-    }
-
-    this.createHumanUser({
-      name: "Test User",
-      email: "test@example.com",
-      password: "test123456",
-    });
-  }
-
-  private insertAuditLog(input: {
-    actorAccountId: string | null;
-    eventType: string;
-    subjectType: string;
-    subjectId: string;
-    conversationId?: string;
-    metadata: Record<string, unknown>;
-  }): void {
-    this.db
-      .prepare(
-        `
-          INSERT INTO audit_logs
-            (id, actor_account_id, event_type, subject_type, subject_id, conversation_id, metadata_json, created_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        `,
-      )
-      .run(
-        createId("audit"),
-        input.actorAccountId,
-        input.eventType,
-        input.subjectType,
-        input.subjectId,
-        input.conversationId ?? null,
-        JSON.stringify(input.metadata),
-        nowIso(),
-      );
-  }
-
-  private getOwnedConversationSummary(
-    ownerSubject: string,
+  private async lockConversationForMessage(
+    db: Queryable,
     conversationId: string,
-  ): OwnedConversationSummary {
-    const conversation = this.requireConversation(conversationId);
-    const access = this.requireOwnedConversationAccess(ownerSubject, conversationId);
-    const memberIds = this.getConversationMemberIds(conversationId);
-    const lastMessage = this.getLastMessage(conversationId);
-
-    let title = conversation.title ?? conversation.id;
-    if (conversation.kind === "dm") {
-      const otherId = memberIds.find((memberId) => !access.ownedAgentIds.includes(memberId));
-      if (otherId) {
-        title = this.requireAccount(otherId).name;
-      }
+  ): Promise<void> {
+    if (this.driver === "postgres") {
+      await db.get("SELECT id FROM conversations WHERE id = ? FOR UPDATE", [conversationId]);
     }
-
-    return {
-      id: conversation.id,
-      kind: conversation.kind,
-      title,
-      memberIds,
-      lastMessage,
-      visibleFromSeq: access.visibleFromSeq,
-      createdAt: conversation.created_at,
-      ownedAgents: access.ownedAgents,
-    };
-  }
-
-  private requireOwnedConversationAccess(
-    ownerSubject: string,
-    conversationId: string,
-  ): {
-    visibleFromSeq: number;
-    ownedAgents: Array<{ id: string; name: string }>;
-    ownedAgentIds: string[];
-  } {
-    const rows = this.db
-      .prepare(
-        `
-          SELECT a.id, a.name, cm.history_start_seq
-          FROM conversation_members cm
-          JOIN accounts a ON a.id = cm.account_id
-          WHERE cm.conversation_id = ?
-            AND a.owner_subject = ?
-          ORDER BY a.name ASC
-        `,
-      )
-      .all(conversationId, ownerSubject) as Array<{
-      id: string;
-      name: string;
-      history_start_seq: number;
-    }>;
-
-    if (rows.length === 0) {
-      throw new AppError("FORBIDDEN", "Conversation is not visible to this user", 403);
-    }
-
-    return {
-      visibleFromSeq: Math.min(...rows.map((row) => row.history_start_seq)),
-      ownedAgents: rows.map((row) => ({
-        id: row.id,
-        name: row.name,
-      })),
-      ownedAgentIds: rows.map((row) => row.id),
-    };
   }
 }
+
+export { resolveStorageDriver, type StorageDriver };
