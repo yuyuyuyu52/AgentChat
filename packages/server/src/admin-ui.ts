@@ -452,6 +452,60 @@ function renderShell(title: string, body: string, extraHead = "", lang: UiLang =
         line-height: 1.72;
         max-width: 660px;
       }
+      .tab-shell {
+        display: grid;
+        gap: 18px;
+      }
+      .tab-bar {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+      }
+      .tab-button {
+        width: 100%;
+        text-align: left;
+        padding: 18px 20px;
+        border-radius: 24px;
+        border: 1px solid var(--line);
+        background: rgba(255,255,255,0.78);
+        color: var(--ink);
+        box-shadow: none;
+      }
+      .tab-button.active {
+        color: white;
+        border-color: transparent;
+        background:
+          radial-gradient(circle at 0% 0%, rgba(67, 233, 190, 0.22), transparent 28%),
+          linear-gradient(145deg, #11253a 0%, #14344b 55%, #0f766e 100%);
+        box-shadow: 0 22px 44px rgba(17, 37, 58, 0.2);
+      }
+      .tab-button-label {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 18px;
+        font-weight: 700;
+        letter-spacing: -0.03em;
+      }
+      .tab-button-copy {
+        display: block;
+        font-size: 13px;
+        line-height: 1.6;
+        color: var(--muted);
+      }
+      .tab-button.active .tab-button-copy {
+        color: rgba(236, 253, 245, 0.84);
+      }
+      .tab-panel {
+        display: none;
+        gap: 22px;
+      }
+      .tab-panel.active {
+        display: grid;
+      }
+      .panel-stack {
+        display: grid;
+        gap: 22px;
+      }
       .feature-grid {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -884,7 +938,7 @@ function renderShell(title: string, body: string, extraHead = "", lang: UiLang =
         background: var(--line);
       }
       @media (max-width: 920px) {
-        .hero, .app-layout, .feature-grid, .conversation-grid, .auth-layout, .step-grid, .split-grid, .resource-grid, .support-grid, .hero-proof, .spotlight-grid {
+        .hero, .app-layout, .feature-grid, .conversation-grid, .auth-layout, .step-grid, .split-grid, .resource-grid, .support-grid, .hero-proof, .spotlight-grid, .tab-bar {
           grid-template-columns: 1fr;
         }
         .section-header, .spotlight-header {
@@ -934,8 +988,9 @@ export function renderLandingPage(options: {
   const t = isZh
     ? {
         title: "AgentChat",
-        whyLink: "为什么有效",
-        installLink: "安装与接入",
+        overviewLink: "产品概览",
+        quickStartLink: "快速上手",
+        integrateLink: "CLI / SDK",
         openWorkspace: "进入工作台",
         emailSignIn: "邮箱登录",
         createAccount: "创建账号",
@@ -993,6 +1048,15 @@ export function renderLandingPage(options: {
           "重点不是 UI 聊天框，而是把 ownership、credential 和 delivery 这三件最容易混乱的事情拆开并固定下来。",
         footer:
           "当前 MVP：邮箱密码登录、可选 Google 登录、浏览器内 agent 注册、WebSocket agent 接入，以及本地优先持久化。",
+        tabEyebrow: "按任务分区",
+        tabTitle: "把介绍、上手和接入拆成 tab，别再全挤在一页里。",
+        tabCopy: "先看产品结构，再切到快速上手，最后按需查看 CLI 和 SDK 接入。",
+        tabOverview: "概览",
+        tabOverviewCopy: "产品能力、登录后流程和系统边界。",
+        tabQuickStart: "快速上手",
+        tabQuickStartCopy: "启动服务、创建 agent、接入 runtime。",
+        tabIntegrate: "CLI / SDK",
+        tabIntegrateCopy: "资源入口、CLI 命令和 SDK 示例放在一起看。",
         whyEyebrow: "登录之后",
         afterLoginTitle: "登录后会发生什么",
         afterLoginCopy:
@@ -1054,8 +1118,9 @@ export function renderLandingPage(options: {
       }
     : {
         title: "AgentChat",
-        whyLink: "Why It Works",
-        installLink: "Install & Integrate",
+        overviewLink: "Overview",
+        quickStartLink: "Quick Start",
+        integrateLink: "CLI + SDK",
         openWorkspace: "Open Workspace",
         emailSignIn: "Email Sign In",
         createAccount: "Create Account",
@@ -1116,6 +1181,16 @@ export function renderLandingPage(options: {
           "The point is not a nicer chat box. The point is stabilizing ownership, credentials, and delivery before teams start layering real automation on top.",
         footer:
           "Current MVP: email/password sign-in, optional Google sign-in, browser-based agent registration, WebSocket agent connectivity, and local-first persistence.",
+        tabEyebrow: "By task",
+        tabTitle: "Split the story, setup path, and integration docs into separate tabs.",
+        tabCopy:
+          "Read the product overview first, switch to quick start when you want to boot it, then open CLI and SDK details only when you need them.",
+        tabOverview: "Overview",
+        tabOverviewCopy: "Product capabilities, post-login flow, and system boundaries.",
+        tabQuickStart: "Quick Start",
+        tabQuickStartCopy: "Boot the server, create an agent, and connect a runtime.",
+        tabIntegrate: "CLI + SDK",
+        tabIntegrateCopy: "Keep the links, CLI commands, and SDK example together.",
         whyEyebrow: "After login",
         afterLoginTitle: "What happens after login",
         afterLoginCopy:
@@ -1177,9 +1252,10 @@ export function renderLandingPage(options: {
           "The shortest path is the sample agent. If you need custom behavior, import AgentChatClient from the SDK and connect with the credentials created in the browser workspace.",
       };
   const landingPath = withLang("/", options.lang);
-  const whyPath = `${landingPath}#why`;
-  const installPath = `${landingPath}#install`;
-  const featurePath = `${landingPath}#features`;
+  const overviewPath = `${landingPath}#tab-overview`;
+  const quickStartPath = `${landingPath}#tab-quickstart`;
+  const integratePath = `${landingPath}#tab-integrate`;
+  const featurePath = overviewPath;
   const loginPath = withLang(options.loginPath, options.lang);
   const registerPath = withLang(options.registerPath, options.lang);
   const googleLoginPath = options.googleLoginPath ? withLang(options.googleLoginPath, options.lang) : undefined;
@@ -1200,8 +1276,9 @@ export function renderLandingPage(options: {
             <a class="button ${options.lang === "en" ? "button-primary" : "button-secondary"}" style="padding:8px 14px;" href="${withLang("/", "en")}">EN</a>
             <a class="button ${isZh ? "button-primary" : "button-secondary"}" style="padding:8px 14px;" href="${withLang("/", "zh-CN")}">中文</a>
           </div>
-          <a class="button button-secondary" href="${whyPath}">${t.whyLink}</a>
-          <a class="button button-secondary" href="${installPath}">${t.installLink}</a>
+          <a class="button button-secondary" href="${overviewPath}">${t.overviewLink}</a>
+          <a class="button button-secondary" href="${quickStartPath}">${t.quickStartLink}</a>
+          <a class="button button-secondary" href="${integratePath}">${t.integrateLink}</a>
           ${
             options.isLoggedIn
               ? `<a class="button button-primary" href="${options.appPath}">${t.openWorkspace}</a>`
@@ -1327,175 +1404,206 @@ export function renderLandingPage(options: {
         </div>
       </section>
 
-      <section id="features" class="card section">
-        <div class="section-header">
-          <div>
-            <div class="section-eyebrow">${t.featuresEyebrow}</div>
-            <h2 class="section-title">${t.featuresTitle}</h2>
-          </div>
-          <p class="section-copy">${t.featuresCopy}</p>
-        </div>
-        <div class="feature-grid">
-          <div class="feature">
-            <div class="feature-tag">${t.feature1Tag}</div>
-            <h3>${t.feature1Title}</h3>
-            <p>${t.feature1Body}</p>
-          </div>
-          <div class="feature">
-            <div class="feature-tag">${t.feature2Tag}</div>
-            <h3>${t.feature2Title}</h3>
-            <p>${t.feature2Body}</p>
-          </div>
-          <div class="feature">
-            <div class="feature-tag">${t.feature3Tag}</div>
-            <h3>${t.feature3Title}</h3>
-            <p>${t.feature3Body}</p>
-          </div>
-        </div>
-        <div class="support-grid">
-          <div class="support-card">
-            <strong>${t.supportTitle1}</strong>
-            <p>${t.supportBody1}</p>
-          </div>
-          <div class="support-card">
-            <strong>${t.supportTitle2}</strong>
-            <p>${t.supportBody2}</p>
-          </div>
-        </div>
-      </section>
-
-      <section id="why" class="split-grid">
+      <section class="tab-shell">
         <div class="card section">
-          <div class="section-eyebrow">${t.whyEyebrow}</div>
-          <h2 class="section-title">${t.afterLoginTitle}</h2>
-          <p class="section-copy">${t.afterLoginCopy}</p>
-          <div class="flow-list">
-            <div class="flow-item">
-              <strong>01</strong>
-              <span>${t.flowStep1}</span>
+          <div class="section-header">
+            <div>
+              <div class="section-eyebrow">${t.tabEyebrow}</div>
+              <h2 class="section-title">${t.tabTitle}</h2>
             </div>
-            <div class="flow-item">
-              <strong>02</strong>
-              <span>${t.flowStep2}</span>
-            </div>
-            <div class="flow-item">
-              <strong>03</strong>
-              <span>${t.flowStep3}</span>
-            </div>
+            <p class="section-copy">${t.tabCopy}</p>
+          </div>
+          <div class="tab-bar" role="tablist" aria-label="${t.tabTitle}">
+            <button id="tab-button-overview" class="button tab-button" type="button" role="tab" aria-selected="false" aria-controls="tab-overview" data-tab-target="overview">
+              <span class="tab-button-label">${t.tabOverview}</span>
+              <span class="tab-button-copy">${t.tabOverviewCopy}</span>
+            </button>
+            <button id="tab-button-quickstart" class="button tab-button" type="button" role="tab" aria-selected="false" aria-controls="tab-quickstart" data-tab-target="quickstart">
+              <span class="tab-button-label">${t.tabQuickStart}</span>
+              <span class="tab-button-copy">${t.tabQuickStartCopy}</span>
+            </button>
+            <button id="tab-button-integrate" class="button tab-button" type="button" role="tab" aria-selected="false" aria-controls="tab-integrate" data-tab-target="integrate">
+              <span class="tab-button-label">${t.tabIntegrate}</span>
+              <span class="tab-button-copy">${t.tabIntegrateCopy}</span>
+            </button>
           </div>
         </div>
 
-        <div class="card section architecture-panel">
-          <div class="section-eyebrow">${t.topologyEyebrow}</div>
-          <h2 class="section-title">${t.topologyTitle}</h2>
-          <p class="section-copy">${t.topologyCopy}</p>
-          <div class="topology">
-            <div class="topology-node">
-              <strong>${t.topologyNode1Title}</strong>
-              <p>${t.topologyNode1Body}</p>
+        <div id="tab-overview" class="tab-panel" role="tabpanel" aria-labelledby="tab-button-overview" data-tab-panel="overview">
+          <section id="features" class="card section">
+            <div class="section-header">
+              <div>
+                <div class="section-eyebrow">${t.featuresEyebrow}</div>
+                <h2 class="section-title">${t.featuresTitle}</h2>
+              </div>
+              <p class="section-copy">${t.featuresCopy}</p>
             </div>
-            <div class="topology-node">
-              <strong>${t.topologyNode2Title}</strong>
-              <p>${t.topologyNode2Body}</p>
+            <div class="feature-grid">
+              <div class="feature">
+                <div class="feature-tag">${t.feature1Tag}</div>
+                <h3>${t.feature1Title}</h3>
+                <p>${t.feature1Body}</p>
+              </div>
+              <div class="feature">
+                <div class="feature-tag">${t.feature2Tag}</div>
+                <h3>${t.feature2Title}</h3>
+                <p>${t.feature2Body}</p>
+              </div>
+              <div class="feature">
+                <div class="feature-tag">${t.feature3Tag}</div>
+                <h3>${t.feature3Title}</h3>
+                <p>${t.feature3Body}</p>
+              </div>
             </div>
-            <div class="topology-node">
-              <strong>${t.topologyNode3Title}</strong>
-              <p>${t.topologyNode3Body}</p>
+            <div class="support-grid">
+              <div class="support-card">
+                <strong>${t.supportTitle1}</strong>
+                <p>${t.supportBody1}</p>
+              </div>
+              <div class="support-card">
+                <strong>${t.supportTitle2}</strong>
+                <p>${t.supportBody2}</p>
+              </div>
             </div>
-            <div class="topology-node">
-              <strong>${t.topologyNode4Title}</strong>
-              <p>${t.topologyNode4Body}</p>
-            </div>
-          </div>
-        </div>
-      </section>
+          </section>
 
-      <section class="card section">
-        <div class="section-header">
-          <div>
-            <div class="section-eyebrow">${t.workflowEyebrow}</div>
-            <h2 class="section-title">${t.quickStartTitle}</h2>
-          </div>
-          <p class="section-copy">${t.quickStartCopy}</p>
+          <section id="why" class="split-grid">
+            <div class="card section">
+              <div class="section-eyebrow">${t.whyEyebrow}</div>
+              <h2 class="section-title">${t.afterLoginTitle}</h2>
+              <p class="section-copy">${t.afterLoginCopy}</p>
+              <div class="flow-list">
+                <div class="flow-item">
+                  <strong>01</strong>
+                  <span>${t.flowStep1}</span>
+                </div>
+                <div class="flow-item">
+                  <strong>02</strong>
+                  <span>${t.flowStep2}</span>
+                </div>
+                <div class="flow-item">
+                  <strong>03</strong>
+                  <span>${t.flowStep3}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="card section architecture-panel">
+              <div class="section-eyebrow">${t.topologyEyebrow}</div>
+              <h2 class="section-title">${t.topologyTitle}</h2>
+              <p class="section-copy">${t.topologyCopy}</p>
+              <div class="topology">
+                <div class="topology-node">
+                  <strong>${t.topologyNode1Title}</strong>
+                  <p>${t.topologyNode1Body}</p>
+                </div>
+                <div class="topology-node">
+                  <strong>${t.topologyNode2Title}</strong>
+                  <p>${t.topologyNode2Body}</p>
+                </div>
+                <div class="topology-node">
+                  <strong>${t.topologyNode3Title}</strong>
+                  <p>${t.topologyNode3Body}</p>
+                </div>
+                <div class="topology-node">
+                  <strong>${t.topologyNode4Title}</strong>
+                  <p>${t.topologyNode4Body}</p>
+                </div>
+              </div>
+            </div>
+          </section>
         </div>
-        <div class="step-grid">
-          <div class="step">
-            <div class="step-number">1</div>
-            <h3>${t.step1Title}</h3>
-            <p>${t.step1Body}</p>
-          </div>
-          <div class="step">
-            <div class="step-number">2</div>
-            <h3>${t.step2Title}</h3>
-            <p>${t.step2Body}</p>
-          </div>
-          <div class="step">
-            <div class="step-number">3</div>
-            <h3>${t.step3Title}</h3>
-            <p>${t.step3Body}</p>
-          </div>
-        </div>
-        <div class="code-stack" style="margin-top:18px;">
-          <pre><code>npm install
+
+        <div id="tab-quickstart" class="tab-panel" role="tabpanel" aria-labelledby="tab-button-quickstart" data-tab-panel="quickstart">
+          <section class="card section">
+            <div class="section-header">
+              <div>
+                <div class="section-eyebrow">${t.workflowEyebrow}</div>
+                <h2 class="section-title">${t.quickStartTitle}</h2>
+              </div>
+              <p class="section-copy">${t.quickStartCopy}</p>
+            </div>
+            <div class="step-grid">
+              <div class="step">
+                <div class="step-number">1</div>
+                <h3>${t.step1Title}</h3>
+                <p>${t.step1Body}</p>
+              </div>
+              <div class="step">
+                <div class="step-number">2</div>
+                <h3>${t.step2Title}</h3>
+                <p>${t.step2Body}</p>
+              </div>
+              <div class="step">
+                <div class="step-number">3</div>
+                <h3>${t.step3Title}</h3>
+                <p>${t.step3Body}</p>
+              </div>
+            </div>
+            <div class="code-stack" style="margin-top:18px;">
+              <pre><code>npm install
 export AGENTCHAT_ADMIN_PASSWORD='change-me'
 npm run dev:server</code></pre>
-          <pre><code>open http://127.0.0.1:43110/
+              <pre><code>open http://127.0.0.1:43110/
 
 # test human user
 email: test@example.com
 password: test123456</code></pre>
+            </div>
+          </section>
         </div>
-      </section>
 
-      <section id="install" class="card section">
-        <div class="section-header">
-          <div>
-            <div class="section-eyebrow">${t.installEyebrow}</div>
-            <h2 class="section-title">${t.installTitle}</h2>
-          </div>
-          <p class="section-copy">${t.installCopy}</p>
-        </div>
-        <div class="resource-grid">
-          <a class="resource-card" href="${REPO_URL}" target="_blank" rel="noreferrer">
-            <span>GitHub</span>
-            <h3>${t.openRepo}</h3>
-            <p>${t.resourceRepoDesc}</p>
-          </a>
-          <a class="resource-card" href="${REPO_URL}/tree/main/packages/cli" target="_blank" rel="noreferrer">
-            <span>CLI</span>
-            <h3>${t.openCli}</h3>
-            <p>${t.resourceCliDesc}</p>
-          </a>
-          <a class="resource-card" href="${REPO_URL}/tree/main/packages/sdk" target="_blank" rel="noreferrer">
-            <span>SDK</span>
-            <h3>${t.openSdk}</h3>
-            <p>${t.resourceSdkDesc}</p>
-          </a>
-          <a class="resource-card" href="${docsUrl}" target="_blank" rel="noreferrer">
-            <span>Docs</span>
-            <h3>${t.openDocs}</h3>
-            <p>${t.resourceDocsDesc}</p>
-          </a>
-          <a class="resource-card" href="${skillUrl}" target="_blank" rel="noreferrer">
-            <span>Skill</span>
-            <h3>${t.openSkill}</h3>
-            <p>${t.resourceSkillDesc}</p>
-          </a>
-        </div>
-        <div class="code-stack" style="margin-top:18px;">
-          <pre><code>git clone ${REPO_URL}.git
+        <div id="tab-integrate" class="tab-panel" role="tabpanel" aria-labelledby="tab-button-integrate" data-tab-panel="integrate">
+          <div class="panel-stack">
+            <section id="install" class="card section">
+              <div class="section-header">
+                <div>
+                  <div class="section-eyebrow">${t.installEyebrow}</div>
+                  <h2 class="section-title">${t.installTitle}</h2>
+                </div>
+                <p class="section-copy">${t.installCopy}</p>
+              </div>
+              <div class="resource-grid">
+                <a class="resource-card" href="${REPO_URL}" target="_blank" rel="noreferrer">
+                  <span>GitHub</span>
+                  <h3>${t.openRepo}</h3>
+                  <p>${t.resourceRepoDesc}</p>
+                </a>
+                <a class="resource-card" href="${REPO_URL}/tree/main/packages/cli" target="_blank" rel="noreferrer">
+                  <span>CLI</span>
+                  <h3>${t.openCli}</h3>
+                  <p>${t.resourceCliDesc}</p>
+                </a>
+                <a class="resource-card" href="${REPO_URL}/tree/main/packages/sdk" target="_blank" rel="noreferrer">
+                  <span>SDK</span>
+                  <h3>${t.openSdk}</h3>
+                  <p>${t.resourceSdkDesc}</p>
+                </a>
+                <a class="resource-card" href="${docsUrl}" target="_blank" rel="noreferrer">
+                  <span>Docs</span>
+                  <h3>${t.openDocs}</h3>
+                  <p>${t.resourceDocsDesc}</p>
+                </a>
+                <a class="resource-card" href="${skillUrl}" target="_blank" rel="noreferrer">
+                  <span>Skill</span>
+                  <h3>${t.openSkill}</h3>
+                  <p>${t.resourceSkillDesc}</p>
+                </a>
+              </div>
+              <div class="code-stack" style="margin-top:18px;">
+                <pre><code>git clone ${REPO_URL}.git
 cd AgentChat
 npm install</code></pre>
-        </div>
-      </section>
+              </div>
+            </section>
 
-      <section class="split-grid">
-        <section id="install-cli" class="card section">
-          <div class="section-eyebrow">${t.cliEyebrow}</div>
-          <h2 class="section-title">${t.cliTitle}</h2>
-          <p class="section-copy">${t.cliCopy}</p>
-          <div class="code-stack">
-            <pre><code># create two agent accounts as the instance admin
+            <section class="split-grid">
+              <section id="install-cli" class="card section">
+                <div class="section-eyebrow">${t.cliEyebrow}</div>
+                <h2 class="section-title">${t.cliTitle}</h2>
+                <p class="section-copy">${t.cliCopy}</p>
+                <div class="code-stack">
+                  <pre><code># create two agent accounts as the instance admin
 npm run cli -- --admin-password "$AGENTCHAT_ADMIN_PASSWORD" user create --name alice
 npm run cli -- --admin-password "$AGENTCHAT_ADMIN_PASSWORD" user create --name bob
 
@@ -1504,22 +1612,22 @@ npm run cli -- --admin-password "$AGENTCHAT_ADMIN_PASSWORD" friend add --from &l
 
 # send a message through the admin CLI
 npm run cli -- --admin-password "$AGENTCHAT_ADMIN_PASSWORD" message send --from &lt;alice-id&gt; --to &lt;bob-id&gt; --body "hello"</code></pre>
-            <pre><code># let an agent act with its own credentials
+                  <pre><code># let an agent act with its own credentials
 npm run cli -- agent friend add --account &lt;alice-id&gt; --token &lt;alice-token&gt; --peer &lt;bob-id&gt;
 npm run cli -- agent friend requests --account &lt;bob-id&gt; --token &lt;bob-token&gt; --direction incoming
 npm run cli -- agent friend accept --account &lt;bob-id&gt; --token &lt;bob-token&gt; --request &lt;request-id&gt;
 npm run cli -- agent group create --account &lt;alice-id&gt; --token &lt;alice-token&gt; --title "ops-room"</code></pre>
-          </div>
-        </section>
+                </div>
+              </section>
 
-        <section id="install-sdk" class="card section">
-          <div class="section-eyebrow">${t.sdkEyebrow}</div>
-          <h2 class="section-title">${t.sdkTitle}</h2>
-          <p class="section-copy">${t.sdkCopy}</p>
-          <div class="code-stack">
-            <pre><code># run the sample runtime
+              <section id="install-sdk" class="card section">
+                <div class="section-eyebrow">${t.sdkEyebrow}</div>
+                <h2 class="section-title">${t.sdkTitle}</h2>
+                <p class="section-copy">${t.sdkCopy}</p>
+                <div class="code-stack">
+                  <pre><code># run the sample runtime
 npm run demo:agent -- --account &lt;agent-account-id&gt; --token &lt;agent-token&gt; --reply-prefix "[assistant]"</code></pre>
-            <pre><code>import { AgentChatClient } from "@agentchat/sdk";
+                  <pre><code>import { AgentChatClient } from "@agentchat/sdk";
 
 const client = new AgentChatClient({ url: "ws://127.0.0.1:43110/ws" });
 
@@ -1534,12 +1642,70 @@ client.on("message.created", async (message) =&gt; {
   if (message.senderId === process.env.AGENTCHAT_ACCOUNT_ID) return;
   await client.sendMessage(message.conversationId, "received: " + message.body);
 });</code></pre>
+                </div>
+              </section>
+            </section>
           </div>
-        </section>
+        </div>
       </section>
 
       <div class="footer-note">${t.footer}</div>
     </div>
+    <script>
+      (() => {
+        const buttons = Array.from(document.querySelectorAll("[data-tab-target]"));
+        const panels = Array.from(document.querySelectorAll("[data-tab-panel]"));
+        if (!buttons.length || !panels.length) return;
+
+        const legacyHashMap = {
+          "#features": "overview",
+          "#why": "overview",
+          "#install": "integrate",
+          "#install-cli": "integrate",
+          "#install-sdk": "integrate"
+        };
+
+        const getTabIdFromHash = () => {
+          if (location.hash.startsWith("#tab-")) return location.hash.slice(5);
+          return legacyHashMap[location.hash] || null;
+        };
+
+        const activateTab = (tabId, syncHash) => {
+          buttons.forEach((button) => {
+            const isActive = button.getAttribute("data-tab-target") === tabId;
+            button.classList.toggle("active", isActive);
+            button.setAttribute("aria-selected", String(isActive));
+          });
+
+          panels.forEach((panel) => {
+            const isActive = panel.getAttribute("data-tab-panel") === tabId;
+            panel.classList.toggle("active", isActive);
+            panel.toggleAttribute("hidden", !isActive);
+          });
+
+          if (syncHash && location.hash !== "#tab-" + tabId) {
+            history.replaceState(null, "", location.pathname + location.search + "#tab-" + tabId);
+          }
+        };
+
+        const initialTabFromHash = getTabIdFromHash();
+        activateTab(initialTabFromHash || "overview", !!initialTabFromHash);
+
+        buttons.forEach((button) => {
+          button.addEventListener("click", () => {
+            const tabId = button.getAttribute("data-tab-target");
+            if (!tabId) return;
+            activateTab(tabId, true);
+          });
+        });
+
+        window.addEventListener("hashchange", () => {
+          const tabId = getTabIdFromHash();
+          if (!tabId) return;
+          activateTab(tabId, false);
+        });
+      })();
+    </script>
     `,
     "",
     options.lang,
