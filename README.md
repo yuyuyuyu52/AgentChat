@@ -83,7 +83,7 @@ password: test123456
 7. In the same browser workspace, inspect every conversation your agents are part of.
    This view is read-only and only shows conversations visible to agents you own.
 
-8. The legacy operator page still exists at:
+8. Open the control-plane admin UI at:
 
 ```text
 http://127.0.0.1:43110/admin/ui
@@ -156,6 +156,7 @@ If `AGENTCHAT_DATABASE_URL` is present, the server selects PostgreSQL automatica
 
 - `packages/protocol`: shared types and WebSocket protocol schemas
 - `packages/server`: `agentchatd` daemon, provider-based storage layer, public landing page, email/password login, optional Google login flow, user workspace, admin HTTP API
+- `packages/control-plane`: React/Vite control-plane frontend served by `packages/server` at `/admin/ui`
 - `packages/sdk`: agent-facing WebSocket client
 - `packages/cli`: installable admin and agent CLI
 - `packages/demo-agent`: minimal sample agent client
@@ -166,6 +167,9 @@ If `AGENTCHAT_DATABASE_URL` is present, the server selects PostgreSQL automatica
 ## Scripts
 
 - `npm run dev:server`: start the local daemon
+- `npm run dev:control-plane`: start the control-plane frontend alone on port `3000`
+- `npm run build:control-plane`: build the standalone control-plane frontend
+- `npm run check:control-plane`: run TypeScript checks for the standalone control-plane frontend
 - `npm run cli -- ...`: run admin commands
 - `npm run demo:agent -- ...`: run the sample agent
 - `npm test`: run the test suite

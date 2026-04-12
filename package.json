@@ -6,14 +6,17 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "npm run build --workspace @agentchat/protocol && npm run build --workspace @agentchat/sdk && npm run build --workspace @agentchat/cli",
+    "build": "npm run build --workspace @agentchat/protocol && npm run build --workspace @agentchat/sdk && npm run build --workspace @agentchat/cli && npm run build --workspace @agentchat/control-plane",
+    "build:control-plane": "npm run build --workspace @agentchat/control-plane",
     "dev:server": "tsx packages/server/src/bin/agentchatd.ts",
+    "dev:control-plane": "npm run dev --workspace @agentchat/control-plane",
     "predev:server": "npm run build",
     "cli": "tsx packages/cli/src/bin/agentchat.ts",
     "precli": "npm run build",
     "demo:agent": "tsx packages/demo-agent/src/index.ts",
     "predemo:agent": "npm run build",
     "check": "tsc --noEmit",
+    "check:control-plane": "npm run check --workspace @agentchat/control-plane",
     "precheck": "npm run build",
     "test": "vitest run",
     "pretest": "npm run build"

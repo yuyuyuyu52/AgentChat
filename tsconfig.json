@@ -17,5 +17,8 @@
   "include": [
     "packages/**/*.ts",
     "tests/**/*.ts"
+  ],
+  "exclude": [
+    "packages/control-plane/**/*"
   ]
 }

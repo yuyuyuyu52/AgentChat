@@ -1,5 +1,8 @@
 import { randomUUID, timingSafeEqual } from "node:crypto";
+import { readFile } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { extname, resolve, sep } from "node:path";
+import { fileURLToPath } from "node:url";
 import { URLSearchParams } from "node:url";
 import { parse as parseUrl } from "node:url";
 import {
@@ -117,6 +120,12 @@ const GoogleUserInfoSchema = z.object({
   picture: z.string().optional(),
 });
 
+const CONTROL_PLANE_ROUTE_PREFIX = "/admin/ui";
+const CONTROL_PLANE_DIST_DIR = fileURLToPath(
+  new URL("../../control-plane/dist/", import.meta.url),
+);
+const CONTROL_PLANE_ENTRY_FILE = resolve(CONTROL_PLANE_DIST_DIR, "index.html");
+
 function normalizeUiLang(value: string | undefined): "en" | "zh-CN" {
   if (value === "zh" || value === "zh-CN") {
     return "zh-CN";
@@ -134,6 +143,32 @@ function jsonResponse(response: ServerResponse, statusCode: number, payload: unk
   response.statusCode = statusCode;
   response.setHeader("content-type", "application/json; charset=utf-8");
   response.end(JSON.stringify(payload));
+}
+
+function contentTypeForFile(pathname: string): string {
+  switch (extname(pathname)) {
+    case ".html":
+      return "text/html; charset=utf-8";
+    case ".js":
+      return "text/javascript; charset=utf-8";
+    case ".css":
+      return "text/css; charset=utf-8";
+    case ".json":
+      return "application/json; charset=utf-8";
+    case ".svg":
+      return "image/svg+xml";
+    case ".woff2":
+      return "font/woff2";
+    case ".png":
+      return "image/png";
+    case ".jpg":
+    case ".jpeg":
+      return "image/jpeg";
+    case ".ico":
+      return "image/x-icon";
+    default:
+      return "application/octet-stream";
+  }
 }
 
 async function readJson(request: IncomingMessage): Promise<unknown> {
@@ -446,6 +481,16 @@ export class AgentChatServer {
     return this.store.listOwnedAuditLogs(ownerSubject, options);
   }
 
+  async listAuditLogs(
+    options: {
+      accountId?: string;
+      conversationId?: string;
+      limit?: number;
+    } = {},
+  ) {
+    return this.store.listAuditLogs(options);
+  }
+
   async createPlazaPost(authorAccountId: string, body: string): Promise<PlazaPost> {
     const post = await this.store.createPlazaPost(authorAccountId, body);
     this.broadcastPlazaPostCreated(post);
@@ -646,10 +691,24 @@ export class AgentChatServer {
         return;
       }
 
-      if (method === "GET" && url.pathname === "/admin/ui") {
-        response.statusCode = 200;
-        response.setHeader("content-type", "text/html; charset=utf-8");
-        response.end(renderAdminPage(isAdminAuthorized));
+      if ((method === "GET" || method === "HEAD") && url.pathname?.startsWith(CONTROL_PLANE_ROUTE_PREFIX)) {
+        if (!isAdminAuthorized) {
+          response.statusCode = 200;
+          response.setHeader("content-type", "text/html; charset=utf-8");
+          if (method === "HEAD") {
+            response.end();
+          } else {
+            response.end(renderAdminPage(false));
+          }
+          return;
+        }
+
+        const servedAsset = await this.tryServeControlPlaneAsset(url.pathname, response, method);
+        if (servedAsset) {
+          return;
+        }
+
+        await this.serveControlPlaneIndex(response, method);
         return;
       }
 
@@ -791,6 +850,24 @@ export class AgentChatServer {
 
       if (method === "GET" && url.pathname === "/admin/accounts") {
         jsonResponse(response, 200, await this.listAccounts());
+        return;
+      }
+
+      if (method === "GET" && url.pathname === "/admin/audit-logs") {
+        const accountId =
+          typeof url.query.accountId === "string" ? url.query.accountId : undefined;
+        const conversationId =
+          typeof url.query.conversationId === "string" ? url.query.conversationId : undefined;
+        const limit = typeof url.query.limit === "string" ? Number(url.query.limit) : undefined;
+        jsonResponse(
+          response,
+          200,
+          await this.listAuditLogs({
+            ...(accountId ? { accountId } : {}),
+            ...(conversationId ? { conversationId } : {}),
+            ...(limit ? { limit } : {}),
+          }),
+        );
         return;
       }
 
@@ -1173,6 +1250,63 @@ export class AgentChatServer {
 
   private sendResponse(connection: ConnectionState, requestId: string, payload: unknown): void {
     connection.socket.send(JSON.stringify(makeResponse(requestId, payload)));
+  }
+
+  private async serveControlPlaneIndex(
+    response: ServerResponse,
+    method: "GET" | "HEAD",
+  ): Promise<void> {
+    try {
+      const html = await readFile(CONTROL_PLANE_ENTRY_FILE, "utf8");
+      response.statusCode = 200;
+      response.setHeader("content-type", "text/html; charset=utf-8");
+      if (method === "HEAD") {
+        response.end();
+      } else {
+        response.end(html);
+      }
+    } catch (error) {
+      const appError = asAppError(error);
+      response.statusCode = appError.statusCode === 500 ? 503 : appError.statusCode;
+      response.setHeader("content-type", "text/plain; charset=utf-8");
+      response.end("Control plane bundle is unavailable. Run `npm run build:control-plane`.");
+    }
+  }
+
+  private async tryServeControlPlaneAsset(
+    pathname: string,
+    response: ServerResponse,
+    method: "GET" | "HEAD",
+  ): Promise<boolean> {
+    const relativePath = pathname.replace(/^\/admin\/ui\/?/, "");
+    if (!relativePath || !/\.[a-z0-9]+$/i.test(relativePath)) {
+      return false;
+    }
+
+    const filePath = resolve(CONTROL_PLANE_DIST_DIR, relativePath);
+    const distPrefix = CONTROL_PLANE_DIST_DIR.endsWith(sep)
+      ? CONTROL_PLANE_DIST_DIR
+      : `${CONTROL_PLANE_DIST_DIR}${sep}`;
+    if (filePath !== CONTROL_PLANE_ENTRY_FILE && !filePath.startsWith(distPrefix)) {
+      throw new AppError("FORBIDDEN", "Invalid asset path", 403);
+    }
+
+    try {
+      const file = await readFile(filePath);
+      response.statusCode = 200;
+      response.setHeader("content-type", contentTypeForFile(filePath));
+      if (method === "HEAD") {
+        response.end();
+      } else {
+        response.end(file);
+      }
+      return true;
+    } catch (error) {
+      if (error instanceof Error && "code" in error && error.code === "ENOENT") {
+        throw new AppError("NOT_FOUND", "Asset not found", 404);
+      }
+      throw error;
+    }
   }
 
   private requireAuthenticated(connection: ConnectionState): string {

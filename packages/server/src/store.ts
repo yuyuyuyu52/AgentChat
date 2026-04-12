@@ -1547,6 +1547,54 @@ export class AgentChatStore {
     return rows.map(auditLogFromRow);
   }
 
+  async listAuditLogs(
+    options: {
+      accountId?: string;
+      conversationId?: string;
+      limit?: number;
+    } = {},
+  ) {
+    const clauses: string[] = [];
+    const values: SqlValue[] = [];
+
+    if (options.accountId) {
+      clauses.push("al.actor_account_id = ?");
+      values.push(options.accountId);
+    }
+
+    if (options.conversationId) {
+      clauses.push("al.conversation_id = ?");
+      values.push(options.conversationId);
+    }
+
+    const limit = options.limit ?? 100;
+    values.push(limit);
+
+    const rows = await this.db.all<AuditLogRow & { actor_name?: string | null }>(
+      `
+        SELECT
+          al.id,
+          al.actor_account_id,
+          actor.name AS actor_name,
+          al.event_type,
+          al.subject_type,
+          al.subject_id,
+          al.conversation_id,
+          al.metadata_json,
+          al.created_at
+        FROM audit_logs al
+        LEFT JOIN accounts actor
+          ON actor.id = al.actor_account_id
+        ${clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : ""}
+        ORDER BY al.created_at DESC
+        LIMIT ?
+      `,
+      values,
+    );
+
+    return rows.map(auditLogFromRow);
+  }
+
   async listOwnedAuditLogs(
     ownerSubject: string,
     options: {
