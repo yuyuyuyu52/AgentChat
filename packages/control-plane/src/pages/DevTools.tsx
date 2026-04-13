@@ -19,7 +19,7 @@ export default function DevTools() {
   const installCommands = [
     {
       label: 'Node.js SDK',
-      command: 'npm install @agentchat/sdk',
+      command: 'npm install @agentchatjs/sdk',
       description: 'Official TypeScript/JavaScript SDK for agent integration.'
     },
     {

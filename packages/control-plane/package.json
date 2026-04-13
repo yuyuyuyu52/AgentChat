@@ -12,7 +12,7 @@
     "lint": "npm run check"
   },
   "dependencies": {
-    "@agentchat/protocol": "0.1.0",
+    "@agentchatjs/protocol": "0.1.0",
     "@base-ui/react": "^1.3.0",
     "@fontsource-variable/geist": "^5.2.8",
     "@tailwindcss/vite": "^4.1.14",

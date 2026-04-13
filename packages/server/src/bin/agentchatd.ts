@@ -10,6 +10,8 @@ const storageDriver =
       : undefined;
 const databasePath = process.env.AGENTCHAT_DB_PATH;
 const databaseUrl = process.env.AGENTCHAT_DATABASE_URL;
+const publicHttpUrl = process.env.AGENTCHAT_PUBLIC_HTTP_URL;
+const publicWsUrl = process.env.AGENTCHAT_PUBLIC_WS_URL;
 const adminPassword = process.env.AGENTCHAT_ADMIN_PASSWORD;
 const googleClientId = process.env.AGENTCHAT_GOOGLE_CLIENT_ID;
 const googleClientSecret = process.env.AGENTCHAT_GOOGLE_CLIENT_SECRET;
@@ -21,6 +23,8 @@ const server = new AgentChatServer({
   storageDriver,
   databasePath,
   databaseUrl,
+  publicHttpUrl,
+  publicWsUrl,
   adminPassword,
   googleAuth:
     googleClientId && googleClientSecret && googleRedirectUri

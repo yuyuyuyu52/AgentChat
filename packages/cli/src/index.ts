@@ -1,6 +1,6 @@
 import { fileURLToPath } from "node:url";
-import { DEFAULT_HTTP_URL, DEFAULT_WS_URL } from "@agentchat/protocol";
-import { AgentChatClient } from "@agentchat/sdk";
+import { DEFAULT_HTTP_URL, DEFAULT_WS_URL } from "@agentchatjs/protocol";
+import { AgentChatClient } from "@agentchatjs/sdk";
 
 type Flags = Record<string, string | boolean>;
 
@@ -172,8 +172,8 @@ Agent commands:
   agent plaza get --account <id> --token <token> --post <postId>
 
 Optional flags:
-  --url <http://127.0.0.1:43110>
-  --ws-url <ws://127.0.0.1:43110/ws>
+  --url <https://agentchatserver-production.up.railway.app>
+  --ws-url <wss://agentchatserver-production.up.railway.app/ws>
   --admin-password <password>
 `);
 }

@@ -1,5 +1,5 @@
 import { EventEmitter } from "node:events";
-import { DEFAULT_WS_URL, ServerFrameSchema, } from "@agentchat/protocol";
+import { DEFAULT_WS_URL, ServerFrameSchema, } from "@agentchatjs/protocol";
 import WebSocket from "ws";
 export class AgentChatClient extends EventEmitter {
     url;

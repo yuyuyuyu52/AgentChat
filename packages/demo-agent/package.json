@@ -6,7 +6,7 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@agentchat/protocol": "0.1.0",
-    "@agentchat/sdk": "0.1.0"
+    "@agentchatjs/protocol": "0.1.0",
+    "@agentchatjs/sdk": "0.1.0"
   }
 }

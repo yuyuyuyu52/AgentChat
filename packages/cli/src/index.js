@@ -1,6 +1,6 @@
 import { fileURLToPath } from "node:url";
-import { DEFAULT_HTTP_URL, DEFAULT_WS_URL } from "@agentchat/protocol";
-import { AgentChatClient } from "@agentchat/sdk";
+import { DEFAULT_HTTP_URL, DEFAULT_WS_URL } from "@agentchatjs/protocol";
+import { AgentChatClient } from "@agentchatjs/sdk";
 class AdminHttpClient {
     baseUrl;
     adminPassword;

@@ -18,7 +18,7 @@ import {
   type Message,
   type PlazaPost,
   type ServerEvent,
-} from "@agentchat/protocol";
+} from "@agentchatjs/protocol";
 import { WebSocketServer, type WebSocket } from "ws";
 import { z } from "zod";
 import { renderAdminPage } from "./admin-ui.js";
@@ -43,6 +43,8 @@ export type AgentChatServerOptions = {
   port?: number | undefined;
   databasePath?: string | undefined;
   databaseUrl?: string | undefined;
+  publicHttpUrl?: string | undefined;
+  publicWsUrl?: string | undefined;
   storageDriver?: "sqlite" | "postgres" | undefined;
   adminPassword?: string | undefined;
   googleAuth?:
@@ -170,6 +172,13 @@ function contentTypeForFile(pathname: string): string {
   }
 }
 
+function firstHeaderValue(value: string | string[] | undefined): string | undefined {
+  if (Array.isArray(value)) {
+    return value[0];
+  }
+  return value?.split(",")[0]?.trim() || undefined;
+}
+
 function isControlPlaneAssetPath(pathname: string | null | undefined): pathname is string {
   return Boolean(pathname?.startsWith("/assets/"));
 }
@@ -213,6 +222,8 @@ export class AgentChatServer {
 
   private readonly requestedPort: number;
   private readonly adminPassword: string | undefined;
+  private readonly publicHttpUrl: string | undefined;
+  private readonly publicWsUrl: string | undefined;
   private readonly googleAuth:
     | {
         clientId: string;
@@ -233,6 +244,8 @@ export class AgentChatServer {
     this.host = options.host ?? "127.0.0.1";
     this.requestedPort = options.port ?? 43110;
     this.adminPassword = options.adminPassword;
+    this.publicHttpUrl = options.publicHttpUrl;
+    this.publicWsUrl = options.publicWsUrl;
     this.googleAuth = options.googleAuth;
     this.store = new AgentChatStore({
       databasePath:
@@ -274,11 +287,54 @@ export class AgentChatServer {
   }
 
   get httpUrl(): string {
+    if (this.publicHttpUrl) {
+      return this.publicHttpUrl;
+    }
     return `http://${this.host}:${this.actualPort}`;
   }
 
   get wsUrl(): string {
+    if (this.publicWsUrl) {
+      return this.publicWsUrl;
+    }
+    if (this.publicHttpUrl) {
+      const publicUrl = new URL(this.publicHttpUrl);
+      publicUrl.protocol = publicUrl.protocol === "https:" ? "wss:" : "ws:";
+      publicUrl.pathname = "/ws";
+      publicUrl.search = "";
+      publicUrl.hash = "";
+      return publicUrl.toString();
+    }
     return `ws://${this.host}:${this.actualPort}/ws`;
+  }
+
+  private getExternalHttpUrl(request?: IncomingMessage): string {
+    if (this.publicHttpUrl) {
+      return this.publicHttpUrl;
+    }
+    const host = firstHeaderValue(request?.headers.host);
+    if (host) {
+      const protocol = firstHeaderValue(request?.headers["x-forwarded-proto"]) ?? "http";
+      return `${protocol}://${host}`;
+    }
+    return this.httpUrl || DEFAULT_HTTP_URL;
+  }
+
+  private getExternalWsUrl(request?: IncomingMessage): string {
+    if (this.publicWsUrl) {
+      return this.publicWsUrl;
+    }
+    if (this.publicHttpUrl) {
+      return this.wsUrl || DEFAULT_WS_URL;
+    }
+    const host = firstHeaderValue(request?.headers.host);
+    if (host) {
+      const protocol = firstHeaderValue(request?.headers["x-forwarded-proto"]) === "https"
+        ? "wss"
+        : "ws";
+      return `${protocol}://${host}/ws`;
+    }
+    return this.wsUrl || DEFAULT_WS_URL;
   }
 
   async start(): Promise<void> {
@@ -680,8 +736,8 @@ export class AgentChatServer {
       if (method === "GET" && url.pathname === "/admin/health") {
         jsonResponse(response, 200, {
           ok: true,
-          httpUrl: this.httpUrl || DEFAULT_HTTP_URL,
-          wsUrl: this.wsUrl || DEFAULT_WS_URL,
+          httpUrl: this.getExternalHttpUrl(request),
+          wsUrl: this.getExternalWsUrl(request),
           databasePath: this.store.databasePath,
           adminAuthEnabled: Boolean(this.adminPassword),
           googleAuthEnabled: Boolean(this.googleAuth),
@@ -807,8 +863,8 @@ export class AgentChatServer {
         jsonResponse(response, 200, {
           ok: true,
           databasePath: this.store.databasePath,
-          httpUrl: this.httpUrl,
-          wsUrl: this.wsUrl,
+          httpUrl: this.getExternalHttpUrl(request),
+          wsUrl: this.getExternalWsUrl(request),
         });
         return;
       }

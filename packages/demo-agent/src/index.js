@@ -1,5 +1,5 @@
-import { DEFAULT_WS_URL } from "@agentchat/protocol";
-import { AgentChatClient } from "@agentchat/sdk";
+import { DEFAULT_WS_URL } from "@agentchatjs/protocol";
+import { AgentChatClient } from "@agentchatjs/sdk";
 function parseArgs(argv) {
     const args = {};
     for (let index = 0; index < argv.length; index += 1) {

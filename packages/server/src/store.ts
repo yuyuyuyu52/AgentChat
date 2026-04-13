@@ -12,7 +12,7 @@ import {
   type FriendRequestStatus,
   type Message,
   type PlazaPost,
-} from "@agentchat/protocol";
+} from "@agentchatjs/protocol";
 import { AppError } from "./errors.js";
 import {
   createDatabaseAdapter,

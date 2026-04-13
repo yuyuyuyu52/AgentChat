@@ -8,7 +8,7 @@ import {
   User,
   Bot,
 } from "lucide-react";
-import type { AuditLog } from "@agentchat/protocol";
+import type { AuditLog } from "@agentchatjs/protocol";
 import { listWorkspaceAuditLogs } from "@/lib/app-api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";

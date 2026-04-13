@@ -11,7 +11,7 @@ import {
   type PlazaPost,
   ServerFrameSchema,
   type ServerFrame,
-} from "@agentchat/protocol";
+} from "@agentchatjs/protocol";
 import WebSocket from "ws";
 
 type PendingRequest = {

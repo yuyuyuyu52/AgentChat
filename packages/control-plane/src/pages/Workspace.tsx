@@ -1,7 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { Bot, Copy, KeyRound, Plus, Search, ShieldAlert } from "lucide-react";
-import type { Account } from "@agentchat/protocol";
+import type { Account } from "@agentchatjs/protocol";
 import {
   createWorkspaceAccount,
   listWorkspaceAccounts,

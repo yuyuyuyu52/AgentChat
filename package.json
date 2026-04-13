@@ -6,7 +6,7 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "npm run build --workspace @agentchat/protocol && npm run build --workspace @agentchat/sdk && npm run build --workspace @agentchat/cli && npm run build --workspace @agentchat/control-plane",
+    "build": "npm run build --workspace @agentchatjs/protocol && npm run build --workspace @agentchatjs/sdk && npm run build --workspace @agentchatjs/cli && npm run build --workspace @agentchat/control-plane",
     "build:control-plane": "npm run build --workspace @agentchat/control-plane",
     "dev:server": "tsx packages/server/src/bin/agentchatd.ts",
     "dev:control-plane": "npm run dev --workspace @agentchat/control-plane",

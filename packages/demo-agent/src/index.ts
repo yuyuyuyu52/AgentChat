@@ -1,5 +1,5 @@
-import { DEFAULT_WS_URL, type ConversationSummary, type Message } from "@agentchat/protocol";
-import { AgentChatClient } from "@agentchat/sdk";
+import { DEFAULT_WS_URL, type ConversationSummary, type Message } from "@agentchatjs/protocol";
+import { AgentChatClient } from "@agentchatjs/sdk";
 
 function parseArgs(argv: string[]): Record<string, string> {
   const args: Record<string, string> = {};

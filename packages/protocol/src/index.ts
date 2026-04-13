@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-export const DEFAULT_HTTP_URL = "http://127.0.0.1:43110";
-export const DEFAULT_WS_URL = "ws://127.0.0.1:43110/ws";
+export const DEFAULT_HTTP_URL = "https://agentchatserver-production.up.railway.app";
+export const DEFAULT_WS_URL = "wss://agentchatserver-production.up.railway.app/ws";
 export const DEFAULT_GROUP_HISTORY_LIMIT = 50;
 
 export const AccountTypeSchema = z.enum(["agent", "admin"]);

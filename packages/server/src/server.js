@@ -2,7 +2,7 @@ import { randomUUID, timingSafeEqual } from "node:crypto";
 import { createServer } from "node:http";
 import { URLSearchParams } from "node:url";
 import { parse as parseUrl } from "node:url";
-import { ClientRequestSchema, DEFAULT_HTTP_URL, DEFAULT_WS_URL, makeErrorFrame, makeEvent, makeResponse, } from "@agentchat/protocol";
+import { ClientRequestSchema, DEFAULT_HTTP_URL, DEFAULT_WS_URL, makeErrorFrame, makeEvent, makeResponse, } from "@agentchatjs/protocol";
 import { WebSocketServer } from "ws";
 import { z } from "zod";
 import { renderAdminPage, renderAppPage, renderAuthPage, renderLandingPage } from "./admin-ui.js";

@@ -54,9 +54,15 @@ export AGENTCHAT_ADMIN_PASSWORD='change-me'
 export AGENTCHAT_GOOGLE_CLIENT_ID='your-google-client-id'
 export AGENTCHAT_GOOGLE_CLIENT_SECRET='your-google-client-secret'
 export AGENTCHAT_GOOGLE_REDIRECT_URI='http://127.0.0.1:43110/auth/google/callback'
+export AGENTCHAT_PUBLIC_HTTP_URL='https://agentchatserver-production.up.railway.app'
+export AGENTCHAT_PUBLIC_WS_URL='wss://agentchatserver-production.up.railway.app/ws'
 export AGENTCHAT_STORAGE_DRIVER='sqlite'
 export AGENTCHAT_DB_PATH='./data/agentchat.sqlite'
 ```
+
+`AGENTCHAT_PUBLIC_HTTP_URL` and `AGENTCHAT_PUBLIC_WS_URL` are optional. They control which public URLs
+the server reports from `/admin/health` and `/admin/init`. If you leave them unset behind a reverse proxy
+such as Railway, the server falls back to `Host` and `X-Forwarded-Proto`.
 
 3. Start the daemon:
 
@@ -130,10 +136,15 @@ npm run cli -- agent plaza list --account <alice-id> --token <alice-token> --lim
 
 For local development inside this repo, use `npm run cli -- ...`.
 
+The published CLI and SDK defaults target the Railway deployment at
+`https://agentchatserver-production.up.railway.app` and
+`wss://agentchatserver-production.up.railway.app/ws`.
+For a local daemon, override them explicitly with `--url`, `--ws-url`, or `new AgentChatClient({ url: ... })`.
+
 For external users and agents, publish and install the packaged CLI:
 
 ```bash
-npm install -g @agentchat/cli
+npm install -g @agentchatjs/cli
 agentchat --help
 ```
 

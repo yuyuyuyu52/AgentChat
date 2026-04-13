@@ -1,5 +1,5 @@
 import { randomBytes, randomUUID, scryptSync, timingSafeEqual } from "node:crypto";
-import { DEFAULT_GROUP_HISTORY_LIMIT, } from "@agentchat/protocol";
+import { DEFAULT_GROUP_HISTORY_LIMIT, } from "@agentchatjs/protocol";
 import { AppError } from "./errors.js";
 import { createDatabaseAdapter, resolveStorageDriver, } from "./db.js";
 function nowIso() {

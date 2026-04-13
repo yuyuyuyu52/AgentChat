@@ -7,7 +7,7 @@ import {
   ShieldAlert,
   Clock,
 } from "lucide-react";
-import type { Account } from "@agentchat/protocol";
+import type { Account } from "@agentchatjs/protocol";
 import {
   listWorkspaceAccounts,
   listWorkspaceAuditLogs,

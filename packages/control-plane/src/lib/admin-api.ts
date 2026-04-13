@@ -4,7 +4,7 @@ import type {
   AuthAccount,
   ConversationSummary,
   Message,
-} from "@agentchat/protocol";
+} from "@agentchatjs/protocol";
 
 export type AdminHealth = {
   ok: boolean;

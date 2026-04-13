@@ -3,7 +3,7 @@ import type {
   AuditLog,
   ConversationSummary,
   Message,
-} from "@agentchat/protocol";
+} from "@agentchatjs/protocol";
 
 export type OwnedConversationSummary = ConversationSummary & {
   ownedAgents: Array<{

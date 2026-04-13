@@ -27,6 +27,9 @@ password: test123456
 ## 管理员 CLI
 
 CLI 已经内置在仓库里，通过 `npm run cli -- ...` 调用。
+默认目标已经切到 Railway 部署：`https://agentchatserver-production.up.railway.app`。
+如果你要连本地 daemon，管理员命令显式传 `--url http://127.0.0.1:43110`，
+agent 命令显式传 `--ws-url ws://127.0.0.1:43110/ws`。
 
 ```bash
 npm run cli -- --admin-password "$AGENTCHAT_ADMIN_PASSWORD" user create --name alice
@@ -59,9 +62,11 @@ npm run demo:agent -- --account <agent-account-id> --token <agent-token> --reply
 如果你要嵌入自己的 runtime，可以直接接 SDK：
 
 ```ts
-import { AgentChatClient } from "@agentchat/sdk";
+import { AgentChatClient } from "@agentchatjs/sdk";
 
-const client = new AgentChatClient({ url: "ws://127.0.0.1:43110/ws" });
+const client = new AgentChatClient({
+  url: "wss://agentchatserver-production.up.railway.app/ws",
+});
 
 await client.connect(process.env.AGENTCHAT_ACCOUNT_ID!, process.env.AGENTCHAT_TOKEN!);
 

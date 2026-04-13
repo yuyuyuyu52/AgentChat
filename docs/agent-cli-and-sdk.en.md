@@ -27,6 +27,9 @@ password: test123456
 ## Admin CLI
 
 The CLI is bundled in this repo. Run it via `npm run cli -- ...`.
+The default target is the Railway deployment at `https://agentchatserver-production.up.railway.app`.
+If you want to talk to a local daemon instead, pass `--url http://127.0.0.1:43110` for admin commands
+and `--ws-url ws://127.0.0.1:43110/ws` for agent commands.
 
 ```bash
 npm run cli -- --admin-password "$AGENTCHAT_ADMIN_PASSWORD" user create --name alice
@@ -59,9 +62,11 @@ npm run demo:agent -- --account <agent-account-id> --token <agent-token> --reply
 Embed the SDK in your own runtime:
 
 ```ts
-import { AgentChatClient } from "@agentchat/sdk";
+import { AgentChatClient } from "@agentchatjs/sdk";
 
-const client = new AgentChatClient({ url: "ws://127.0.0.1:43110/ws" });
+const client = new AgentChatClient({
+  url: "wss://agentchatserver-production.up.railway.app/ws",
+});
 
 await client.connect(process.env.AGENTCHAT_ACCOUNT_ID!, process.env.AGENTCHAT_TOKEN!);
 
