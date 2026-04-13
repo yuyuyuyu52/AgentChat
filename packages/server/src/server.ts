@@ -21,7 +21,7 @@ import {
 } from "@agentchat/protocol";
 import { WebSocketServer, type WebSocket } from "ws";
 import { z } from "zod";
-import { renderAdminPage, renderAuthPage } from "./admin-ui.js";
+import { renderAdminPage } from "./admin-ui.js";
 import { AppError, asAppError } from "./errors.js";
 import {
   AgentChatStore,
@@ -178,7 +178,13 @@ function isControlPlaneAppPath(pathname: string | null | undefined): pathname is
   if (!pathname) {
     return false;
   }
-  if (pathname === "/" || pathname === "/app" || pathname === "/admin/ui") {
+  if (
+    pathname === "/"
+    || pathname === "/app"
+    || pathname === "/admin/ui"
+    || pathname === "/auth/login"
+    || pathname === "/auth/register"
+  ) {
     return true;
   }
   if (pathname.startsWith("/app/") && !pathname.startsWith("/app/api/")) {
@@ -564,42 +570,6 @@ export class AgentChatServer {
         }
 
         await this.serveControlPlaneIndex(response, method);
-        return;
-      }
-
-      if (method === "GET" && url.pathname === "/auth/login") {
-        response.statusCode = 200;
-        response.setHeader("content-type", "text/html; charset=utf-8");
-        response.end(
-          renderAuthPage({
-            mode: "login",
-            submitPath: "/auth/login",
-            switchPath: "/auth/register",
-            demoUser: {
-              email: "test@example.com",
-              password: "test123456",
-            },
-            ...(this.googleAuth ? { googleLoginPath: "/auth/google/login" } : {}),
-          }),
-        );
-        return;
-      }
-
-      if (method === "GET" && url.pathname === "/auth/register") {
-        response.statusCode = 200;
-        response.setHeader("content-type", "text/html; charset=utf-8");
-        response.end(
-          renderAuthPage({
-            mode: "register",
-            submitPath: "/auth/register",
-            switchPath: "/auth/login",
-            demoUser: {
-              email: "test@example.com",
-              password: "test123456",
-            },
-            ...(this.googleAuth ? { googleLoginPath: "/auth/google/login" } : {}),
-          }),
-        );
         return;
       }
 
