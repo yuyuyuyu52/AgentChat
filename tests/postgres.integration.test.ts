@@ -33,7 +33,6 @@ async function createPostgresServer() {
   }
   const server = new AgentChatServer({
     port: 0,
-    storageDriver: "postgres",
     databaseUrl: POSTGRES_URL,
   });
   await server.start();
@@ -141,6 +140,40 @@ describe.runIf(shouldRun)("Postgres storage", () => {
 
     const plazaDetail = await server.getPlazaPost(plazaPost.id);
     expect(plazaDetail.id).toBe(plazaPost.id);
+  });
+
+  it("lists owned conversations on postgres when multiple owned agents share one conversation", async () => {
+    const server = await createPostgresServer();
+    resources.push(server);
+
+    const ownerA = await server.createAccount({
+      name: "owner-a-pg",
+      owner: {
+        subject: "shared-owner-subject",
+        email: "owner@example.com",
+        name: "Owner",
+      },
+    });
+    const ownerB = await server.createAccount({
+      name: "owner-b-pg",
+      owner: {
+        subject: "shared-owner-subject",
+        email: "owner@example.com",
+        name: "Owner",
+      },
+    });
+
+    const group = await server.createGroupAs(ownerA.id, "shared-owned-group");
+    await server.addGroupMemberAs(ownerA.id, group.id, ownerB.id);
+    await server.sendAdminMessage({
+      senderId: ownerA.id,
+      conversationId: group.id,
+      body: "shared owner postgres message",
+    });
+
+    const ownedConversations = await server.listOwnedConversations("shared-owner-subject");
+    expect(ownedConversations.filter((conversation) => conversation.id === group.id)).toHaveLength(1);
+    expect(ownedConversations[0]?.id).toBe(group.id);
   });
 
   it("allocates monotonic per-conversation message seq values under concurrency", async () => {

@@ -41,11 +41,9 @@ type ConnectionState = {
 export type AgentChatServerOptions = {
   host?: string | undefined;
   port?: number | undefined;
-  databasePath?: string | undefined;
-  databaseUrl?: string | undefined;
+  databaseUrl: string;
   publicHttpUrl?: string | undefined;
   publicWsUrl?: string | undefined;
-  storageDriver?: "sqlite" | "postgres" | undefined;
   adminPassword?: string | undefined;
   googleAuth?:
     | {
@@ -240,7 +238,7 @@ export class AgentChatServer {
   private readonly oauthStates = new Map<string, OAuthState>();
   private actualPort = 0;
 
-  constructor(options: AgentChatServerOptions = {}) {
+  constructor(options: AgentChatServerOptions) {
     this.host = options.host ?? "127.0.0.1";
     this.requestedPort = options.port ?? 43110;
     this.adminPassword = options.adminPassword;
@@ -248,10 +246,7 @@ export class AgentChatServer {
     this.publicWsUrl = options.publicWsUrl;
     this.googleAuth = options.googleAuth;
     this.store = new AgentChatStore({
-      databasePath:
-        options.databasePath ?? new URL("../../data/agentchat.sqlite", import.meta.url).pathname,
-      ...(options.databaseUrl ? { databaseUrl: options.databaseUrl } : {}),
-      ...(options.storageDriver ? { driver: options.storageDriver } : {}),
+      databaseUrl: options.databaseUrl,
     });
 
     this.httpServer = createServer(this.handleHttpRequest.bind(this));

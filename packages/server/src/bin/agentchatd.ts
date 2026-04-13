@@ -2,13 +2,6 @@ import { AgentChatServer } from "../index.js";
 
 const port = process.env.AGENTCHAT_PORT ? Number(process.env.AGENTCHAT_PORT) : undefined;
 const host = process.env.AGENTCHAT_HOST;
-const storageDriver =
-  process.env.AGENTCHAT_STORAGE_DRIVER === "postgres"
-    ? "postgres"
-    : process.env.AGENTCHAT_STORAGE_DRIVER === "sqlite"
-      ? "sqlite"
-      : undefined;
-const databasePath = process.env.AGENTCHAT_DB_PATH;
 const databaseUrl = process.env.AGENTCHAT_DATABASE_URL;
 const publicHttpUrl = process.env.AGENTCHAT_PUBLIC_HTTP_URL;
 const publicWsUrl = process.env.AGENTCHAT_PUBLIC_WS_URL;
@@ -17,11 +10,13 @@ const googleClientId = process.env.AGENTCHAT_GOOGLE_CLIENT_ID;
 const googleClientSecret = process.env.AGENTCHAT_GOOGLE_CLIENT_SECRET;
 const googleRedirectUri = process.env.AGENTCHAT_GOOGLE_REDIRECT_URI;
 
+if (!databaseUrl) {
+  throw new Error("AGENTCHAT_DATABASE_URL is required");
+}
+
 const server = new AgentChatServer({
   host,
   port,
-  storageDriver,
-  databasePath,
   databaseUrl,
   publicHttpUrl,
   publicWsUrl,

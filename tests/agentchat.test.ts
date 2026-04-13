@@ -1,32 +1,59 @@
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { AgentChatClient } from "@agentchatjs/sdk";
 import { ServerFrameSchema } from "@agentchatjs/protocol";
 import { AgentChatServer } from "@agentchat/server";
+import { Pool } from "pg";
 import { afterEach, describe, expect, it } from "vitest";
 import WebSocket from "ws";
 
+const POSTGRES_URL = process.env.AGENTCHAT_TEST_POSTGRES_URL;
+const shouldRun = Boolean(POSTGRES_URL);
+
+async function resetDatabase(connectionString: string) {
+  const pool = new Pool({ connectionString });
+  try {
+    await pool.query(`
+      TRUNCATE TABLE
+        audit_logs,
+        sessions,
+        plaza_posts,
+        messages,
+        conversation_members,
+        friend_requests,
+        friendships,
+        conversations,
+        human_users,
+        accounts
+      RESTART IDENTITY CASCADE
+    `);
+  } finally {
+    await pool.end();
+  }
+}
+
 async function createServer() {
-  const directory = await mkdtemp(join(tmpdir(), "agentchat-"));
+  if (!POSTGRES_URL) {
+    throw new Error("AGENTCHAT_TEST_POSTGRES_URL is required");
+  }
   const server = new AgentChatServer({
     port: 0,
-    databasePath: join(directory, "agentchat.sqlite"),
+    databaseUrl: POSTGRES_URL,
   });
   await server.start();
-  return { server, directory };
+  return server;
 }
 
 async function createProtectedServer() {
-  const directory = await mkdtemp(join(tmpdir(), "agentchat-auth-"));
+  if (!POSTGRES_URL) {
+    throw new Error("AGENTCHAT_TEST_POSTGRES_URL is required");
+  }
   const server = new AgentChatServer({
     port: 0,
-    databasePath: join(directory, "agentchat.sqlite"),
+    databaseUrl: POSTGRES_URL,
     adminPassword: "secret-pass",
   });
   await server.start();
-  return { server, directory };
+  return server;
 }
 
 async function expectEvent<T>(
@@ -49,24 +76,25 @@ async function expectEvent<T>(
   });
 }
 
-describe("AgentChat MVP", () => {
-  const resources: Array<{ server: AgentChatServer; directory: string }> = [];
+describe.runIf(shouldRun)("AgentChat MVP", () => {
+  const resources: AgentChatServer[] = [];
 
   afterEach(async () => {
     while (resources.length > 0) {
-      const resource = resources.pop();
-      if (!resource) {
+      const server = resources.pop();
+      if (!server) {
         continue;
       }
-      await resource.server.stop();
-      await rm(resource.directory, { recursive: true, force: true });
+      await server.stop();
+    }
+    if (POSTGRES_URL) {
+      await resetDatabase(POSTGRES_URL);
     }
   });
 
   it("creates a single DM conversation per friendship and rejects non-friend DMs", async () => {
-    const resource = await createServer();
-    resources.push(resource);
-    const { server } = resource;
+    const server = await createServer();
+    resources.push(server);
 
     const alice = await server.createAccount({ name: "alice" });
     const bob = await server.createAccount({ name: "bob" });
@@ -86,9 +114,8 @@ describe("AgentChat MVP", () => {
   });
 
   it("requires admin authorization for browser and API management flows", async () => {
-    const resource = await createProtectedServer();
-    resources.push(resource);
-    const { server } = resource;
+    const server = await createProtectedServer();
+    resources.push(server);
 
     const uiResponse = await fetch(`${server.httpUrl}/admin/ui`);
     expect(uiResponse.status).toBe(200);
@@ -123,9 +150,8 @@ describe("AgentChat MVP", () => {
   });
 
   it("serves a landing page and scopes app accounts to the logged-in Google user", async () => {
-    const resource = await createServer();
-    resources.push(resource);
-    const { server } = resource;
+    const server = await createServer();
+    resources.push(server);
 
     const landing = await fetch(`${server.httpUrl}/`);
     expect(landing.status).toBe(200);
@@ -203,9 +229,8 @@ describe("AgentChat MVP", () => {
   });
 
   it("lets a user read conversations for owned agents and blocks unrelated conversations", async () => {
-    const resource = await createServer();
-    resources.push(resource);
-    const { server } = resource;
+    const server = await createServer();
+    resources.push(server);
 
     const ownerAgent = await server.createAccount({
       name: "owner-agent",
@@ -296,9 +321,8 @@ describe("AgentChat MVP", () => {
   });
 
   it("supports local user registration and login with a seeded test user", async () => {
-    const resource = await createServer();
-    resources.push(resource);
-    const { server } = resource;
+    const server = await createServer();
+    resources.push(server);
 
     const loginPage = await fetch(`${server.httpUrl}/auth/login`);
     expect(loginPage.status).toBe(200);
@@ -354,9 +378,8 @@ describe("AgentChat MVP", () => {
   });
 
   it("lets authenticated agents manage friends, groups, and messages without admin APIs", async () => {
-    const resource = await createServer();
-    resources.push(resource);
-    const { server } = resource;
+    const server = await createServer();
+    resources.push(server);
 
     const alpha = await server.createAccount({ name: "alpha" });
     const beta = await server.createAccount({ name: "beta" });
@@ -419,9 +442,8 @@ describe("AgentChat MVP", () => {
   });
 
   it("lets agents publish and consume plaza posts", async () => {
-    const resource = await createServer();
-    resources.push(resource);
-    const { server } = resource;
+    const server = await createServer();
+    resources.push(server);
 
     const alpha = await server.createAccount({ name: "alpha-plaza" });
     const beta = await server.createAccount({ name: "beta-plaza" });
@@ -520,9 +542,8 @@ describe("AgentChat MVP", () => {
   });
 
   it("delivers DM messages in realtime and keeps history across reconnects", async () => {
-    const resource = await createServer();
-    resources.push(resource);
-    const { server } = resource;
+    const server = await createServer();
+    resources.push(server);
 
     const alice = await server.createAccount({ name: "alice" });
     const bob = await server.createAccount({ name: "bob" });
@@ -570,9 +591,8 @@ describe("AgentChat MVP", () => {
   });
 
   it("limits group visibility to members and grants bounded history on join", async () => {
-    const resource = await createServer();
-    resources.push(resource);
-    const { server } = resource;
+    const server = await createServer();
+    resources.push(server);
 
     const alice = await server.createAccount({ name: "alice" });
     const bob = await server.createAccount({ name: "bob" });

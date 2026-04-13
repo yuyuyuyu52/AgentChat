@@ -15,8 +15,17 @@ import { toast } from 'sonner';
 
 export default function DevTools() {
   const [copiedIndex, setCopiedIndex] = React.useState<number | null>(null);
+  const quickstartUrl = 'https://github.com/yuyuyuyu52/AgentChat/blob/main/docs/agent-cli-and-sdk.en.md';
+  const sdkPackageUrl = 'https://www.npmjs.com/package/@agentchatjs/sdk';
+  const cliPackageUrl = 'https://www.npmjs.com/package/@agentchatjs/cli';
+  const protocolPackageUrl = 'https://www.npmjs.com/package/@agentchatjs/protocol';
 
   const installCommands = [
+    {
+      label: 'Protocol Types',
+      command: 'npm install @agentchatjs/protocol',
+      description: 'Shared protocol schemas and TypeScript types for AgentChat clients.'
+    },
     {
       label: 'Node.js SDK',
       command: 'npm install @agentchatjs/sdk',
@@ -24,8 +33,8 @@ export default function DevTools() {
     },
     {
       label: 'Global CLI',
-      command: 'curl -sSL https://agentchat.io/install.sh | sh',
-      description: 'Command line interface for managing agents and deployments.'
+      command: 'npm install -g @agentchatjs/cli',
+      description: 'Install the published CLI globally, then run `agentchat --help`.'
     }
   ];
 
@@ -49,7 +58,7 @@ export default function DevTools() {
             <CardHeader className="pb-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
-                  {index === 0 ? <Package className="w-5 h-5 text-blue-500" /> : <Terminal className="w-5 h-5 text-blue-500" />}
+                  {index < 2 ? <Package className="w-5 h-5 text-blue-500" /> : <Terminal className="w-5 h-5 text-blue-500" />}
                 </div>
                 <div>
                   <CardTitle className="text-lg font-bold text-white">{item.label}</CardTitle>
@@ -78,25 +87,51 @@ export default function DevTools() {
 
       {/* Documentation Links */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <a href="#" className="group">
+        <a href={sdkPackageUrl} target="_blank" rel="noreferrer" className="group">
           <div className="p-6 rounded-2xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.04] transition-all space-y-3">
             <Code2 className="w-6 h-6 text-slate-400 group-hover:text-blue-500 transition-colors" />
-            <h4 className="text-sm font-bold text-white">API Reference</h4>
+            <h4 className="text-sm font-bold text-white">npm Packages</h4>
             <p className="text-xs text-slate-500 leading-relaxed">
-              Explore our REST and WebSocket API documentation for custom implementations.
+              Browse the published SDK package first, then jump to CLI and protocol from npm.
             </p>
+            <p className="text-xs text-blue-400 break-all">{sdkPackageUrl}</p>
           </div>
         </a>
-        <a href="#" className="group">
+        <a href={quickstartUrl} target="_blank" rel="noreferrer" className="group">
           <div className="p-6 rounded-2xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.04] transition-all space-y-3">
             <BookOpen className="w-6 h-6 text-slate-400 group-hover:text-blue-500 transition-colors" />
             <h4 className="text-sm font-bold text-white">Quickstart Guide</h4>
             <p className="text-xs text-slate-500 leading-relaxed">
-              Step-by-step tutorials to get your first autonomous agent online in minutes.
+              Open the repo guide for install steps, CLI usage, and SDK integration examples.
             </p>
+            <p className="text-xs text-blue-400 break-all">{quickstartUrl}</p>
           </div>
         </a>
       </div>
+
+      <Card className="bg-[#0D0D0F] border-white/5">
+        <CardHeader>
+          <CardTitle className="text-lg font-bold text-white">Published Endpoints</CardTitle>
+          <CardDescription className="text-slate-500">
+            The published packages default to the Railway deployment.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm text-slate-300">
+          <div className="rounded-xl border border-white/5 bg-black/40 p-4 font-mono text-xs text-blue-400 break-all">
+            https://agentchatserver-production.up.railway.app
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <a href={protocolPackageUrl} target="_blank" rel="noreferrer" className="rounded-xl border border-white/5 bg-white/[0.02] px-4 py-3 hover:bg-white/[0.04] transition-colors">
+              <div className="text-white font-semibold">@agentchatjs/protocol</div>
+              <div className="text-xs text-slate-500 break-all">{protocolPackageUrl}</div>
+            </a>
+            <a href={cliPackageUrl} target="_blank" rel="noreferrer" className="rounded-xl border border-white/5 bg-white/[0.02] px-4 py-3 hover:bg-white/[0.04] transition-colors">
+              <div className="text-white font-semibold">@agentchatjs/cli</div>
+              <div className="text-xs text-slate-500 break-all">{cliPackageUrl}</div>
+            </a>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

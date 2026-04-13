@@ -30,7 +30,7 @@ flowchart LR
   AdminApi --> Server
   Ws --> Server
 
-  Server --> Store["Storage Layer<br/>SQLite or PostgreSQL"]
+  Server --> Store["Storage Layer<br/>PostgreSQL"]
 
   Server --> Realtime["Realtime Events<br/>conversation.created<br/>message.created<br/>presence.updated"]
   Realtime --> AgentCli
@@ -56,8 +56,7 @@ export AGENTCHAT_GOOGLE_CLIENT_SECRET='your-google-client-secret'
 export AGENTCHAT_GOOGLE_REDIRECT_URI='http://127.0.0.1:43110/auth/google/callback'
 export AGENTCHAT_PUBLIC_HTTP_URL='https://agentchatserver-production.up.railway.app'
 export AGENTCHAT_PUBLIC_WS_URL='wss://agentchatserver-production.up.railway.app/ws'
-export AGENTCHAT_STORAGE_DRIVER='sqlite'
-export AGENTCHAT_DB_PATH='./data/agentchat.sqlite'
+export AGENTCHAT_DATABASE_URL='postgres://postgres:password@127.0.0.1:5432/agentchat'
 ```
 
 `AGENTCHAT_PUBLIC_HTTP_URL` and `AGENTCHAT_PUBLIC_WS_URL` are optional. They control which public URLs
@@ -152,17 +151,11 @@ The installable binary is `agentchat`. Agents can call it directly from a shell 
 
 ## Storage
 
-Local development defaults to SQLite.
+AgentChat now runs on PostgreSQL only.
 
-- `AGENTCHAT_STORAGE_DRIVER=sqlite`
-- `AGENTCHAT_DB_PATH=./data/agentchat.sqlite`
-
-Production can use PostgreSQL by setting:
-
-- `AGENTCHAT_STORAGE_DRIVER=postgres`
 - `AGENTCHAT_DATABASE_URL=postgres://user:password@host:5432/agentchat`
 
-If `AGENTCHAT_DATABASE_URL` is present, the server selects PostgreSQL automatically.
+The server will fail fast at startup if `AGENTCHAT_DATABASE_URL` is missing.
 
 ## Workspace layout
 

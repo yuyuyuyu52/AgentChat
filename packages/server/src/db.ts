@@ -1,12 +1,9 @@
-import { mkdirSync } from "node:fs";
-import { dirname } from "node:path";
-import { DatabaseSync } from "node:sqlite";
 import pg from "pg";
 import type { Pool as PgPool, PoolClient, QueryResult } from "pg";
 
 const { Pool } = pg;
 
-export type StorageDriver = "sqlite" | "postgres";
+export type StorageDriver = "postgres";
 
 export type SqlValue = null | number | string;
 
@@ -43,60 +40,6 @@ function redactDatabaseUrl(value: string): string {
     return url.toString();
   } catch {
     return "postgres://redacted";
-  }
-}
-
-class SqliteQueryable implements Queryable {
-  constructor(protected readonly db: DatabaseSync) {}
-
-  async all<T>(sql: string, params?: SqlValue[]): Promise<T[]> {
-    return this.db.prepare(sql).all(...toParams(params)) as T[];
-  }
-
-  async exec(sql: string): Promise<void> {
-    this.db.exec(sql);
-  }
-
-  async get<T>(sql: string, params?: SqlValue[]): Promise<T | undefined> {
-    return this.db.prepare(sql).get(...toParams(params)) as T | undefined;
-  }
-
-  async run(sql: string, params?: SqlValue[]): Promise<{ rowCount: number }> {
-    const result = this.db.prepare(sql).run(...toParams(params));
-    return { rowCount: Number(result.changes ?? 0) };
-  }
-}
-
-export class SqliteAdapter extends SqliteQueryable implements DatabaseAdapter {
-  readonly descriptor: string;
-  readonly driver = "sqlite" as const;
-
-  constructor(db: DatabaseSync, databasePath: string) {
-    super(db);
-    this.descriptor = databasePath;
-  }
-
-  async close(): Promise<void> {
-    this.db.close();
-  }
-
-  async columnNames(tableName: string): Promise<string[]> {
-    const rows = this.db.prepare(`PRAGMA table_info(${tableName})`).all() as Array<{
-      name: string;
-    }>;
-    return rows.map((row) => row.name);
-  }
-
-  async transaction<T>(fn: (tx: Queryable) => Promise<T>): Promise<T> {
-    this.db.exec("BEGIN");
-    try {
-      const result = await fn(this);
-      this.db.exec("COMMIT");
-      return result;
-    } catch (error) {
-      this.db.exec("ROLLBACK");
-      throw error;
-    }
   }
 }
 
@@ -166,32 +109,7 @@ export class PostgresAdapter extends PostgresQueryable implements DatabaseAdapte
 }
 
 export function createDatabaseAdapter(input: {
-  databasePath: string;
-  databaseUrl?: string;
-  driver?: StorageDriver;
+  databaseUrl: string;
 }): DatabaseAdapter {
-  const driver = resolveStorageDriver(input);
-  if (driver === "postgres") {
-    if (!input.databaseUrl) {
-      throw new Error("AGENTCHAT_DATABASE_URL is required for postgres storage");
-    }
-    return new PostgresAdapter(new Pool({ connectionString: input.databaseUrl }), input.databaseUrl);
-  }
-
-  if (input.databasePath !== ":memory:") {
-    mkdirSync(dirname(input.databasePath), { recursive: true });
-  }
-  const db = new DatabaseSync(input.databasePath);
-  db.exec("PRAGMA foreign_keys = ON;");
-  return new SqliteAdapter(db, input.databasePath);
-}
-
-export function resolveStorageDriver(input: {
-  databaseUrl?: string;
-  driver?: StorageDriver;
-}): StorageDriver {
-  if (input.driver) {
-    return input.driver;
-  }
-  return input.databaseUrl ? "postgres" : "sqlite";
+  return new PostgresAdapter(new Pool({ connectionString: input.databaseUrl }), input.databaseUrl);
 }

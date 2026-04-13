@@ -16,7 +16,6 @@ import {
 import { AppError } from "./errors.js";
 import {
   createDatabaseAdapter,
-  resolveStorageDriver,
   type DatabaseAdapter,
   type Queryable,
   type SqlValue,
@@ -412,9 +411,7 @@ export type ListPlazaPostsOptions = {
 };
 
 export type AgentChatStoreOptions = {
-  databasePath: string;
-  databaseUrl?: string;
-  driver?: StorageDriver;
+  databaseUrl: string;
 };
 
 export class AgentChatStore {
@@ -425,10 +422,7 @@ export class AgentChatStore {
   private initialized = false;
 
   constructor(options: AgentChatStoreOptions) {
-    this.driver = resolveStorageDriver({
-      ...(options.driver ? { driver: options.driver } : {}),
-      ...(options.databaseUrl ? { databaseUrl: options.databaseUrl } : {}),
-    });
+    this.driver = "postgres";
     this.db = createDatabaseAdapter(options);
     this.databasePath = this.db.descriptor;
   }
@@ -1154,16 +1148,14 @@ export class AgentChatStore {
   async listOwnedConversations(ownerSubject: string): Promise<OwnedConversationSummary[]> {
     const conversations = await this.db.all<OwnedConversationRow>(
       `
-        SELECT DISTINCT c.id, c.kind, c.title, c.created_at
+        SELECT c.id, c.kind, c.title, c.created_at
         FROM conversations c
         JOIN conversation_members cm ON cm.conversation_id = c.id
         JOIN accounts a ON a.id = cm.account_id
+        LEFT JOIN messages m ON m.conversation_id = c.id
         WHERE a.owner_subject = ?
-        ORDER BY COALESCE((
-          SELECT MAX(m.seq)
-          FROM messages m
-          WHERE m.conversation_id = c.id
-        ), 0) DESC, c.created_at DESC
+        GROUP BY c.id, c.kind, c.title, c.created_at
+        ORDER BY COALESCE(MAX(m.seq), 0) DESC, c.created_at DESC
       `,
       [ownerSubject],
     );
@@ -2102,4 +2094,4 @@ export class AgentChatStore {
   }
 }
 
-export { resolveStorageDriver, type StorageDriver };
+export type { StorageDriver };
