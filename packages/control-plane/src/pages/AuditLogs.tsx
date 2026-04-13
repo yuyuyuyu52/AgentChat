@@ -108,13 +108,13 @@ export default function AuditLogs() {
     <div className="p-8 space-y-8 max-w-7xl mx-auto">
       <div className="flex flex-col md:flex-row items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-white tracking-tight">Audit Logs</h2>
-          <p className="text-sm text-slate-500">Events for the agents owned by your current user session.</p>
+          <h2 className="text-2xl font-bold text-foreground tracking-tight">Audit Logs</h2>
+          <p className="text-sm text-muted-foreground">Events for the agents owned by your current user session.</p>
         </div>
         <div className="flex items-center gap-3">
           <Button
             variant="outline"
-            className="border-white/10 hover:bg-white/5 text-slate-300 gap-2"
+            className="border-border hover:bg-muted/40 text-foreground/80 gap-2"
             onClick={handleExportCsv}
             disabled={filteredLogs.length === 0}
           >
@@ -124,19 +124,19 @@ export default function AuditLogs() {
         </div>
       </div>
 
-      <Card className="bg-[#0D0D0F] border-white/5">
-        <CardHeader className="border-b border-white/5 px-6 py-4">
+      <Card className="bg-card border-border">
+        <CardHeader className="border-b border-border px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="relative w-full max-w-md">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 placeholder="Search logs by actor, action, or target..."
-                className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-slate-600 focus-visible:ring-blue-500"
+                className="pl-10 bg-muted/40 border-border text-foreground placeholder:text-muted-foreground focus-visible:ring-blue-500"
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
               />
             </div>
-            <div className="flex items-center gap-2 text-xs text-slate-500">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Clock className="w-3 h-3" />
               {loading ? "Syncing..." : `${filteredLogs.length} visible events`}
             </div>
@@ -144,30 +144,30 @@ export default function AuditLogs() {
         </CardHeader>
         <CardContent className="p-0">
           <Table>
-            <TableHeader className="bg-white/5">
-              <TableRow className="border-white/5 hover:bg-transparent">
-                <TableHead className="text-[10px] uppercase tracking-widest font-bold text-slate-500">Timestamp</TableHead>
-                <TableHead className="text-[10px] uppercase tracking-widest font-bold text-slate-500">Actor</TableHead>
-                <TableHead className="text-[10px] uppercase tracking-widest font-bold text-slate-500">Action</TableHead>
-                <TableHead className="text-[10px] uppercase tracking-widest font-bold text-slate-500">Target</TableHead>
-                <TableHead className="text-[10px] uppercase tracking-widest font-bold text-slate-500">Status</TableHead>
-                <TableHead className="text-[10px] uppercase tracking-widest font-bold text-slate-500">Details</TableHead>
+            <TableHeader className="bg-muted/40">
+              <TableRow className="border-border hover:bg-transparent">
+                <TableHead className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Timestamp</TableHead>
+                <TableHead className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Actor</TableHead>
+                <TableHead className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Action</TableHead>
+                <TableHead className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Target</TableHead>
+                <TableHead className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Status</TableHead>
+                <TableHead className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Details</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow className="border-white/5">
-                  <TableCell className="text-slate-500" colSpan={6}>Loading audit records...</TableCell>
+                <TableRow className="border-border">
+                  <TableCell className="text-muted-foreground" colSpan={6}>Loading audit records...</TableCell>
                 </TableRow>
               ) : error ? (
-                <TableRow className="border-white/5">
+                <TableRow className="border-border">
                   <TableCell className="text-red-400" colSpan={6}>{error}</TableCell>
                 </TableRow>
               ) : filteredLogs.map((log) => {
                 const status = summarizeStatus(log);
                 return (
-                  <TableRow key={log.id} className="border-white/5 hover:bg-white/[0.02] transition-colors group">
-                    <TableCell className="text-xs font-mono text-slate-500">{new Date(log.createdAt).toLocaleString()}</TableCell>
+                  <TableRow key={log.id} className="border-border hover:bg-muted/30 transition-colors group">
+                    <TableCell className="text-xs font-mono text-muted-foreground">{new Date(log.createdAt).toLocaleString()}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         {log.actorAccountId ? (
@@ -175,15 +175,15 @@ export default function AuditLogs() {
                         ) : (
                           <User className="w-3 h-3 text-blue-400" />
                         )}
-                        <span className="text-xs font-mono text-slate-300">{log.actorName ?? log.actorAccountId ?? "system"}</span>
+                        <span className="text-xs font-mono text-foreground/80">{log.actorName ?? log.actorAccountId ?? "system"}</span>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline" className="text-[10px] font-mono bg-white/5 border-white/10 text-slate-300">
+                      <Badge variant="outline" className="text-[10px] font-mono bg-muted/40 border-border text-foreground/80">
                         {log.eventType}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-xs font-mono text-slate-500">{summarizeTarget(log)}</TableCell>
+                    <TableCell className="text-xs font-mono text-muted-foreground">{summarizeTarget(log)}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1.5">
                         {status === "success" ? (
@@ -197,7 +197,7 @@ export default function AuditLogs() {
                       </div>
                     </TableCell>
                     <TableCell className="max-w-xs">
-                      <p className="text-xs text-slate-400 truncate group-hover:whitespace-normal group-hover:overflow-visible transition-all">
+                      <p className="text-xs text-muted-foreground truncate group-hover:whitespace-normal group-hover:overflow-visible transition-all">
                         {summarizeDetails(log)}
                       </p>
                     </TableCell>

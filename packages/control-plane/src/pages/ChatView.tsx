@@ -97,7 +97,7 @@ export default function ChatView() {
   );
 
   if (loading) {
-    return <div className="p-8 text-slate-500">Loading conversation...</div>;
+    return <div className="p-8 text-muted-foreground">Loading conversation...</div>;
   }
 
   if (error || !conversation || !agentId || !convId) {
@@ -105,11 +105,11 @@ export default function ChatView() {
   }
 
   return (
-    <div className="flex flex-col h-full bg-[#0A0A0B]">
-      <header className="h-16 border-b border-white/5 flex items-center justify-between px-6 bg-[#0D0D0F]/50 backdrop-blur-md">
+    <div className="flex flex-col h-full bg-background">
+      <header className="h-16 border-b border-border flex items-center justify-between px-6 bg-card/50 backdrop-blur-md">
         <div className="flex items-center gap-4">
           <Link to={`/app/agents/${agentId}/conversations`}>
-            <Button variant="ghost" size="icon" className="text-slate-500 hover:text-white">
+          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
               <ArrowLeft className="w-5 h-5" />
             </Button>
           </Link>
@@ -118,7 +118,7 @@ export default function ChatView() {
               <Bot className="w-5 h-5 text-blue-500" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-white">{conversationTitle(conversation, agentId, accountsById)}</h3>
+              <h3 className="text-sm font-bold text-foreground">{conversationTitle(conversation, agentId, accountsById)}</h3>
               <div className="flex items-center gap-2">
                 <span className="text-[10px] text-green-500 flex items-center gap-1">
                   <Eye className="w-3 h-3" />
@@ -133,7 +133,7 @@ export default function ChatView() {
           <Badge variant="outline" className="bg-blue-500/10 text-blue-400 border-blue-500/20 text-[10px] uppercase font-bold tracking-tighter">
             {conversation.kind}
           </Badge>
-          <Button size="icon" variant="ghost" className="h-8 w-8 text-slate-500">
+          <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground">
             <MoreVertical className="w-4 h-4" />
           </Button>
         </div>
@@ -142,7 +142,7 @@ export default function ChatView() {
       <ScrollArea className="flex-1 p-6" viewportRef={scrollRef}>
         <div className="max-w-3xl mx-auto space-y-6">
           <div className="flex justify-center">
-            <div className="px-3 py-1 bg-white/5 border border-white/5 rounded-full text-[10px] text-slate-500 uppercase tracking-widest font-bold">
+            <div className="px-3 py-1 bg-muted/40 border border-border rounded-full text-[10px] text-muted-foreground uppercase tracking-widest font-bold">
               Conversation started on {new Date(conversation.createdAt).toLocaleDateString()}
             </div>
           </div>
@@ -160,12 +160,12 @@ export default function ChatView() {
                 )}>
                   {isSelectedAgent
                     ? <Bot className="w-4 h-4 text-blue-500" />
-                    : <User className="w-4 h-4 text-slate-400" />}
+                    : <User className="w-4 h-4 text-muted-foreground" />}
                 </div>
 
                 <div className={cn("flex flex-col max-w-[80%]", isSelectedAgent ? "items-end" : "items-start")}>
                   <div className="flex items-center gap-2 mb-1 px-1">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight">
                       {message.senderName}
                     </span>
                     <span className="text-[10px] text-slate-700 font-mono">
@@ -176,7 +176,7 @@ export default function ChatView() {
                     "px-4 py-2 rounded-2xl text-sm leading-relaxed",
                     isSelectedAgent
                       ? "bg-blue-600 text-white rounded-tr-none"
-                      : "bg-white/5 text-slate-200 border border-white/5 rounded-tl-none",
+                      : "bg-muted/40 text-foreground border border-border rounded-tl-none",
                   )}>
                     {message.body}
                   </div>
@@ -187,7 +187,7 @@ export default function ChatView() {
         </div>
       </ScrollArea>
 
-      <footer className="p-6 border-t border-white/5 bg-[#0D0D0F]/50">
+      <footer className="p-6 border-t border-border bg-card/50">
         <div className="max-w-3xl mx-auto">
           <div className="mb-4 flex items-center gap-2 px-3 py-2 bg-yellow-500/5 border border-yellow-500/10 rounded-lg">
             <Eye className="w-3 h-3 text-yellow-500" />
@@ -197,11 +197,11 @@ export default function ChatView() {
           </div>
           <div className="mt-3 flex items-center justify-between px-1">
             <div className="flex items-center gap-4">
-              <span className="text-[10px] text-slate-500 flex items-center gap-1">
+              <span className="text-[10px] text-muted-foreground flex items-center gap-1">
                 <Terminal className="w-3 h-3" />
                 API-backed history
               </span>
-              <span className="text-[10px] text-slate-500 flex items-center gap-1">
+              <span className="text-[10px] text-muted-foreground flex items-center gap-1">
                 <Clock className="w-3 h-3" />
                 Seq #{messages.at(-1)?.seq ?? 0}
               </span>

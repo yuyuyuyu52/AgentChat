@@ -116,15 +116,15 @@ export default function Workspace() {
     <div className="p-8 space-y-8 max-w-7xl mx-auto">
       <div className="flex flex-col md:flex-row items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-white tracking-tight">My Agents</h2>
-          <p className="text-sm text-slate-500">Create and manage agent accounts owned by your user session.</p>
+          <h2 className="text-2xl font-bold text-foreground tracking-tight">My Agents</h2>
+          <p className="text-sm text-muted-foreground">Create and manage agent accounts owned by your user session.</p>
         </div>
         <div className="flex items-center gap-3 w-full md:w-auto">
           <div className="relative flex-1 md:w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               placeholder="Search agents..."
-              className="pl-10 bg-white/5 border-white/10 text-white placeholder:text-slate-600 focus-visible:ring-blue-500"
+              className="pl-10 bg-muted/40 border-border text-foreground placeholder:text-muted-foreground focus-visible:ring-blue-500"
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
             />
@@ -136,10 +136,10 @@ export default function Workspace() {
                 Create Agent
               </Button>
             </DialogTrigger>
-            <DialogContent className="bg-[#0D0D0F] border-white/10 text-white">
+            <DialogContent className="bg-card border-border text-foreground">
               <DialogHeader>
                 <DialogTitle>Create New Agent</DialogTitle>
-                <DialogDescription className="text-slate-500">
+                <DialogDescription className="text-muted-foreground">
                   The workspace creates a new owned agent account and returns its token once.
                 </DialogDescription>
               </DialogHeader>
@@ -149,7 +149,7 @@ export default function Workspace() {
                   <Input
                     id="name"
                     placeholder="e.g. Sales Assistant"
-                    className="bg-white/5 border-white/10"
+                    className="bg-muted/40 border-border"
                     value={newAgentName}
                     onChange={(event) => setNewAgentName(event.target.value)}
                   />
@@ -176,36 +176,36 @@ export default function Workspace() {
         </div>
       </div>
 
-      <Card className="bg-[#0D0D0F] border-white/5 overflow-hidden">
+      <Card className="bg-card border-border overflow-hidden">
         <Table>
-          <TableHeader className="bg-white/5">
-            <TableRow className="border-white/5 hover:bg-transparent">
-              <TableHead className="text-[10px] uppercase tracking-widest font-bold text-slate-500">Agent</TableHead>
-              <TableHead className="text-[10px] uppercase tracking-widest font-bold text-slate-500">Type</TableHead>
-              <TableHead className="text-[10px] uppercase tracking-widest font-bold text-slate-500">Latest Token</TableHead>
-              <TableHead className="text-[10px] uppercase tracking-widest font-bold text-slate-500">Created</TableHead>
-              <TableHead className="text-right text-[10px] uppercase tracking-widest font-bold text-slate-500">Actions</TableHead>
+          <TableHeader className="bg-muted/40">
+            <TableRow className="border-border hover:bg-transparent">
+              <TableHead className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Agent</TableHead>
+              <TableHead className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Type</TableHead>
+              <TableHead className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Latest Token</TableHead>
+              <TableHead className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Created</TableHead>
+              <TableHead className="text-right text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow className="border-white/5">
-                <TableCell className="text-slate-500" colSpan={5}>Loading agents...</TableCell>
+              <TableRow className="border-border">
+                <TableCell className="text-muted-foreground" colSpan={5}>Loading agents...</TableCell>
               </TableRow>
             ) : error ? (
-              <TableRow className="border-white/5">
+              <TableRow className="border-border">
                 <TableCell className="text-red-400" colSpan={5}>{error}</TableCell>
               </TableRow>
             ) : filteredAccounts.map((account) => (
-              <TableRow key={account.id} className="border-white/5 hover:bg-white/[0.02] transition-colors group">
+              <TableRow key={account.id} className="border-border hover:bg-muted/30 transition-colors group">
                 <TableCell>
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-lg flex items-center justify-center border bg-blue-500/10 border-blue-500/20">
                       <Bot className="w-5 h-5 text-blue-500" />
                     </div>
                     <div>
-                      <p className="text-sm font-bold text-white leading-none mb-1">{account.name}</p>
-                      <p className="text-xs font-mono text-slate-500">{account.id}</p>
+                      <p className="text-sm font-bold text-foreground leading-none mb-1">{account.name}</p>
+                      <p className="text-xs font-mono text-muted-foreground">{account.id}</p>
                     </div>
                   </div>
                 </TableCell>
@@ -216,7 +216,7 @@ export default function Workspace() {
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-2">
-                    <code className="text-xs font-mono text-slate-400 bg-white/5 px-2 py-1 rounded border border-white/5">
+                    <code className="text-xs font-mono text-muted-foreground bg-muted/40 px-2 py-1 rounded border border-border">
                       {maskToken(latestTokens[account.id])}
                     </code>
                     {latestTokens[account.id] && (
@@ -226,12 +226,12 @@ export default function Workspace() {
                         className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
                         onClick={() => void handleCopy(latestTokens[account.id]!)}
                       >
-                        <Copy className="w-3 h-3 text-slate-500" />
+                        <Copy className="w-3 h-3 text-muted-foreground" />
                       </Button>
                     )}
                   </div>
                 </TableCell>
-                <TableCell className="text-xs text-slate-500">{new Date(account.createdAt).toLocaleString()}</TableCell>
+                <TableCell className="text-xs text-muted-foreground">{new Date(account.createdAt).toLocaleString()}</TableCell>
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-2">
                     <Link to={`/app/agents/${account.id}/conversations`}>
@@ -240,7 +240,7 @@ export default function Workspace() {
                     <Button
                       size="sm"
                       variant="outline"
-                      className="border-white/10 bg-white/5 text-slate-300 hover:bg-white/10"
+                      className="border-border bg-muted/40 text-foreground/80 hover:bg-accent"
                       onClick={() => void handleResetToken(account.id)}
                     >
                       <KeyRound className="w-3 h-3 mr-1" />

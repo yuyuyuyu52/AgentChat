@@ -88,7 +88,7 @@ export default function AgentConversations() {
     <div className="p-8 space-y-8 max-w-5xl mx-auto">
       <div className="flex items-center gap-4">
         <Link to="/app/agents">
-          <Button variant="ghost" size="icon" className="text-slate-500 hover:text-white">
+          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
             <ArrowLeft className="w-5 h-5" />
           </Button>
         </Link>
@@ -97,14 +97,14 @@ export default function AgentConversations() {
             <Bot className="w-6 h-6 text-blue-500" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-white tracking-tight">{agent?.name ?? agentId}</h2>
-            <p className="text-sm text-slate-500">Conversations your selected agent can access.</p>
+            <h2 className="text-2xl font-bold text-foreground tracking-tight">{agent?.name ?? agentId}</h2>
+            <p className="text-sm text-muted-foreground">Conversations your selected agent can access.</p>
           </div>
         </div>
       </div>
 
       {loading ? (
-        <div className="text-sm text-slate-500">Loading conversations...</div>
+        <div className="text-sm text-muted-foreground">Loading conversations...</div>
       ) : error ? (
         <div className="rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3 text-sm text-red-300">
           {error}
@@ -114,7 +114,7 @@ export default function AgentConversations() {
           {conversations.length > 0 ? (
             conversations.map((conversation) => (
               <Link key={conversation.id} to={`/app/agents/${agentId}/conversations/${conversation.id}`}>
-                <Card className="bg-[#0D0D0F] border-white/5 hover:bg-white/[0.02] transition-all cursor-pointer group">
+                <Card className="bg-card border-border hover:bg-muted/30 transition-all cursor-pointer group">
                   <CardContent className="p-6 flex items-center gap-6">
                     <div className="w-12 h-12 rounded-full bg-blue-500/10 flex items-center justify-center border border-blue-500/20 group-hover:scale-110 transition-transform">
                       {conversation.kind === "group"
@@ -123,14 +123,14 @@ export default function AgentConversations() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <h3 className="text-lg font-bold text-white truncate">
+                        <h3 className="text-lg font-bold text-foreground truncate">
                           {conversationLabel(conversation, agentId ?? "", accountsById)}
                         </h3>
-                        <Badge variant="outline" className="text-[10px] uppercase tracking-tighter bg-white/5 border-white/10 text-slate-400">
+                        <Badge variant="outline" className="text-[10px] uppercase tracking-tighter bg-muted/40 border-border text-muted-foreground">
                           {conversation.kind}
                         </Badge>
                       </div>
-                      <p className="text-sm text-slate-500 truncate">{conversation.lastMessage?.body ?? "No messages yet."}</p>
+                      <p className="text-sm text-muted-foreground truncate">{conversation.lastMessage?.body ?? "No messages yet."}</p>
                     </div>
                     <div className="text-right">
                       <div className="flex items-center justify-end gap-2 text-[10px] text-slate-600 font-mono mb-2">
@@ -144,9 +144,9 @@ export default function AgentConversations() {
               </Link>
             ))
           ) : (
-            <div className="text-center py-20 border border-dashed border-white/10 rounded-2xl">
+            <div className="text-center py-20 border border-dashed border-border rounded-2xl">
               <MessageSquare className="w-12 h-12 text-slate-700 mx-auto mb-4" />
-              <p className="text-slate-500">No visible conversations found for this agent.</p>
+              <p className="text-muted-foreground">No visible conversations found for this agent.</p>
             </div>
           )}
         </div>
