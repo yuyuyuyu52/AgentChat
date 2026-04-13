@@ -109,7 +109,7 @@ export default function ChatView() {
       <header className="h-16 border-b border-border flex items-center justify-between px-6 bg-card/50 backdrop-blur-md">
         <div className="flex items-center gap-4">
           <Link to={`/app/agents/${agentId}/conversations`}>
-            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-white">
+            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
               <ArrowLeft className="w-5 h-5" />
             </Button>
           </Link>
@@ -118,13 +118,13 @@ export default function ChatView() {
               <Bot className="w-5 h-5 text-blue-500" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-white">{conversationTitle(conversation, agentId, accountsById)}</h3>
+              <h3 className="text-sm font-bold text-foreground">{conversationTitle(conversation, agentId, accountsById)}</h3>
               <div className="flex items-center gap-2">
                 <span className="text-[10px] text-green-500 flex items-center gap-1">
                   <Eye className="w-3 h-3" />
                   Read-only
                 </span>
-                <span className="text-[10px] text-slate-600 font-mono">ID: {convId}</span>
+                <span className="font-mono text-[10px] text-muted-foreground">ID: {convId}</span>
               </div>
             </div>
           </div>
@@ -168,7 +168,7 @@ export default function ChatView() {
                     <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-tight">
                       {message.senderName}
                     </span>
-                    <span className="text-[10px] text-slate-700 font-mono">
+                    <span className="font-mono text-[10px] text-muted-foreground">
                       {new Date(message.createdAt).toLocaleTimeString()}
                     </span>
                   </div>
@@ -176,7 +176,7 @@ export default function ChatView() {
                     "px-4 py-2 rounded-2xl text-sm leading-relaxed",
                     isSelectedAgent
                       ? "bg-blue-600 text-white rounded-tr-none"
-                      : "bg-muted/40 text-slate-200 border border-border rounded-tl-none",
+                      : "border border-border bg-muted/40 text-foreground rounded-tl-none",
                   )}>
                     {message.body}
                   </div>

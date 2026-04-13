@@ -48,7 +48,7 @@ export default function DevTools() {
   return (
     <div className="p-8 space-y-8 max-w-4xl mx-auto">
       <div className="space-y-2">
-        <h2 className="text-2xl font-bold text-white tracking-tight">Developer Tools</h2>
+        <h2 className="text-2xl font-bold tracking-tight text-foreground">Developer Tools</h2>
         <p className="text-sm text-muted-foreground">Integrate AgentChat into your existing infrastructure using our SDK and CLI.</p>
       </div>
 
@@ -61,19 +61,19 @@ export default function DevTools() {
                   {index < 2 ? <Package className="w-5 h-5 text-blue-500" /> : <Terminal className="w-5 h-5 text-blue-500" />}
                 </div>
                 <div>
-                  <CardTitle className="text-lg font-bold text-white">{item.label}</CardTitle>
+                  <CardTitle className="text-lg font-bold text-foreground">{item.label}</CardTitle>
                   <CardDescription className="text-muted-foreground">{item.description}</CardDescription>
                 </div>
               </div>
             </CardHeader>
             <CardContent>
               <div className="relative group">
-                <div className="flex items-center justify-between p-4 bg-black/40 border border-border rounded-xl font-mono text-sm text-blue-400">
+                <div className="flex items-center justify-between rounded-xl border border-border bg-muted/40 p-4 font-mono text-sm text-blue-500">
                   <span className="truncate mr-12">$ {item.command}</span>
                   <Button 
                     size="icon" 
                     variant="ghost" 
-                    className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 text-muted-foreground hover:text-white hover:bg-muted/40"
+                    className="absolute right-2 top-1/2 h-8 w-8 -translate-y-1/2 text-muted-foreground hover:bg-muted hover:text-foreground"
                     onClick={() => handleCopy(item.command, index)}
                   >
                     {copiedIndex === index ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
@@ -90,7 +90,7 @@ export default function DevTools() {
         <a href={sdkPackageUrl} target="_blank" rel="noreferrer" className="group">
           <div className="p-6 rounded-2xl border border-border bg-muted/30 hover:bg-accent transition-all space-y-3">
             <Code2 className="w-6 h-6 text-muted-foreground group-hover:text-blue-500 transition-colors" />
-            <h4 className="text-sm font-bold text-white">npm Packages</h4>
+            <h4 className="text-sm font-bold text-foreground">npm Packages</h4>
             <p className="text-xs text-muted-foreground leading-relaxed">
               Browse the published SDK package first, then jump to CLI and protocol from npm.
             </p>
@@ -100,7 +100,7 @@ export default function DevTools() {
         <a href={quickstartUrl} target="_blank" rel="noreferrer" className="group">
           <div className="p-6 rounded-2xl border border-border bg-muted/30 hover:bg-accent transition-all space-y-3">
             <BookOpen className="w-6 h-6 text-muted-foreground group-hover:text-blue-500 transition-colors" />
-            <h4 className="text-sm font-bold text-white">Quickstart Guide</h4>
+            <h4 className="text-sm font-bold text-foreground">Quickstart Guide</h4>
             <p className="text-xs text-muted-foreground leading-relaxed">
               Open the repo guide for install steps, CLI usage, and SDK integration examples.
             </p>
@@ -111,22 +111,22 @@ export default function DevTools() {
 
       <Card className="bg-card border-border">
         <CardHeader>
-          <CardTitle className="text-lg font-bold text-white">Published Endpoints</CardTitle>
+          <CardTitle className="text-lg font-bold text-foreground">Published Endpoints</CardTitle>
           <CardDescription className="text-muted-foreground">
             The published packages default to the Railway deployment.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3 text-sm text-foreground/80">
-          <div className="rounded-xl border border-border bg-black/40 p-4 font-mono text-xs text-blue-400 break-all">
+          <div className="break-all rounded-xl border border-border bg-muted/40 p-4 font-mono text-xs text-blue-500">
             https://agentchatserver-production.up.railway.app
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <a href={protocolPackageUrl} target="_blank" rel="noreferrer" className="rounded-xl border border-border bg-muted/30 px-4 py-3 hover:bg-accent transition-colors">
-              <div className="text-white font-semibold">@agentchatjs/protocol</div>
+              <div className="font-semibold text-foreground">@agentchatjs/protocol</div>
               <div className="text-xs text-muted-foreground break-all">{protocolPackageUrl}</div>
             </a>
             <a href={cliPackageUrl} target="_blank" rel="noreferrer" className="rounded-xl border border-border bg-muted/30 px-4 py-3 hover:bg-accent transition-colors">
-              <div className="text-white font-semibold">@agentchatjs/cli</div>
+              <div className="font-semibold text-foreground">@agentchatjs/cli</div>
               <div className="text-xs text-muted-foreground break-all">{cliPackageUrl}</div>
             </a>
           </div>

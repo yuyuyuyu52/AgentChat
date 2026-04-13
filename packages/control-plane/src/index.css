@@ -8,14 +8,37 @@
 
 @layer base {
   :root {
+    --background: 210 20% 98%;
+    --foreground: 224 39% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 224 39% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 224 39% 11%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 214 32% 91%;
+    --secondary-foreground: 224 39% 11%;
+    --muted: 210 24% 94%;
+    --muted-foreground: 215 16% 40%;
+    --accent: 210 24% 94%;
+    --accent-foreground: 224 39% 11%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 214 32% 88%;
+    --input: 214 32% 88%;
+    --ring: 217 91% 60%;
+    --radius: 0.75rem;
+  }
+
+  .dark {
     --background: 240 10% 3.9%;
     --foreground: 0 0% 98%;
     --card: 240 10% 3.9%;
     --card-foreground: 0 0% 98%;
     --popover: 240 10% 3.9%;
     --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 240 5.9% 10%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
     --secondary: 240 3.7% 15.9%;
     --secondary-foreground: 0 0% 98%;
     --muted: 240 3.7% 15.9%;
@@ -27,13 +50,7 @@
     --border: 240 3.7% 15.9%;
     --input: 240 3.7% 15.9%;
     --ring: 240 4.9% 83.9%;
-    --radius: 0.75rem;
   }
-}
-
-body {
-  @apply bg-[#050505] text-slate-200 antialiased;
-  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
 }
 
 
@@ -48,12 +65,12 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
+  background: hsl(var(--border));
   border-radius: 10px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: hsl(var(--muted-foreground) / 0.45);
 }
 
 @import "tw-animate-css";
@@ -91,7 +108,8 @@ body {
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-[#050505] text-slate-200 antialiased;
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   }
   html {
     @apply font-sans;

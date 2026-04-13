@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { motion } from "motion/react";
 import { registerHumanUser } from "@/lib/auth-api";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export default function RegisterPage() {
   const [name, setName] = useState("");
@@ -31,16 +32,22 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2 bg-[#0A0A0B] selection:bg-blue-500/30">
-      <div className="hidden lg:flex flex-col justify-between p-12 bg-[#050505] relative overflow-hidden border-r border-white/5">
+    <div className="grid min-h-screen grid-cols-1 bg-background selection:bg-blue-500/30 lg:grid-cols-2">
+      <div className="relative hidden overflow-hidden border-r border-border/70 bg-card p-12 lg:flex lg:flex-col lg:justify-between">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(59,130,246,0.15),transparent_70%)]" />
-        <div className="absolute inset-0 opacity-10" style={{ backgroundImage: "linear-gradient(#1e293b 1px, transparent 1px), linear-gradient(90deg, #1e293b 1px, transparent 1px)", backgroundSize: "40px 40px" }} />
+        <div
+          className="absolute inset-0 opacity-10"
+          style={{ backgroundImage: "linear-gradient(hsl(var(--border)) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--border)) 1px, transparent 1px)", backgroundSize: "40px 40px" }}
+        />
 
-        <div className="relative z-10 flex items-center gap-3">
-          <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center shadow-[0_0_15px_rgba(37,99,235,0.4)]">
-            <Zap className="w-5 h-5 text-white fill-white" />
+        <div className="relative z-10 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded bg-blue-600 shadow-[0_0_15px_rgba(37,99,235,0.4)]">
+              <Zap className="h-5 w-5 fill-white text-white" />
+            </div>
+            <span className="text-xl font-bold tracking-tight text-foreground">AgentChat</span>
           </div>
-          <span className="font-bold text-xl tracking-tight text-white">AgentChat</span>
+          <ThemeToggle className="border-border bg-background/80 text-muted-foreground hover:bg-muted hover:text-foreground" />
         </div>
 
         <div className="relative z-10 space-y-12">
@@ -49,69 +56,75 @@ export default function RegisterPage() {
             animate={{ opacity: 1, y: 0 }}
             className="space-y-4"
           >
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-[10px] font-bold uppercase tracking-widest">
+            <div className="inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-blue-400">
               Infrastructure: Ready
             </div>
-            <h1 className="text-6xl font-bold tracking-tighter text-white leading-[0.85]">
+            <h1 className="text-6xl font-bold leading-[0.85] tracking-tighter text-foreground">
               Build the <br />
               <span className="text-blue-500">Future of Work.</span>
             </h1>
-            <p className="text-slate-500 max-w-sm text-lg leading-relaxed">
+            <p className="max-w-sm text-lg leading-relaxed text-muted-foreground">
               Join thousands of operators managing autonomous agent clusters globally.
             </p>
           </motion.div>
 
           <div className="space-y-6">
             <div className="flex items-start gap-4">
-              <div className="w-10 h-10 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
-                <Globe className="w-5 h-5 text-blue-400" />
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-muted/40">
+                <Globe className="h-5 w-5 text-blue-400" />
               </div>
               <div>
-                <p className="text-sm font-bold text-white">Global Mesh Network</p>
-                <p className="text-xs text-slate-500">Deploy agents across 24+ regions instantly.</p>
+                <p className="text-sm font-bold text-foreground">Global Mesh Network</p>
+                <p className="text-xs text-muted-foreground">Deploy agents across 24+ regions instantly.</p>
               </div>
             </div>
             <div className="flex items-start gap-4">
-              <div className="w-10 h-10 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center shrink-0">
-                <Cpu className="w-5 h-5 text-purple-400" />
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-border bg-muted/40">
+                <Cpu className="h-5 w-5 text-purple-400" />
               </div>
               <div>
-                <p className="text-sm font-bold text-white">Neural Processing</p>
-                <p className="text-xs text-slate-500">Optimized for LLM inference and reasoning.</p>
+                <p className="text-sm font-bold text-foreground">Neural Processing</p>
+                <p className="text-xs text-muted-foreground">Optimized for LLM inference and reasoning.</p>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="relative z-10 flex items-center gap-6 text-[10px] font-mono text-slate-600 uppercase tracking-widest">
+        <div className="relative z-10 flex items-center gap-6 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
           <div className="flex items-center gap-2">
-            <Server className="w-3 h-3" />
+            <Server className="h-3 w-3" />
             <span>Node: US-EAST-1</span>
           </div>
           <div className="flex items-center gap-2">
-            <ShieldCheck className="w-3 h-3" />
+            <ShieldCheck className="h-3 w-3" />
             <span>Encrypted</span>
           </div>
         </div>
       </div>
 
-      <div className="flex flex-col items-center justify-center p-8 lg:p-24 bg-[#0A0A0B]">
+      <div className="relative flex flex-col items-center justify-center bg-background p-8 lg:p-24">
+        <div className="absolute right-6 top-6 lg:hidden">
+          <ThemeToggle className="border-border bg-background/80 text-muted-foreground hover:bg-muted hover:text-foreground" />
+        </div>
+
         <div className="w-full max-w-sm space-y-8">
           <div className="space-y-2 text-center lg:text-left">
-            <h2 className="text-3xl font-bold text-white tracking-tight">Create Account</h2>
-            <p className="text-slate-500">Start your journey as an AgentChat operator.</p>
+            <h2 className="text-3xl font-bold tracking-tight text-foreground">Create Account</h2>
+            <p className="text-muted-foreground">Start your journey as an AgentChat operator.</p>
           </div>
 
           <form onSubmit={(event) => void handleRegister(event)} className="space-y-6">
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="name" className="text-xs font-bold uppercase tracking-widest text-slate-500">Full Name</Label>
+                <Label htmlFor="name" className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                  Full Name
+                </Label>
                 <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600" />
+                  <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     id="name"
                     placeholder="John Doe"
-                    className="h-12 pl-10 bg-white/[0.03] border-white/10 text-white focus-visible:ring-blue-500 focus-visible:bg-white/[0.05] transition-all"
+                    className="h-12 border-border bg-muted/30 pl-10 text-foreground transition-all focus-visible:bg-background focus-visible:ring-blue-500"
                     value={name}
                     onChange={(event) => setName(event.target.value)}
                     required
@@ -119,14 +132,16 @@ export default function RegisterPage() {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-xs font-bold uppercase tracking-widest text-slate-500">Email Address</Label>
+                <Label htmlFor="email" className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                  Email Address
+                </Label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600" />
+                  <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     id="email"
                     type="email"
                     placeholder="operator@agentchat.io"
-                    className="h-12 pl-10 bg-white/[0.03] border-white/10 text-white focus-visible:ring-blue-500 focus-visible:bg-white/[0.05] transition-all"
+                    className="h-12 border-border bg-muted/30 pl-10 text-foreground transition-all focus-visible:bg-background focus-visible:ring-blue-500"
                     value={email}
                     onChange={(event) => setEmail(event.target.value)}
                     required
@@ -134,14 +149,16 @@ export default function RegisterPage() {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-xs font-bold uppercase tracking-widest text-slate-500">Password</Label>
+                <Label htmlFor="password" className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                  Password
+                </Label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600" />
+                  <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     id="password"
                     type="password"
                     placeholder="At least 6 characters"
-                    className="h-12 pl-10 bg-white/[0.03] border-white/10 text-white focus-visible:ring-blue-500 focus-visible:bg-white/[0.05] transition-all"
+                    className="h-12 border-border bg-muted/30 pl-10 text-foreground transition-all focus-visible:bg-background focus-visible:ring-blue-500"
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
                     required
@@ -150,34 +167,34 @@ export default function RegisterPage() {
               </div>
             </div>
 
-            <div className="p-4 bg-blue-500/5 border border-blue-500/10 rounded-xl">
-              <p className="text-[10px] text-slate-500 leading-relaxed text-center">
+            <div className="rounded-xl border border-blue-500/10 bg-blue-500/5 p-4">
+              <p className="text-center text-[10px] leading-relaxed text-muted-foreground">
                 By clicking "Initialize Workspace", you agree to our <span className="text-blue-500">Terms of Service</span> and <span className="text-blue-500">Privacy Policy</span>.
               </p>
             </div>
 
             <Button
               type="submit"
-              className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition-all active:scale-[0.98]"
+              className="h-12 w-full rounded-lg bg-blue-600 font-bold text-white transition-all hover:bg-blue-700 active:scale-[0.98]"
               disabled={isLoading}
             >
               {isLoading ? (
                 <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/20 border-t-white" />
                   Initializing...
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
                   Initialize Workspace
-                  <ArrowRight className="w-4 h-4" />
+                  <ArrowRight className="h-4 w-4" />
                 </div>
               )}
             </Button>
           </form>
 
-          <p className="text-center text-sm text-slate-500">
+          <p className="text-center text-sm text-muted-foreground">
             Already have an account?{" "}
-            <Link to="/auth/login" className="text-blue-500 hover:text-blue-400 font-bold underline underline-offset-4">
+            <Link to="/auth/login" className="font-bold text-blue-500 underline underline-offset-4 hover:text-blue-400">
               Sign In
             </Link>
           </p>

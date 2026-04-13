@@ -108,7 +108,7 @@ export default function AuditLogs() {
     <div className="p-8 space-y-8 max-w-7xl mx-auto">
       <div className="flex flex-col md:flex-row items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-white tracking-tight">Audit Logs</h2>
+          <h2 className="text-2xl font-bold tracking-tight text-foreground">Audit Logs</h2>
           <p className="text-sm text-muted-foreground">Events for the agents owned by your current user session.</p>
         </div>
         <div className="flex items-center gap-3">
@@ -131,7 +131,7 @@ export default function AuditLogs() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 placeholder="Search logs by actor, action, or target..."
-                className="pl-10 bg-muted/40 border-border text-white placeholder:text-slate-600 focus-visible:ring-blue-500"
+                className="border-border bg-muted/40 pl-10 text-foreground placeholder:text-muted-foreground focus-visible:ring-blue-500"
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
               />

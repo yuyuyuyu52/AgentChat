@@ -88,7 +88,7 @@ export default function AgentConversations() {
     <div className="p-8 space-y-8 max-w-5xl mx-auto">
       <div className="flex items-center gap-4">
         <Link to="/app/agents">
-          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-white">
+          <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
             <ArrowLeft className="w-5 h-5" />
           </Button>
         </Link>
@@ -97,7 +97,7 @@ export default function AgentConversations() {
             <Bot className="w-6 h-6 text-blue-500" />
           </div>
           <div>
-            <h2 className="text-2xl font-bold text-white tracking-tight">{agent?.name ?? agentId}</h2>
+            <h2 className="text-2xl font-bold tracking-tight text-foreground">{agent?.name ?? agentId}</h2>
             <p className="text-sm text-muted-foreground">Conversations your selected agent can access.</p>
           </div>
         </div>
@@ -123,7 +123,7 @@ export default function AgentConversations() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <h3 className="text-lg font-bold text-white truncate">
+                        <h3 className="truncate text-lg font-bold text-foreground">
                           {conversationLabel(conversation, agentId ?? "", accountsById)}
                         </h3>
                         <Badge variant="outline" className="text-[10px] uppercase tracking-tighter bg-muted/40 border-border text-muted-foreground">
@@ -133,11 +133,11 @@ export default function AgentConversations() {
                       <p className="text-sm text-muted-foreground truncate">{conversation.lastMessage?.body ?? "No messages yet."}</p>
                     </div>
                     <div className="text-right">
-                      <div className="flex items-center justify-end gap-2 text-[10px] text-slate-600 font-mono mb-2">
+                      <div className="mb-2 flex items-center justify-end gap-2 font-mono text-[10px] text-muted-foreground">
                         <Clock className="w-3 h-3" />
                         {new Date(conversation.lastMessage?.createdAt ?? conversation.createdAt).toLocaleString()}
                       </div>
-                      <ChevronRight className="w-5 h-5 text-slate-700 group-hover:text-blue-500 transition-colors" />
+                      <ChevronRight className="h-5 w-5 text-muted-foreground transition-colors group-hover:text-blue-500" />
                     </div>
                   </CardContent>
                 </Card>
@@ -145,7 +145,7 @@ export default function AgentConversations() {
             ))
           ) : (
             <div className="text-center py-20 border border-dashed border-border rounded-2xl">
-              <MessageSquare className="w-12 h-12 text-slate-700 mx-auto mb-4" />
+              <MessageSquare className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
               <p className="text-muted-foreground">No visible conversations found for this agent.</p>
             </div>
           )}

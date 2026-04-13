@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { motion } from "motion/react";
 import { loginHumanUser } from "@/lib/auth-api";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -39,16 +40,22 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2 bg-[#0A0A0B] selection:bg-blue-500/30">
-      <div className="hidden lg:flex flex-col justify-between p-12 bg-[#050505] relative overflow-hidden border-r border-white/5">
+    <div className="grid min-h-screen grid-cols-1 bg-background selection:bg-blue-500/30 lg:grid-cols-2">
+      <div className="relative hidden overflow-hidden border-r border-border/70 bg-card p-12 lg:flex lg:flex-col lg:justify-between">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(37,99,235,0.1),transparent_70%)]" />
-        <div className="absolute inset-0 opacity-20" style={{ backgroundImage: "radial-gradient(#1e293b 1px, transparent 1px)", backgroundSize: "24px 24px" }} />
+        <div
+          className="absolute inset-0 opacity-20"
+          style={{ backgroundImage: "radial-gradient(hsl(var(--border)) 1px, transparent 1px)", backgroundSize: "24px 24px" }}
+        />
 
-        <div className="relative z-10 flex items-center gap-3">
-          <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center shadow-[0_0_15px_rgba(37,99,235,0.4)]">
-            <Zap className="w-5 h-5 text-white fill-white" />
+        <div className="relative z-10 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded bg-blue-600 shadow-[0_0_15px_rgba(37,99,235,0.4)]">
+              <Zap className="h-5 w-5 fill-white text-white" />
+            </div>
+            <span className="text-xl font-bold tracking-tight text-foreground">AgentChat</span>
           </div>
-          <span className="font-bold text-xl tracking-tight text-white">AgentChat</span>
+          <ThemeToggle className="border-border bg-background/80 text-muted-foreground hover:bg-muted hover:text-foreground" />
         </div>
 
         <div className="relative z-10 space-y-8">
@@ -57,53 +64,59 @@ export default function LoginPage() {
             animate={{ opacity: 1, x: 0 }}
             className="space-y-4"
           >
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-[10px] font-bold uppercase tracking-widest">
+            <div className="inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-blue-400">
               System Status: Operational
             </div>
-            <h1 className="text-5xl font-bold tracking-tighter text-white leading-[0.9]">
+            <h1 className="text-5xl font-bold leading-[0.9] tracking-tighter text-foreground">
               The Control Plane <br />
-              <span className="text-slate-500">for Autonomous Intelligence.</span>
+              <span className="text-muted-foreground">for Autonomous Intelligence.</span>
             </h1>
           </motion.div>
 
           <div className="grid grid-cols-2 gap-4">
-            <div className="p-4 rounded-xl border border-white/5 bg-white/[0.02] space-y-2">
-              <Activity className="w-4 h-4 text-blue-500" />
-              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Live Throughput</p>
-              <p className="text-xl font-mono text-white">1.2k msg/s</p>
+            <div className="space-y-2 rounded-xl border border-border/70 bg-muted/30 p-4">
+              <Activity className="h-4 w-4 text-blue-500" />
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Live Throughput</p>
+              <p className="text-xl font-mono text-foreground">1.2k msg/s</p>
             </div>
-            <div className="p-4 rounded-xl border border-white/5 bg-white/[0.02] space-y-2">
-              <Shield className="w-4 h-4 text-green-500" />
-              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Security Level</p>
-              <p className="text-xl font-mono text-white">L4 Audit</p>
+            <div className="space-y-2 rounded-xl border border-border/70 bg-muted/30 p-4">
+              <Shield className="h-4 w-4 text-green-500" />
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Security Level</p>
+              <p className="text-xl font-mono text-foreground">L4 Audit</p>
             </div>
           </div>
         </div>
 
-        <div className="relative z-10 flex items-center justify-between text-[10px] font-mono text-slate-600 uppercase tracking-widest">
+        <div className="relative z-10 flex items-center justify-between font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
           <span>© 2024 AgentChat Infra</span>
           <span>v1.2.4-stable</span>
         </div>
       </div>
 
-      <div className="flex flex-col items-center justify-center p-8 lg:p-24 bg-[#0A0A0B]">
+      <div className="relative flex flex-col items-center justify-center bg-background p-8 lg:p-24">
+        <div className="absolute right-6 top-6 lg:hidden">
+          <ThemeToggle className="border-border bg-background/80 text-muted-foreground hover:bg-muted hover:text-foreground" />
+        </div>
+
         <div className="w-full max-w-sm space-y-8">
           <div className="space-y-2 text-center lg:text-left">
-            <h2 className="text-3xl font-bold text-white tracking-tight">User Login</h2>
-            <p className="text-slate-500">Enter your credentials to access your AgentChat workspace.</p>
+            <h2 className="text-3xl font-bold tracking-tight text-foreground">User Login</h2>
+            <p className="text-muted-foreground">Enter your credentials to access your AgentChat workspace.</p>
           </div>
 
           <form onSubmit={(event) => void handleLogin(event)} className="space-y-6">
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-xs font-bold uppercase tracking-widest text-slate-500">Email Address</Label>
+                <Label htmlFor="email" className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                  Email Address
+                </Label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600" />
+                  <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     id="email"
                     type="email"
                     placeholder="test@example.com"
-                    className="h-12 pl-10 bg-white/[0.03] border-white/10 text-white focus-visible:ring-blue-500 focus-visible:bg-white/[0.05] transition-all"
+                    className="h-12 border-border bg-muted/30 pl-10 text-foreground transition-all focus-visible:bg-background focus-visible:ring-blue-500"
                     value={email}
                     onChange={(event) => setEmail(event.target.value)}
                     required
@@ -112,14 +125,16 @@ export default function LoginPage() {
               </div>
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="password" className="text-xs font-bold uppercase tracking-widest text-slate-500">Password</Label>
+                  <Label htmlFor="password" className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                    Password
+                  </Label>
                 </div>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600" />
+                  <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     id="password"
                     type="password"
-                    className="h-12 pl-10 bg-white/[0.03] border-white/10 text-white focus-visible:ring-blue-500 focus-visible:bg-white/[0.05] transition-all"
+                    className="h-12 border-border bg-muted/30 pl-10 text-foreground transition-all focus-visible:bg-background focus-visible:ring-blue-500"
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
                     required
@@ -130,18 +145,18 @@ export default function LoginPage() {
 
             <Button
               type="submit"
-              className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition-all active:scale-[0.98]"
+              className="h-12 w-full rounded-lg bg-blue-600 font-bold text-white transition-all hover:bg-blue-700 active:scale-[0.98]"
               disabled={isLoading}
             >
               {isLoading ? (
                 <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/20 border-t-white" />
                   Authenticating...
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
                   Initialize Session
-                  <ArrowRight className="w-4 h-4" />
+                  <ArrowRight className="h-4 w-4" />
                 </div>
               )}
             </Button>
@@ -149,35 +164,35 @@ export default function LoginPage() {
 
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t border-white/5"></span>
+              <span className="w-full border-t border-border"></span>
             </div>
             <div className="relative flex justify-center text-[10px] uppercase tracking-widest">
-              <span className="bg-[#0A0A0B] px-4 text-slate-600 font-bold">Optional provider entry</span>
+              <span className="bg-background px-4 font-bold text-muted-foreground">Optional provider entry</span>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <Button type="button" variant="outline" className="h-11 border-white/10 bg-white/[0.02] hover:bg-white/5 text-slate-300 gap-2 font-bold text-xs" disabled>
-              <Github className="w-4 h-4" />
+            <Button type="button" variant="outline" className="h-11 gap-2 border-border bg-muted/30 text-xs font-bold text-foreground hover:bg-muted" disabled>
+              <Github className="h-4 w-4" />
               GitHub
             </Button>
             <a href="/auth/google/login">
-              <Button type="button" variant="outline" className="w-full h-11 border-white/10 bg-white/[0.02] hover:bg-white/5 text-slate-300 gap-2 font-bold text-xs">
-                <Chrome className="w-4 h-4" />
+              <Button type="button" variant="outline" className="h-11 w-full gap-2 border-border bg-muted/30 text-xs font-bold text-foreground hover:bg-muted">
+                <Chrome className="h-4 w-4" />
                 Google
               </Button>
             </a>
           </div>
 
-          <div className="rounded-xl border border-white/5 bg-white/[0.02] px-4 py-3 text-center">
-            <p className="text-[11px] text-slate-500">
-              Demo user: <span className="font-mono text-slate-300">test@example.com</span> / <span className="font-mono text-slate-300">test123456</span>
+          <div className="rounded-xl border border-border/70 bg-muted/30 px-4 py-3 text-center">
+            <p className="text-[11px] text-muted-foreground">
+              Demo user: <span className="font-mono text-foreground">test@example.com</span> / <span className="font-mono text-foreground">test123456</span>
             </p>
           </div>
 
-          <p className="text-center text-sm text-slate-500">
+          <p className="text-center text-sm text-muted-foreground">
             Need an account?{" "}
-            <Link to="/auth/register" className="text-blue-500 hover:text-blue-400 font-bold underline underline-offset-4">
+            <Link to="/auth/register" className="font-bold text-blue-500 underline underline-offset-4 hover:text-blue-400">
               Create Account
             </Link>
           </p>

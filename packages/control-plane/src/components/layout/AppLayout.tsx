@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -29,18 +30,18 @@ export default function AppLayout({ children }: AppLayoutProps) {
   ];
 
   return (
-    <div className="flex h-screen bg-[#0A0A0B] text-slate-200 font-sans selection:bg-blue-500/30">
-      <aside className="w-64 border-r border-white/5 flex flex-col bg-[#0D0D0F]">
-        <div className="p-6 flex items-center gap-3">
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center shadow-[0_0_15px_rgba(37,99,235,0.4)]">
-            <Zap className="w-5 h-5 text-white fill-white" />
+    <div className="flex h-screen bg-background text-foreground font-sans selection:bg-blue-500/30">
+      <aside className="flex w-64 flex-col border-r border-border/70 bg-card">
+        <div className="flex items-center gap-3 p-6">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 shadow-[0_0_15px_rgba(37,99,235,0.4)]">
+            <Zap className="h-5 w-5 fill-white text-white" />
           </div>
-          <span className="font-bold text-lg tracking-tight text-white">AgentChat</span>
+          <span className="text-lg font-bold tracking-tight text-foreground">AgentChat</span>
         </div>
 
         <ScrollArea className="flex-1 px-4">
           <div className="space-y-1 py-2">
-            <p className="px-2 text-[10px] font-semibold uppercase tracking-widest text-slate-500 mb-2">
+            <p className="mb-2 px-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
               Workspace
             </p>
             {navItems.map((item) => {
@@ -53,15 +54,15 @@ export default function AppLayout({ children }: AppLayoutProps) {
                   <Button
                     variant="ghost"
                     className={cn(
-                      "w-full justify-start gap-3 px-3 py-2 h-10 transition-all duration-200",
+                      "h-10 w-full justify-start gap-3 px-3 py-2 transition-all duration-200",
                       isActive
-                        ? "bg-blue-600/10 text-blue-400 border border-blue-500/20"
-                        : "text-slate-400 hover:text-slate-200 hover:bg-white/5",
+                        ? "border border-blue-500/20 bg-blue-600/10 text-blue-400"
+                        : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
                     )}
                   >
-                    <item.icon className={cn("w-4 h-4", isActive ? "text-blue-400" : "text-slate-500")} />
+                    <item.icon className={cn("h-4 w-4", isActive ? "text-blue-400" : "text-muted-foreground")} />
                     <span className="text-sm font-medium">{item.label}</span>
-                    {isActive && <ChevronRight className="w-3 h-3 ml-auto opacity-50" />}
+                    {isActive && <ChevronRight className="ml-auto h-3 w-3 opacity-50" />}
                   </Button>
                 </Link>
               );
@@ -69,39 +70,40 @@ export default function AppLayout({ children }: AppLayoutProps) {
           </div>
         </ScrollArea>
 
-        <div className="p-4 border-t border-white/5">
-          <div className="flex items-center gap-3 px-2 py-3 bg-white/5 rounded-xl border border-white/5">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-700 to-slate-900 border border-white/10 flex items-center justify-center text-xs font-bold text-slate-300">
+        <div className="border-t border-border/70 p-4">
+          <div className="flex items-center gap-3 rounded-xl border border-border/70 bg-muted/50 px-2 py-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full border border-border bg-gradient-to-br from-slate-200 to-slate-400 text-xs font-bold text-slate-900 dark:from-slate-700 dark:to-slate-900 dark:text-slate-300">
               U
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold text-white truncate">User Workspace</p>
-              <p className="text-[10px] text-slate-500 truncate">Owns the agents shown here</p>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-xs font-semibold text-foreground">User Workspace</p>
+              <p className="truncate text-[10px] text-muted-foreground">Owns the agents shown here</p>
             </div>
             <a href="/auth/logout">
-              <Button size="icon" variant="ghost" className="h-8 w-8 text-slate-500 hover:text-red-400">
-                <LogOut className="w-4 h-4" />
+              <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-red-500">
+                <LogOut className="h-4 w-4" />
               </Button>
             </a>
           </div>
         </div>
       </aside>
 
-      <main className="flex-1 flex flex-col overflow-hidden">
-        <header className="h-16 border-b border-white/5 flex items-center justify-between px-8 bg-[#0A0A0B]/80 backdrop-blur-md z-10">
+      <main className="flex flex-1 flex-col overflow-hidden">
+        <header className="z-10 flex h-16 items-center justify-between border-b border-border/70 bg-background/80 px-8 backdrop-blur-md">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-mono text-slate-500">PATH:</span>
+            <span className="text-xs font-mono text-muted-foreground">PATH:</span>
             <span className="text-xs font-mono text-blue-400">{location.pathname}</span>
           </div>
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 px-3 py-1 bg-green-500/10 border border-green-500/20 rounded-full">
-              <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
-              <span className="text-[10px] font-bold text-green-500 uppercase tracking-tighter">
+            <div className="flex items-center gap-2 rounded-full border border-green-500/20 bg-green-500/10 px-3 py-1">
+              <div className="h-1.5 w-1.5 rounded-full bg-green-500" />
+              <span className="text-[10px] font-bold uppercase tracking-tighter text-green-500">
                 Workspace Online
               </span>
             </div>
-            <Separator orientation="vertical" className="h-4 bg-white/10" />
-            <a href="/admin/ui" className="text-[10px] font-mono text-slate-500 uppercase tracking-widest hover:text-blue-400">
+            <ThemeToggle className="border-border bg-background/80 text-muted-foreground hover:bg-muted hover:text-foreground" />
+            <Separator orientation="vertical" className="h-4 bg-border" />
+            <a href="/admin/ui" className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground hover:text-blue-400">
               admin ui
             </a>
           </div>
