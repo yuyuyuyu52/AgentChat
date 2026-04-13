@@ -100,7 +100,7 @@ export default function Dashboard() {
         <Card className="bg-card border-border">
           <CardHeader className="pb-2">
             <CardDescription className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">My Agents</CardDescription>
-            <CardTitle className="text-3xl font-bold text-foreground">{accounts.length}</CardTitle>
+            <CardTitle className="text-3xl font-bold text-white">{accounts.length}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-1 text-[10px] text-green-500 font-bold">
@@ -111,7 +111,7 @@ export default function Dashboard() {
         <Card className="bg-card border-border">
           <CardHeader className="pb-2">
             <CardDescription className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Visible Conversations</CardDescription>
-            <CardTitle className="text-3xl font-bold text-foreground">{conversations.length}</CardTitle>
+            <CardTitle className="text-3xl font-bold text-white">{conversations.length}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-1 text-[10px] text-blue-500 font-bold">
@@ -122,7 +122,7 @@ export default function Dashboard() {
         <Card className="bg-card border-border">
           <CardHeader className="pb-2">
             <CardDescription className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Audit Events</CardDescription>
-            <CardTitle className="text-3xl font-bold text-foreground">{auditLogs.length}</CardTitle>
+            <CardTitle className="text-3xl font-bold text-white">{auditLogs.length}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-1 text-[10px] text-muted-foreground font-bold">
@@ -133,7 +133,7 @@ export default function Dashboard() {
         <Card className="bg-card border-border">
           <CardHeader className="pb-2">
             <CardDescription className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Scope</CardDescription>
-            <CardTitle className="text-3xl font-bold text-foreground">Owned</CardTitle>
+            <CardTitle className="text-3xl font-bold text-white">Owned</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-1 text-[10px] text-yellow-500 font-bold">
@@ -145,14 +145,14 @@ export default function Dashboard() {
 
       <div className="flex flex-col md:flex-row items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-foreground tracking-tight">Dashboard</h2>
+          <h2 className="text-2xl font-bold text-white tracking-tight">Dashboard</h2>
           <p className="text-sm text-muted-foreground">Overview of the agents tied to your user account.</p>
         </div>
         <div className="relative flex-1 md:w-64">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             placeholder="Search agents..."
-            className="pl-10 bg-muted/40 border-border text-foreground placeholder:text-muted-foreground focus-visible:ring-blue-500"
+            className="pl-10 bg-muted/40 border-border text-white placeholder:text-slate-600 focus-visible:ring-blue-500"
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
           />
@@ -182,7 +182,7 @@ export default function Dashboard() {
               <TableRow key={account.id} className="border-border hover:bg-muted/30 transition-colors">
                 <TableCell>
                   <div>
-                    <p className="text-sm font-bold text-foreground">{account.name}</p>
+                    <p className="text-sm font-bold text-white">{account.name}</p>
                     <p className="text-xs font-mono text-muted-foreground">{account.id}</p>
                   </div>
                 </TableCell>
@@ -207,7 +207,7 @@ export default function Dashboard() {
         <Card className="bg-card border-border">
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
-              <CardTitle className="text-lg font-bold text-foreground">Recent Conversations</CardTitle>
+              <CardTitle className="text-lg font-bold text-white">Recent Conversations</CardTitle>
               <CardDescription className="text-muted-foreground">Threads your agents can see.</CardDescription>
             </div>
             <Link to="/app/agents">
@@ -225,7 +225,7 @@ export default function Dashboard() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-1">
-                        <p className="text-sm font-bold text-foreground truncate">{conversationTitle(conversation, accountsById)}</p>
+                        <p className="text-sm font-bold text-white truncate">{conversationTitle(conversation, accountsById)}</p>
                         <span className="text-[10px] text-slate-600 font-mono">
                           {new Date(conversation.lastMessage?.createdAt ?? conversation.createdAt).toLocaleTimeString()}
                         </span>
@@ -244,7 +244,7 @@ export default function Dashboard() {
         <Card className="bg-card border-border">
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
-              <CardTitle className="text-lg font-bold text-foreground">Audit Trail</CardTitle>
+              <CardTitle className="text-lg font-bold text-white">Audit Trail</CardTitle>
               <CardDescription className="text-muted-foreground">Latest events affecting your agents.</CardDescription>
             </div>
             <Link to="/app/logs">
@@ -257,7 +257,7 @@ export default function Dashboard() {
                 <div className="mt-1 w-2 h-2 rounded-full bg-green-500" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-1">
-                    <p className="text-xs font-bold text-foreground uppercase tracking-wider">{log.eventType}</p>
+                    <p className="text-xs font-bold text-white uppercase tracking-wider">{log.eventType}</p>
                     <span className="text-[10px] text-slate-600 font-mono">{new Date(log.createdAt).toLocaleTimeString()}</span>
                   </div>
                   <p className="text-xs text-muted-foreground">

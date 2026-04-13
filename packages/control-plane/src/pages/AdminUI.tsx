@@ -53,13 +53,13 @@ export default function AdminUI() {
       <header className="h-16 border-b border-border flex items-center justify-between px-8 bg-black/50 backdrop-blur-xl sticky top-0 z-50">
         <div className="flex items-center gap-4">
           <Link to="/">
-            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
+            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-white">
               <ArrowLeft className="w-5 h-5" />
             </Button>
           </Link>
           <div className="flex items-center gap-2">
             <Settings className="w-5 h-5 text-blue-500" />
-            <h1 className="font-bold text-lg tracking-tight text-foreground">Instance Administration</h1>
+            <h1 className="font-bold text-lg tracking-tight text-white">Instance Administration</h1>
           </div>
           <Badge variant="outline" className="bg-blue-500/10 text-blue-400 border-blue-500/20 rounded-full text-[10px] px-2">
             GLOBAL ADMIN
@@ -79,15 +79,15 @@ export default function AdminUI() {
         <div className="lg:col-span-3 space-y-6">
           <div className="space-y-1">
             <p className="px-2 text-[10px] font-bold uppercase tracking-widest text-slate-600 mb-2">System Overview</p>
-            <Button variant="ghost" className="w-full justify-start gap-3 bg-muted/40 text-foreground border border-border">
+            <Button variant="ghost" className="w-full justify-start gap-3 bg-muted/40 text-white border border-border">
               <Activity className="w-4 h-4 text-blue-500" />
               <span className="text-sm font-medium">Health & Metrics</span>
             </Button>
-            <Button variant="ghost" className="w-full justify-start gap-3 text-muted-foreground hover:text-foreground hover:bg-accent">
+            <Button variant="ghost" className="w-full justify-start gap-3 text-muted-foreground hover:text-white hover:bg-muted/40">
               <Users className="w-4 h-4" />
               <span className="text-sm font-medium">Account Registry</span>
             </Button>
-            <Button variant="ghost" className="w-full justify-start gap-3 text-muted-foreground hover:text-foreground hover:bg-accent">
+            <Button variant="ghost" className="w-full justify-start gap-3 text-muted-foreground hover:text-white hover:bg-muted/40">
               <Database className="w-4 h-4" />
               <span className="text-sm font-medium">Storage & Backups</span>
             </Button>
@@ -97,11 +97,11 @@ export default function AdminUI() {
 
           <div className="space-y-1">
             <p className="px-2 text-[10px] font-bold uppercase tracking-widest text-slate-600 mb-2">Security</p>
-            <Button variant="ghost" className="w-full justify-start gap-3 text-muted-foreground hover:text-foreground hover:bg-accent">
+            <Button variant="ghost" className="w-full justify-start gap-3 text-muted-foreground hover:text-white hover:bg-muted/40">
               <ShieldCheck className="w-4 h-4" />
               <span className="text-sm font-medium">Auth Controls</span>
             </Button>
-            <Button variant="ghost" className="w-full justify-start gap-3 text-muted-foreground hover:text-foreground hover:bg-accent">
+            <Button variant="ghost" className="w-full justify-start gap-3 text-muted-foreground hover:text-white hover:bg-muted/40">
               <Lock className="w-4 h-4" />
               <span className="text-sm font-medium">Session Access</span>
             </Button>
@@ -119,7 +119,7 @@ export default function AdminUI() {
                   <Badge className="bg-green-500/10 text-green-500 border-green-500/20">Operational</Badge>
                 </div>
                 <p className="text-xs text-muted-foreground uppercase tracking-widest font-bold mb-1">HTTP Endpoint</p>
-                <p className="text-sm font-mono text-foreground break-all">{health?.httpUrl ?? "loading..."}</p>
+                <p className="text-sm font-mono text-white break-all">{health?.httpUrl ?? "loading..."}</p>
               </CardContent>
             </Card>
             <Card className="bg-card border-border">
@@ -131,7 +131,7 @@ export default function AdminUI() {
                   <span className="text-[10px] text-muted-foreground font-mono">accounts</span>
                 </div>
                 <p className="text-xs text-muted-foreground uppercase tracking-widest font-bold mb-1">Total Accounts</p>
-                <p className="text-2xl font-bold text-foreground">{accountCount}</p>
+                <p className="text-2xl font-bold text-white">{accountCount}</p>
               </CardContent>
             </Card>
             <Card className="bg-card border-border">
@@ -143,14 +143,14 @@ export default function AdminUI() {
                   <span className="text-[10px] text-muted-foreground font-mono">events</span>
                 </div>
                 <p className="text-xs text-muted-foreground uppercase tracking-widest font-bold mb-1">Recent Audit Events</p>
-                <p className="text-2xl font-bold text-foreground">{auditCount}</p>
+                <p className="text-2xl font-bold text-white">{auditCount}</p>
               </CardContent>
             </Card>
           </div>
 
           <Card className="bg-card border-border">
             <CardHeader>
-              <CardTitle className="text-lg font-bold text-foreground">Runtime Configuration</CardTitle>
+              <CardTitle className="text-lg font-bold text-white">Runtime Configuration</CardTitle>
               <CardDescription className="text-muted-foreground">
                 Server-reported configuration surfaced directly from the daemon.
               </CardDescription>
@@ -158,21 +158,21 @@ export default function AdminUI() {
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between p-4 rounded-xl border border-border bg-muted/30">
                 <div className="space-y-1">
-                  <p className="text-sm font-bold text-foreground">WebSocket Endpoint</p>
+                  <p className="text-sm font-bold text-white">WebSocket Endpoint</p>
                   <p className="text-xs text-muted-foreground font-mono break-all">{health?.wsUrl ?? "loading..."}</p>
                 </div>
                 <Badge className="bg-blue-500/10 text-blue-400 border-blue-500/20">live</Badge>
               </div>
               <div className="flex items-center justify-between p-4 rounded-xl border border-border bg-muted/30">
                 <div className="space-y-1">
-                  <p className="text-sm font-bold text-foreground">Database</p>
+                  <p className="text-sm font-bold text-white">Database</p>
                   <p className="text-xs text-muted-foreground font-mono break-all">{health?.databasePath ?? "loading..."}</p>
                 </div>
                 <Badge className="bg-green-500/10 text-green-500 border-green-500/20">attached</Badge>
               </div>
               <div className="flex items-center justify-between p-4 rounded-xl border border-border bg-muted/30">
                 <div className="space-y-1">
-                  <p className="text-sm font-bold text-foreground">Admin Password Gate</p>
+                  <p className="text-sm font-bold text-white">Admin Password Gate</p>
                   <p className="text-xs text-muted-foreground">Protects `/admin/*` APIs and the control plane shell.</p>
                 </div>
                 <Badge className={health?.adminAuthEnabled
@@ -183,7 +183,7 @@ export default function AdminUI() {
               </div>
               <div className="flex items-center justify-between p-4 rounded-xl border border-border bg-muted/30">
                 <div className="space-y-1">
-                  <p className="text-sm font-bold text-foreground">Google Auth</p>
+                  <p className="text-sm font-bold text-white">Google Auth</p>
                   <p className="text-xs text-muted-foreground">User workspace OAuth integration status.</p>
                 </div>
                 <Badge className={health?.googleAuthEnabled

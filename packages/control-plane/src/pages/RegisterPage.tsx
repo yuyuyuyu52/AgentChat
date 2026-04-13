@@ -7,7 +7,6 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { motion } from "motion/react";
 import { registerHumanUser } from "@/lib/auth-api";
-import { ThemeToggle } from "@/components/theme-toggle";
 
 export default function RegisterPage() {
   const [name, setName] = useState("");
@@ -32,8 +31,8 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2 bg-background selection:bg-blue-500/30">
-      <div className="hidden lg:flex flex-col justify-between p-12 bg-card relative overflow-hidden border-r border-border">
+    <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2 bg-[#0A0A0B] selection:bg-blue-500/30">
+      <div className="hidden lg:flex flex-col justify-between p-12 bg-[#050505] relative overflow-hidden border-r border-white/5">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(59,130,246,0.15),transparent_70%)]" />
         <div className="absolute inset-0 opacity-10" style={{ backgroundImage: "linear-gradient(#1e293b 1px, transparent 1px), linear-gradient(90deg, #1e293b 1px, transparent 1px)", backgroundSize: "40px 40px" }} />
 
@@ -96,14 +95,11 @@ export default function RegisterPage() {
         </div>
       </div>
 
-      <div className="relative flex flex-col items-center justify-center p-8 lg:p-24 bg-background">
-        <div className="absolute top-6 right-6">
-          <ThemeToggle />
-        </div>
+      <div className="flex flex-col items-center justify-center p-8 lg:p-24 bg-[#0A0A0B]">
         <div className="w-full max-w-sm space-y-8">
           <div className="space-y-2 text-center lg:text-left">
-            <h2 className="text-3xl font-bold text-foreground tracking-tight">Create Account</h2>
-            <p className="text-muted-foreground">Start your journey as an AgentChat operator.</p>
+            <h2 className="text-3xl font-bold text-white tracking-tight">Create Account</h2>
+            <p className="text-slate-500">Start your journey as an AgentChat operator.</p>
           </div>
 
           <form onSubmit={(event) => void handleRegister(event)} className="space-y-6">
@@ -115,7 +111,7 @@ export default function RegisterPage() {
                   <Input
                     id="name"
                     placeholder="John Doe"
-                    className="h-12 pl-10 bg-muted/40 border-border text-foreground focus-visible:ring-blue-500 focus-visible:bg-accent transition-all"
+                    className="h-12 pl-10 bg-white/[0.03] border-white/10 text-white focus-visible:ring-blue-500 focus-visible:bg-white/[0.05] transition-all"
                     value={name}
                     onChange={(event) => setName(event.target.value)}
                     required
@@ -130,7 +126,7 @@ export default function RegisterPage() {
                     id="email"
                     type="email"
                     placeholder="operator@agentchat.io"
-                    className="h-12 pl-10 bg-muted/40 border-border text-foreground focus-visible:ring-blue-500 focus-visible:bg-accent transition-all"
+                    className="h-12 pl-10 bg-white/[0.03] border-white/10 text-white focus-visible:ring-blue-500 focus-visible:bg-white/[0.05] transition-all"
                     value={email}
                     onChange={(event) => setEmail(event.target.value)}
                     required
@@ -145,7 +141,7 @@ export default function RegisterPage() {
                     id="password"
                     type="password"
                     placeholder="At least 6 characters"
-                    className="h-12 pl-10 bg-muted/40 border-border text-foreground focus-visible:ring-blue-500 focus-visible:bg-accent transition-all"
+                    className="h-12 pl-10 bg-white/[0.03] border-white/10 text-white focus-visible:ring-blue-500 focus-visible:bg-white/[0.05] transition-all"
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
                     required
@@ -179,7 +175,7 @@ export default function RegisterPage() {
             </Button>
           </form>
 
-          <p className="text-center text-sm text-muted-foreground">
+          <p className="text-center text-sm text-slate-500">
             Already have an account?{" "}
             <Link to="/auth/login" className="text-blue-500 hover:text-blue-400 font-bold underline underline-offset-4">
               Sign In

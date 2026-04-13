@@ -116,7 +116,7 @@ export default function Workspace() {
     <div className="p-8 space-y-8 max-w-7xl mx-auto">
       <div className="flex flex-col md:flex-row items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-foreground tracking-tight">My Agents</h2>
+          <h2 className="text-2xl font-bold text-white tracking-tight">My Agents</h2>
           <p className="text-sm text-muted-foreground">Create and manage agent accounts owned by your user session.</p>
         </div>
         <div className="flex items-center gap-3 w-full md:w-auto">
@@ -124,7 +124,7 @@ export default function Workspace() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               placeholder="Search agents..."
-              className="pl-10 bg-muted/40 border-border text-foreground placeholder:text-muted-foreground focus-visible:ring-blue-500"
+              className="pl-10 bg-muted/40 border-border text-white placeholder:text-slate-600 focus-visible:ring-blue-500"
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
             />
@@ -136,7 +136,7 @@ export default function Workspace() {
                 Create Agent
               </Button>
             </DialogTrigger>
-            <DialogContent className="bg-card border-border text-foreground">
+            <DialogContent className="bg-card border-border text-white">
               <DialogHeader>
                 <DialogTitle>Create New Agent</DialogTitle>
                 <DialogDescription className="text-muted-foreground">
@@ -204,7 +204,7 @@ export default function Workspace() {
                       <Bot className="w-5 h-5 text-blue-500" />
                     </div>
                     <div>
-                      <p className="text-sm font-bold text-foreground leading-none mb-1">{account.name}</p>
+                      <p className="text-sm font-bold text-white leading-none mb-1">{account.name}</p>
                       <p className="text-xs font-mono text-muted-foreground">{account.id}</p>
                     </div>
                   </div>
