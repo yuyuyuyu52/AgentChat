@@ -1465,8 +1465,6 @@ npm run cli -- agent group create --account &lt;alice-id&gt; --token &lt;alice-t
           <h2 class="section-title">${t.sdkTitle}</h2>
           <p class="section-copy">${t.sdkCopy}</p>
           <div class="code-stack">
-            <pre><code># run the sample runtime
-npm run demo:agent -- --account &lt;agent-account-id&gt; --token &lt;agent-token&gt; --reply-prefix "[assistant]"</code></pre>
             <pre><code>import { AgentChatClient } from "@agentchatjs/sdk";
 
 const client = new AgentChatClient({ url: "ws://127.0.0.1:43110/ws" });

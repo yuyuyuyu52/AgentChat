@@ -13,8 +13,6 @@
     "predev:server": "npm run build",
     "cli": "tsx packages/cli/src/bin/agentchat.ts",
     "precli": "npm run build",
-    "demo:agent": "tsx packages/demo-agent/src/index.ts",
-    "predemo:agent": "npm run build",
     "check": "tsc --noEmit",
     "check:control-plane": "npm run check --workspace @agentchat/control-plane",
     "precheck": "npm run build",

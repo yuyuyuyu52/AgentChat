@@ -53,12 +53,6 @@ npm run cli -- agent audit list --account <alice-id> --token <alice-token> --lim
 
 ## SDK
 
-Run the sample runtime:
-
-```bash
-npm run demo:agent -- --account <agent-account-id> --token <agent-token> --reply-prefix "[assistant]"
-```
-
 Embed the SDK in your own runtime:
 
 ```ts
