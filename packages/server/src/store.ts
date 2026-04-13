@@ -104,6 +104,29 @@ type HumanUserRow = {
   created_at: string;
 };
 
+type AdminAuthSessionRow = {
+  id: string;
+  created_at: string;
+  expires_at: string;
+};
+
+type UserAuthSessionRow = {
+  id: string;
+  subject: string;
+  email: string;
+  name: string;
+  picture: string | null;
+  auth_provider: "google" | "local";
+  created_at: string;
+  expires_at: string;
+};
+
+type OAuthStateRow = {
+  id: string;
+  created_at: string;
+  expires_at: string;
+};
+
 type OwnedConversationRow = {
   id: string;
   kind: ConversationKind;
@@ -113,6 +136,10 @@ type OwnedConversationRow = {
 
 function nowIso(): string {
   return new Date().toISOString();
+}
+
+function addSeconds(isoTimestamp: string, seconds: number): string {
+  return new Date(Date.parse(isoTimestamp) + seconds * 1_000).toISOString();
 }
 
 function parseRecord(value: string): Record<string, unknown> {
@@ -326,6 +353,32 @@ const BASE_SCHEMA = [
     )
   `,
   `
+    CREATE TABLE IF NOT EXISTS admin_auth_sessions (
+      id TEXT PRIMARY KEY,
+      created_at TEXT NOT NULL,
+      expires_at TEXT NOT NULL
+    )
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS user_auth_sessions (
+      id TEXT PRIMARY KEY,
+      subject TEXT NOT NULL,
+      email TEXT NOT NULL,
+      name TEXT NOT NULL,
+      picture TEXT,
+      auth_provider TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      expires_at TEXT NOT NULL
+    )
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS oauth_states (
+      id TEXT PRIMARY KEY,
+      created_at TEXT NOT NULL,
+      expires_at TEXT NOT NULL
+    )
+  `,
+  `
     CREATE INDEX IF NOT EXISTS idx_conversation_members_account
       ON conversation_members(account_id)
   `,
@@ -360,6 +413,18 @@ const BASE_SCHEMA = [
   `
     CREATE INDEX IF NOT EXISTS idx_human_users_email
       ON human_users(email)
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS idx_admin_auth_sessions_expires
+      ON admin_auth_sessions(expires_at)
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS idx_user_auth_sessions_expires
+      ON user_auth_sessions(expires_at)
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS idx_oauth_states_expires
+      ON oauth_states(expires_at)
   `,
 ];
 
@@ -402,6 +467,15 @@ export type OwnedConversationMessage = Message & {
 };
 
 export type HumanUser = ReturnType<typeof humanUserFromRow>;
+
+export type StoredUserSession = {
+  createdAt: number;
+  subject: string;
+  email: string;
+  name: string;
+  picture?: string;
+  authProvider: "google" | "local";
+};
 
 export type ListPlazaPostsOptions = {
   authorAccountId?: string;
@@ -597,6 +671,141 @@ export class AgentChatStore {
     }
 
     return humanUserFromRow(row);
+  }
+
+  async createAdminSession(ttlSeconds: number): Promise<string> {
+    const createdAt = nowIso();
+    const sessionId = randomUUID();
+    await this.db.run(
+      `
+        INSERT INTO admin_auth_sessions (id, created_at, expires_at)
+        VALUES (?, ?, ?)
+      `,
+      [sessionId, createdAt, addSeconds(createdAt, ttlSeconds)],
+    );
+    return sessionId;
+  }
+
+  async hasAdminSession(sessionId: string): Promise<boolean> {
+    const now = nowIso();
+    await this.db.run(
+      `
+        DELETE FROM admin_auth_sessions
+        WHERE id = ?
+          AND expires_at <= ?
+      `,
+      [sessionId, now],
+    );
+    const row = await this.db.get<{ id: string }>(
+      `
+        SELECT id
+        FROM admin_auth_sessions
+        WHERE id = ?
+          AND expires_at > ?
+      `,
+      [sessionId, now],
+    );
+    return Boolean(row);
+  }
+
+  async deleteAdminSession(sessionId: string): Promise<void> {
+    await this.db.run("DELETE FROM admin_auth_sessions WHERE id = ?", [sessionId]);
+  }
+
+  async createUserSession(
+    input: {
+      subject: string;
+      email: string;
+      name: string;
+      picture?: string;
+      authProvider: "google" | "local";
+    },
+    ttlSeconds: number,
+  ): Promise<string> {
+    const createdAt = nowIso();
+    const sessionId = randomUUID();
+    await this.db.run(
+      `
+        INSERT INTO user_auth_sessions (
+          id, subject, email, name, picture, auth_provider, created_at, expires_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `,
+      [
+        sessionId,
+        input.subject,
+        input.email,
+        input.name,
+        input.picture ?? null,
+        input.authProvider,
+        createdAt,
+        addSeconds(createdAt, ttlSeconds),
+      ],
+    );
+    return sessionId;
+  }
+
+  async getUserSession(sessionId: string): Promise<StoredUserSession | undefined> {
+    const now = nowIso();
+    await this.db.run(
+      `
+        DELETE FROM user_auth_sessions
+        WHERE id = ?
+          AND expires_at <= ?
+      `,
+      [sessionId, now],
+    );
+    const row = await this.db.get<UserAuthSessionRow>(
+      `
+        SELECT id, subject, email, name, picture, auth_provider, created_at, expires_at
+        FROM user_auth_sessions
+        WHERE id = ?
+          AND expires_at > ?
+      `,
+      [sessionId, now],
+    );
+
+    if (!row) {
+      return undefined;
+    }
+
+    return {
+      createdAt: Date.parse(row.created_at),
+      subject: row.subject,
+      email: row.email,
+      name: row.name,
+      ...(row.picture ? { picture: row.picture } : {}),
+      authProvider: row.auth_provider,
+    };
+  }
+
+  async deleteUserSession(sessionId: string): Promise<void> {
+    await this.db.run("DELETE FROM user_auth_sessions WHERE id = ?", [sessionId]);
+  }
+
+  async createOAuthState(ttlSeconds: number): Promise<string> {
+    const createdAt = nowIso();
+    const state = randomUUID();
+    await this.db.run(
+      `
+        INSERT INTO oauth_states (id, created_at, expires_at)
+        VALUES (?, ?, ?)
+      `,
+      [state, createdAt, addSeconds(createdAt, ttlSeconds)],
+    );
+    return state;
+  }
+
+  async consumeOAuthState(state: string): Promise<boolean> {
+    const result = await this.db.run(
+      `
+        DELETE FROM oauth_states
+        WHERE id = ?
+          AND expires_at > ?
+      `,
+      [state, nowIso()],
+    );
+    return result.rowCount > 0;
   }
 
   async getHumanUserByEmail(email: string): Promise<HumanUser | undefined> {
@@ -1764,6 +1973,10 @@ export class AgentChatStore {
   }
 
   private async seedDefaultHumanUser(): Promise<void> {
+    if (process.env.NODE_ENV === "production") {
+      return;
+    }
+
     if (await this.getHumanUserByEmail("test@example.com")) {
       return;
     }

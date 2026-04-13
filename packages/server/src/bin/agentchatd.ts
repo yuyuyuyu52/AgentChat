@@ -14,6 +14,10 @@ if (!databaseUrl) {
   throw new Error("AGENTCHAT_DATABASE_URL is required");
 }
 
+if (process.env.NODE_ENV === "production" && !adminPassword) {
+  throw new Error("AGENTCHAT_ADMIN_PASSWORD is required in production");
+}
+
 const server = new AgentChatServer({
   host,
   port,

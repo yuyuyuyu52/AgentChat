@@ -14,6 +14,9 @@ async function resetDatabase(connectionString: string) {
   try {
     await pool.query(`
       TRUNCATE TABLE
+        oauth_states,
+        user_auth_sessions,
+        admin_auth_sessions,
         audit_logs,
         sessions,
         plaza_posts,
@@ -169,25 +172,12 @@ describe.runIf(shouldRun)("AgentChat MVP", () => {
     expect(zhLanding.status).toBe(200);
     expect(await zhLanding.text()).toContain("安装链接与资源入口");
 
-    const sessionId = "user-session-1";
-    (server as unknown as {
-      userSessions: Map<
-        string,
-        {
-          createdAt: number;
-          subject: string;
-          email: string;
-          name: string;
-          authProvider: "google" | "local";
-        }
-      >;
-    }).userSessions.set(sessionId, {
-      createdAt: Date.now(),
+    const sessionId = await server.store.createUserSession({
       subject: "google-sub-1",
       email: "owner@example.com",
       name: "Owner",
       authProvider: "google",
-    });
+    }, 60 * 60);
 
     const owned = await server.createAccount({
       name: "owner-bot",
@@ -258,25 +248,12 @@ describe.runIf(shouldRun)("AgentChat MVP", () => {
       body: "private outsider message",
     });
 
-    const sessionId = "user-session-2";
-    (server as unknown as {
-      userSessions: Map<
-        string,
-        {
-          createdAt: number;
-          subject: string;
-          email: string;
-          name: string;
-          authProvider: "google" | "local";
-        }
-      >;
-    }).userSessions.set(sessionId, {
-      createdAt: Date.now(),
+    const sessionId = await server.store.createUserSession({
       subject: "owner-sub",
       email: "owner@example.com",
       name: "Owner",
       authProvider: "google",
-    });
+    }, 60 * 60);
 
     const conversationsResponse = await fetch(`${server.httpUrl}/app/api/conversations`, {
       headers: {
@@ -375,6 +352,161 @@ describe.runIf(shouldRun)("AgentChat MVP", () => {
     expect(await accounts.json()).toEqual(
       expect.arrayContaining([expect.objectContaining({ name: "local-owner-bot" })]),
     );
+  });
+
+  it("persists admin sessions across server restarts", async () => {
+    const first = await createProtectedServer();
+
+    const login = await fetch(`${first.httpUrl}/admin/login`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ password: "secret-pass" }),
+    });
+    expect(login.status).toBe(200);
+    const cookie = login.headers.get("set-cookie");
+    expect(cookie).toContain("agentchat_admin_session=");
+
+    await first.stop();
+
+    const second = await createProtectedServer();
+    resources.push(second);
+
+    const accounts = await fetch(`${second.httpUrl}/admin/accounts`, {
+      headers: {
+        cookie: cookie ?? "",
+      },
+    });
+    expect(accounts.status).toBe(200);
+  });
+
+  it("persists user sessions across server restarts", async () => {
+    const first = await createServer();
+    const sessionId = await first.store.createUserSession({
+      subject: "persisted-owner",
+      email: "persisted@example.com",
+      name: "Persisted Owner",
+      authProvider: "local",
+    }, 60 * 60);
+    await first.createAccount({
+      name: "persisted-bot",
+      owner: {
+        subject: "persisted-owner",
+        email: "persisted@example.com",
+        name: "Persisted Owner",
+      },
+    });
+
+    await first.stop();
+
+    const second = await createServer();
+    resources.push(second);
+
+    const accounts = await fetch(`${second.httpUrl}/app/api/accounts`, {
+      headers: {
+        cookie: `agentchat_user_session=${sessionId}`,
+      },
+    });
+    expect(accounts.status).toBe(200);
+    expect(await accounts.json()).toEqual(
+      expect.arrayContaining([expect.objectContaining({ name: "persisted-bot" })]),
+    );
+  });
+
+  it("adds Secure to auth cookies behind HTTPS", async () => {
+    const server = await createProtectedServer();
+    resources.push(server);
+
+    const userLogin = await fetch(`${server.httpUrl}/auth/login`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-forwarded-proto": "https",
+      },
+      body: JSON.stringify({
+        email: "test@example.com",
+        password: "test123456",
+      }),
+    });
+    expect(userLogin.headers.get("set-cookie")).toContain("Secure");
+
+    const adminLogin = await fetch(`${server.httpUrl}/admin/login`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-forwarded-proto": "https",
+      },
+      body: JSON.stringify({ password: "secret-pass" }),
+    });
+    expect(adminLogin.headers.get("set-cookie")).toContain("Secure");
+  });
+
+  it("rate limits repeated login failures", async () => {
+    const server = await createProtectedServer();
+    resources.push(server);
+
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      const response = await fetch(`${server.httpUrl}/auth/login`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-forwarded-for": "203.0.113.10",
+        },
+        body: JSON.stringify({
+          email: "test@example.com",
+          password: "wrong-password",
+        }),
+      });
+      expect(response.status).toBe(401);
+    }
+
+    const blocked = await fetch(`${server.httpUrl}/auth/login`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-forwarded-for": "203.0.113.10",
+      },
+      body: JSON.stringify({
+        email: "test@example.com",
+        password: "wrong-password",
+      }),
+    });
+    expect(blocked.status).toBe(429);
+  });
+
+  it("rate limits repeated websocket authentication failures", async () => {
+    const server = await createServer();
+    resources.push(server);
+
+    const alpha = await server.createAccount({ name: "alpha-rate-limit" });
+
+    for (let attempt = 0; attempt < 15; attempt += 1) {
+      const client = new AgentChatClient({ url: server.wsUrl });
+      await expect(client.connect(alpha.id, "bad-token")).rejects.toThrow(/invalid account credentials/i);
+      client.close();
+    }
+
+    const blockedClient = new AgentChatClient({ url: server.wsUrl });
+    await expect(blockedClient.connect(alpha.id, "bad-token")).rejects.toThrow(/too many agent authentication attempts/i);
+    blockedClient.close();
+  });
+
+  it("requires AGENTCHAT_ADMIN_PASSWORD in production", () => {
+    const previousNodeEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = "production";
+
+    try {
+      expect(
+        () =>
+          new AgentChatServer({
+            port: 0,
+            databaseUrl: POSTGRES_URL!,
+          }),
+      ).toThrow(/AGENTCHAT_ADMIN_PASSWORD is required in production/);
+    } finally {
+      process.env.NODE_ENV = previousNodeEnv;
+    }
   });
 
   it("lets authenticated agents manage friends, groups, and messages without admin APIs", async () => {

@@ -27,10 +27,12 @@ import {
   AgentChatStore,
   type CreateAccountInput,
   type SendMessageInput,
+  type StoredUserSession,
 } from "./store.js";
 
 type ConnectionState = {
   socket: WebSocket;
+  clientAddress: string;
   accountId?: string;
   subscribedConversationIds: Set<string>;
   subscribedConversationFeed: boolean;
@@ -54,22 +56,52 @@ export type AgentChatServerOptions = {
     | undefined;
 };
 
-type AdminSession = {
-  createdAt: number;
-};
+type UserSession = StoredUserSession;
 
-type UserSession = {
-  createdAt: number;
-  subject: string;
-  email: string;
-  name: string;
-  picture?: string;
-  authProvider: "google" | "local";
-};
+class FailedAttemptRateLimiter {
+  private readonly failures = new Map<string, number[]>();
 
-type OAuthState = {
-  createdAt: number;
-};
+  constructor(
+    private readonly limit: number,
+    private readonly windowMs: number,
+    private readonly scope: string,
+  ) {}
+
+  assertAllowed(key: string): void {
+    const now = Date.now();
+    const failures = this.prune(key, now);
+    if (failures.length >= this.limit) {
+      throw new AppError(
+        "TOO_MANY_REQUESTS",
+        `Too many ${this.scope} attempts. Try again later.`,
+        429,
+      );
+    }
+  }
+
+  recordFailure(key: string): void {
+    const now = Date.now();
+    const failures = this.prune(key, now);
+    failures.push(now);
+    this.failures.set(key, failures);
+  }
+
+  clear(key: string): void {
+    this.failures.delete(key);
+  }
+
+  private prune(key: string, now: number): number[] {
+    const failures = (this.failures.get(key) ?? []).filter(
+      (timestamp) => now - timestamp < this.windowMs,
+    );
+    if (failures.length === 0) {
+      this.failures.delete(key);
+      return [];
+    }
+    this.failures.set(key, failures);
+    return failures;
+  }
+}
 
 const CreateAccountBodySchema = z.object({
   name: z.string().min(1),
@@ -233,12 +265,28 @@ export class AgentChatServer {
   private readonly wsServer: WebSocketServer;
   private readonly connections = new Map<WebSocket, ConnectionState>();
   private readonly accountConnections = new Map<string, Set<ConnectionState>>();
-  private readonly adminSessions = new Map<string, AdminSession>();
-  private readonly userSessions = new Map<string, UserSession>();
-  private readonly oauthStates = new Map<string, OAuthState>();
+  private readonly adminLoginRateLimiter = new FailedAttemptRateLimiter(
+    10,
+    10 * 60 * 1_000,
+    "admin login",
+  );
+  private readonly userLoginRateLimiter = new FailedAttemptRateLimiter(
+    10,
+    10 * 60 * 1_000,
+    "login",
+  );
+  private readonly agentConnectRateLimiter = new FailedAttemptRateLimiter(
+    15,
+    10 * 60 * 1_000,
+    "agent authentication",
+  );
   private actualPort = 0;
 
   constructor(options: AgentChatServerOptions) {
+    if (process.env.NODE_ENV === "production" && !options.adminPassword) {
+      throw new Error("AGENTCHAT_ADMIN_PASSWORD is required in production");
+    }
+
     this.host = options.host ?? "127.0.0.1";
     this.requestedPort = options.port ?? 43110;
     this.adminPassword = options.adminPassword;
@@ -264,9 +312,10 @@ export class AgentChatServer {
       });
     });
 
-    this.wsServer.on("connection", (socket) => {
+    this.wsServer.on("connection", (socket, request) => {
       const state: ConnectionState = {
         socket,
+        clientAddress: this.getClientAddress(request),
         subscribedConversationIds: new Set(),
         subscribedConversationFeed: false,
         subscribedPlazaFeed: false,
@@ -590,8 +639,8 @@ export class AgentChatServer {
     try {
       const url = parseUrl(request.url ?? "", true);
       const method = request.method ?? "GET";
-      const isAdminAuthorized = this.isAdminAuthorized(request);
-      const userSession = this.getUserSession(request);
+      const isAdminAuthorized = await this.isAdminAuthorized(request);
+      const userSession = await this.getUserSession(request);
       const lang = normalizeUiLang(typeof url.query.lang === "string" ? url.query.lang : undefined);
 
       if ((method === "GET" || method === "HEAD") && isControlPlaneAssetPath(url.pathname)) {
@@ -629,14 +678,31 @@ export class AgentChatServer {
         const body = isForm
           ? HumanLoginBodySchema.parse(await this.readForm(request))
           : HumanLoginBodySchema.parse(await readJson(request));
-        const user = await this.store.authenticateHumanUser(body.email, body.password);
-        this.startUserSession(response, {
-          createdAt: Date.now(),
-          subject: `local:${user.id}`,
-          email: user.email,
-          name: user.name,
-          authProvider: "local",
-        });
+        const rateLimitKey = `user-login:${this.getClientAddress(request)}`;
+        this.userLoginRateLimiter.assertAllowed(rateLimitKey);
+        try {
+          const user = await this.store.authenticateHumanUser(body.email, body.password);
+          this.userLoginRateLimiter.clear(rateLimitKey);
+          await this.startUserSession(
+            request,
+            response,
+            {
+              createdAt: Date.now(),
+              subject: `local:${user.id}`,
+              email: user.email,
+              name: user.name,
+              authProvider: "local",
+            },
+          );
+        } catch (error) {
+          const appError = error instanceof z.ZodError
+            ? new AppError("INVALID_ARGUMENT", error.message)
+            : asAppError(error);
+          if (appError.statusCode === 401) {
+            this.userLoginRateLimiter.recordFailure(rateLimitKey);
+          }
+          throw error;
+        }
         if (isForm) {
           redirect(response, "/app");
           return;
@@ -651,13 +717,17 @@ export class AgentChatServer {
           ? HumanRegisterBodySchema.parse(await this.readForm(request))
           : HumanRegisterBodySchema.parse(await readJson(request));
         const user = await this.store.createHumanUser(body);
-        this.startUserSession(response, {
-          createdAt: Date.now(),
-          subject: `local:${user.id}`,
-          email: user.email,
-          name: user.name,
-          authProvider: "local",
-        });
+        await this.startUserSession(
+          request,
+          response,
+          {
+            createdAt: Date.now(),
+            subject: `local:${user.id}`,
+            email: user.email,
+            name: user.name,
+            authProvider: "local",
+          },
+        );
         if (isForm) {
           redirect(response, "/app");
           return;
@@ -668,10 +738,7 @@ export class AgentChatServer {
 
       if (method === "GET" && url.pathname === "/auth/google/login") {
         this.ensureGoogleAuthConfigured();
-        const state = randomUUID();
-        this.oauthStates.set(state, {
-          createdAt: Date.now(),
-        });
+        const state = await this.store.createOAuthState(10 * 60);
         const authUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");
         authUrl.searchParams.set("client_id", this.googleAuth!.clientId);
         authUrl.searchParams.set("redirect_uri", this.googleAuth!.redirectUri);
@@ -687,12 +754,12 @@ export class AgentChatServer {
         this.ensureGoogleAuthConfigured();
         const code = typeof url.query.code === "string" ? url.query.code : undefined;
         const state = typeof url.query.state === "string" ? url.query.state : undefined;
-        if (!code || !state || !this.oauthStates.has(state)) {
+        if (!code || !state || !(await this.store.consumeOAuthState(state))) {
           throw new AppError("UNAUTHORIZED", "Invalid Google OAuth callback", 401);
         }
-        this.oauthStates.delete(state);
         const profile = await this.exchangeGoogleCodeForProfile(code);
-        this.startUserSession(
+        await this.startUserSession(
+          request,
           response,
           profile.picture
             ? {
@@ -718,11 +785,14 @@ export class AgentChatServer {
       if (method === "GET" && url.pathname === "/auth/logout") {
         const sessionId = this.getCookie(request, "agentchat_user_session");
         if (sessionId) {
-          this.userSessions.delete(sessionId);
+          await this.store.deleteUserSession(sessionId);
         }
         response.setHeader(
           "set-cookie",
-          this.makeSessionCookie("agentchat_user_session", "", { maxAge: 0 }),
+          this.makeSessionCookie("agentchat_user_session", "", {
+            maxAge: 0,
+            secure: this.shouldUseSecureCookies(request),
+          }),
         );
         redirect(response, "/");
         return;
@@ -744,15 +814,27 @@ export class AgentChatServer {
         const body = request.headers["content-type"]?.includes("application/x-www-form-urlencoded")
           ? LoginBodySchema.parse(await this.readForm(request))
           : LoginBodySchema.parse(await readJson(request));
-        this.assertAdminPassword(body.password);
-        const sessionId = randomUUID();
-        this.adminSessions.set(sessionId, {
-          createdAt: Date.now(),
-        });
+        const rateLimitKey = `admin-login:${this.getClientAddress(request)}`;
+        this.adminLoginRateLimiter.assertAllowed(rateLimitKey);
+        let sessionId: string;
+        try {
+          this.assertAdminPassword(body.password);
+          this.adminLoginRateLimiter.clear(rateLimitKey);
+          sessionId = await this.store.createAdminSession(60 * 60 * 8);
+        } catch (error) {
+          const appError = error instanceof z.ZodError
+            ? new AppError("INVALID_ARGUMENT", error.message)
+            : asAppError(error);
+          if (appError.statusCode === 401) {
+            this.adminLoginRateLimiter.recordFailure(rateLimitKey);
+          }
+          throw error;
+        }
         response.setHeader(
           "set-cookie",
           this.makeSessionCookie("agentchat_admin_session", sessionId, {
             maxAge: 60 * 60 * 8,
+            secure: this.shouldUseSecureCookies(request),
           }),
         );
         if (request.headers["content-type"]?.includes("application/x-www-form-urlencoded")) {
@@ -766,11 +848,14 @@ export class AgentChatServer {
       if (method === "POST" && url.pathname === "/admin/logout") {
         const sessionId = this.getAdminSessionId(request);
         if (sessionId) {
-          this.adminSessions.delete(sessionId);
+          await this.store.deleteAdminSession(sessionId);
         }
         response.setHeader(
           "set-cookie",
-          this.makeSessionCookie("agentchat_admin_session", "", { maxAge: 0 }),
+          this.makeSessionCookie("agentchat_admin_session", "", {
+            maxAge: 0,
+            secure: this.shouldUseSecureCookies(request),
+          }),
         );
         if (request.headers.accept?.includes("text/html")) {
           redirect(response, "/admin/ui");
@@ -781,19 +866,19 @@ export class AgentChatServer {
       }
 
       if (method === "GET" && url.pathname === "/app/api/accounts") {
-        const session = this.requireUserSession(request);
+        const session = await this.requireUserSession(request);
         jsonResponse(response, 200, await this.listAccounts(session.subject));
         return;
       }
 
       if (method === "GET" && url.pathname === "/app/api/conversations") {
-        const session = this.requireUserSession(request);
+        const session = await this.requireUserSession(request);
         jsonResponse(response, 200, await this.listOwnedConversations(session.subject));
         return;
       }
 
       if (method === "GET" && url.pathname === "/app/api/audit-logs") {
-        const session = this.requireUserSession(request);
+        const session = await this.requireUserSession(request);
         const conversationId =
           typeof url.query.conversationId === "string" ? url.query.conversationId : undefined;
         const limit = typeof url.query.limit === "string" ? Number(url.query.limit) : undefined;
@@ -811,7 +896,7 @@ export class AgentChatServer {
       const appConversationMessagesMatch =
         url.pathname?.match(/^\/app\/api\/conversations\/([^/]+)\/messages$/);
       if (method === "GET" && appConversationMessagesMatch) {
-        const session = this.requireUserSession(request);
+        const session = await this.requireUserSession(request);
         const before = typeof url.query.before === "string" ? Number(url.query.before) : undefined;
         const limit = typeof url.query.limit === "string" ? Number(url.query.limit) : undefined;
         jsonResponse(
@@ -828,7 +913,7 @@ export class AgentChatServer {
       }
 
       if (method === "POST" && url.pathname === "/app/api/accounts") {
-        const session = this.requireUserSession(request);
+        const session = await this.requireUserSession(request);
         const body = CreateAccountBodySchema.parse(await readJson(request));
         jsonResponse(
           response,
@@ -847,12 +932,12 @@ export class AgentChatServer {
 
       const appAccountTokenMatch = url.pathname?.match(/^\/app\/api\/accounts\/([^/]+)\/reset-token$/);
       if (method === "POST" && appAccountTokenMatch) {
-        const session = this.requireUserSession(request);
+        const session = await this.requireUserSession(request);
         jsonResponse(response, 200, await this.resetToken(appAccountTokenMatch[1]!, session.subject));
         return;
       }
 
-      this.requireAdminAuthorization(request);
+      await this.requireAdminAuthorization(request);
 
       if (method === "POST" && url.pathname === "/admin/init") {
         jsonResponse(response, 200, {
@@ -986,17 +1071,30 @@ export class AgentChatServer {
 
       switch (request.type) {
         case "connect": {
-          const account = await this.store.authenticateAccount(
-            request.payload.accountId,
-            request.payload.token,
-          );
-          connection.accountId = account.id;
-          connection.sessionId = randomUUID();
-          await this.registerConnection(connection);
-          this.sendResponse(connection, request.id, {
-            account,
-          });
-          return;
+          const rateLimitKey = `agent-connect:${connection.clientAddress}`;
+          this.agentConnectRateLimiter.assertAllowed(rateLimitKey);
+          try {
+            const account = await this.store.authenticateAccount(
+              request.payload.accountId,
+              request.payload.token,
+            );
+            this.agentConnectRateLimiter.clear(rateLimitKey);
+            connection.accountId = account.id;
+            connection.sessionId = randomUUID();
+            await this.registerConnection(connection);
+            this.sendResponse(connection, request.id, {
+              account,
+            });
+            return;
+          } catch (error) {
+            const appError = error instanceof z.ZodError
+              ? new AppError("INVALID_ARGUMENT", error.message)
+              : asAppError(error);
+            if (appError.statusCode === 401) {
+              this.agentConnectRateLimiter.recordFailure(rateLimitKey);
+            }
+            throw error;
+          }
         }
         case "subscribe_conversations": {
           const accountId = this.requireAuthenticated(connection);
@@ -1336,21 +1434,21 @@ export class AgentChatServer {
     return connection.accountId;
   }
 
-  private requireAdminAuthorization(request: IncomingMessage): void {
-    if (!this.isAdminAuthorized(request)) {
+  private async requireAdminAuthorization(request: IncomingMessage): Promise<void> {
+    if (!(await this.isAdminAuthorized(request))) {
       throw new AppError("UNAUTHORIZED", "Admin authorization required", 401);
     }
   }
 
-  private requireUserSession(request: IncomingMessage): UserSession {
-    const session = this.getUserSession(request);
+  private async requireUserSession(request: IncomingMessage): Promise<UserSession> {
+    const session = await this.getUserSession(request);
     if (!session) {
       throw new AppError("UNAUTHORIZED", "Login required", 401);
     }
     return session;
   }
 
-  private isAdminAuthorized(request: IncomingMessage): boolean {
+  private async isAdminAuthorized(request: IncomingMessage): Promise<boolean> {
     if (!this.adminPassword) {
       return true;
     }
@@ -1365,7 +1463,7 @@ export class AgentChatServer {
       return false;
     }
 
-    return this.adminSessions.has(sessionId);
+    return this.store.hasAdminSession(sessionId);
   }
 
   private assertAdminPassword(password: string): void {
@@ -1394,21 +1492,34 @@ export class AgentChatServer {
     return this.getCookie(request, "agentchat_admin_session");
   }
 
-  private getUserSession(request: IncomingMessage): UserSession | undefined {
+  private async getUserSession(request: IncomingMessage): Promise<UserSession | undefined> {
     const sessionId = this.getCookie(request, "agentchat_user_session");
     if (!sessionId) {
       return undefined;
     }
-    return this.userSessions.get(sessionId);
+    return this.store.getUserSession(sessionId);
   }
 
-  private startUserSession(response: ServerResponse, session: UserSession): void {
-    const sessionId = randomUUID();
-    this.userSessions.set(sessionId, session);
+  private async startUserSession(
+    request: IncomingMessage,
+    response: ServerResponse,
+    session: UserSession,
+  ): Promise<void> {
+    const sessionId = await this.store.createUserSession(
+      {
+        subject: session.subject,
+        email: session.email,
+        name: session.name,
+        ...(session.picture ? { picture: session.picture } : {}),
+        authProvider: session.authProvider,
+      },
+      60 * 60 * 24 * 7,
+    );
     response.setHeader(
       "set-cookie",
       this.makeSessionCookie("agentchat_user_session", sessionId, {
         maxAge: 60 * 60 * 24 * 7,
+        secure: this.shouldUseSecureCookies(request),
       }),
     );
   }
@@ -1432,15 +1543,37 @@ export class AgentChatServer {
   private makeSessionCookie(
     name: string,
     value: string,
-    options: { maxAge: number },
+    options: { maxAge: number; secure: boolean },
   ): string {
-    return [
+    const parts = [
       `${name}=${value}`,
       "Path=/",
       "HttpOnly",
       "SameSite=Lax",
       `Max-Age=${options.maxAge}`,
-    ].join("; ");
+    ];
+    if (options.secure) {
+      parts.push("Secure");
+    }
+    return parts.join("; ");
+  }
+
+  private shouldUseSecureCookies(request: IncomingMessage): boolean {
+    if (this.publicHttpUrl) {
+      return new URL(this.publicHttpUrl).protocol === "https:";
+    }
+
+    const forwardedProto = firstHeaderValue(request.headers["x-forwarded-proto"]);
+    if (forwardedProto) {
+      return forwardedProto === "https";
+    }
+
+    return "encrypted" in request.socket && Boolean(request.socket.encrypted);
+  }
+
+  private getClientAddress(request: IncomingMessage): string {
+    const forwardedFor = firstHeaderValue(request.headers["x-forwarded-for"]);
+    return forwardedFor ?? request.socket.remoteAddress ?? "unknown";
   }
 
   private ensureGoogleAuthConfigured(): void {
