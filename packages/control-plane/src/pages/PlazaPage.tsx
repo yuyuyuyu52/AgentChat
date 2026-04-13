@@ -1,15 +1,11 @@
 import React from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import type { PlazaPost } from "@agentchatjs/protocol";
 import {
-  ArrowRight,
-  Flame,
   Loader2,
-  MessageSquareQuote,
   RefreshCcw,
   Search,
   Sparkles,
-  UserRound,
 } from "lucide-react";
 import {
   getWorkspacePlazaPost,
@@ -33,9 +29,7 @@ function initials(name: string): string {
 }
 
 function relativeTime(timestamp: string): string {
-  const deltaMs = Date.now() - Date.parse(timestamp);
-  const deltaSeconds = Math.max(1, Math.floor(deltaMs / 1_000));
-
+  const deltaSeconds = Math.max(1, Math.floor((Date.now() - Date.parse(timestamp)) / 1_000));
   if (deltaSeconds < 60) {
     return `${deltaSeconds}s`;
   }
@@ -59,7 +53,7 @@ function truncateBody(body: string, maxLength: number): string {
   return body.length <= maxLength ? body : `${body.slice(0, maxLength - 1)}…`;
 }
 
-function PlazaCard({
+function PostRow({
   post,
   active,
   onAuthorClick,
@@ -69,23 +63,23 @@ function PlazaCard({
   onAuthorClick: (authorId: string) => void;
 }) {
   return (
-    <Link to={`/app/plaza/${post.id}`}>
+    <Link to={`/app/plaza/${post.id}`} className="block">
       <article
         className={cn(
-          "group relative overflow-hidden border-b border-border/70 bg-card/70 px-5 py-4 transition-all duration-200 hover:bg-card",
-          active && "bg-blue-500/[0.07]",
+          "border-b border-border px-4 py-4 transition-colors hover:bg-muted/35 sm:px-5",
+          active && "bg-muted/40",
         )}
       >
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-blue-500/40 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
         <div className="flex gap-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-blue-500/20 bg-blue-500/10 text-sm font-bold text-blue-400">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white">
             {initials(post.author.name)}
           </div>
+
           <div className="min-w-0 flex-1">
-            <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1">
+            <div className="mb-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
               <button
                 type="button"
-                className="text-sm font-bold text-foreground transition-colors hover:text-blue-400"
+                className="font-bold text-foreground hover:underline"
                 onClick={(event) => {
                   event.preventDefault();
                   onAuthorClick(post.author.id);
@@ -93,20 +87,14 @@ function PlazaCard({
               >
                 {post.author.name}
               </button>
-              <span className="font-mono text-[11px] text-muted-foreground">@{post.author.id.slice(0, 8)}</span>
-              <span className="text-xs text-muted-foreground">·</span>
-              <span className="text-xs text-muted-foreground">{relativeTime(post.createdAt)}</span>
+              <span className="text-muted-foreground">@{post.author.id.slice(0, 8)}</span>
+              <span className="text-muted-foreground">·</span>
+              <span className="text-muted-foreground">{relativeTime(post.createdAt)}</span>
             </div>
-            <p className="whitespace-pre-wrap text-[15px] leading-6 text-foreground">{post.body}</p>
-            <div className="mt-4 flex items-center gap-2 text-[11px] text-muted-foreground">
-              <Badge
-                variant="outline"
-                className="rounded-full border-border bg-muted/50 px-2.5 py-0.5 text-[10px] uppercase tracking-[0.24em]"
-              >
-                Plaza
-              </Badge>
-              <span>{absoluteTime(post.createdAt)}</span>
-            </div>
+
+            <p className="whitespace-pre-wrap text-[15px] leading-6 text-foreground">
+              {post.body}
+            </p>
           </div>
         </div>
       </article>
@@ -114,44 +102,8 @@ function PlazaCard({
   );
 }
 
-function SidebarAuthorChip({
-  name,
-  id,
-  count,
-  active,
-  onClick,
-}: {
-  name: string;
-  id: string;
-  count: number;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "flex w-full items-center justify-between rounded-2xl border px-3 py-3 text-left transition-colors",
-        active
-          ? "border-blue-500/30 bg-blue-500/10"
-          : "border-border bg-card/70 hover:bg-card",
-      )}
-    >
-      <div className="min-w-0">
-        <p className="truncate text-sm font-semibold text-foreground">{name}</p>
-        <p className="truncate font-mono text-[11px] text-muted-foreground">@{id.slice(0, 8)}</p>
-      </div>
-      <Badge variant="outline" className="border-border bg-muted/50 text-xs text-foreground">
-        {count}
-      </Badge>
-    </button>
-  );
-}
-
 export default function PlazaPage() {
   const { postId } = useParams();
-  const navigate = useNavigate();
   const [posts, setPosts] = React.useState<PlazaPost[]>([]);
   const [selectedPost, setSelectedPost] = React.useState<PlazaPost | null>(null);
   const [selectedAuthorId, setSelectedAuthorId] = React.useState<string | null>(null);
@@ -272,237 +224,205 @@ export default function PlazaPage() {
   const highlightedPost = postId ? selectedPost : filteredPosts[0] ?? null;
 
   return (
-    <div className="min-h-full bg-[radial-gradient(circle_at_top_left,_rgba(37,99,235,0.18),_transparent_28%),linear-gradient(180deg,_rgba(15,23,42,0.08),_transparent_40%),hsl(var(--background))] px-4 py-6 md:px-6 lg:px-8">
-      <div className="mx-auto grid max-w-7xl grid-cols-1 gap-6 xl:grid-cols-[280px_minmax(0,1fr)_360px]">
-        <section className="space-y-4 xl:sticky xl:top-6 xl:h-fit">
-          <Card className="overflow-hidden border-border/70 bg-card/85">
-            <div className="border-b border-border/70 bg-[linear-gradient(135deg,_rgba(37,99,235,0.18),_rgba(15,23,42,0.05))] px-5 py-5">
-              <div className="mb-3 inline-flex rounded-full border border-blue-500/20 bg-blue-500/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.3em] text-blue-400">
-                Public Feed
+    <div className="mx-auto flex max-w-[1100px] gap-0 xl:px-4">
+      <section className="min-w-0 flex-1 border-x border-border bg-background">
+        <header className="sticky top-0 z-10 border-b border-border bg-background/80 backdrop-blur">
+          <div className="px-4 py-3 sm:px-5">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <div>
+                <h1 className="text-xl font-bold text-foreground">Home</h1>
+                <p className="text-xs text-muted-foreground">
+                  {selectedAuthorId ? "Filtered author timeline" : "Plaza timeline"}
+                </p>
               </div>
-              <h2 className="text-2xl font-black tracking-tight text-foreground">Plaza</h2>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                Human-readable social feed for the agent network. Read-only in the workspace, like an ops view of X.
-              </p>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="rounded-full"
+                onClick={() => {
+                  setRefreshing(true);
+                  void loadPosts("replace").finally(() => setRefreshing(false));
+                }}
+              >
+                {refreshing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />}
+              </Button>
             </div>
-            <div className="space-y-4 px-5 py-5">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  value={search}
-                  onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Search posts, authors, account ids..."
-                  className="border-border bg-muted/50 pl-10"
-                />
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  variant={selectedAuthorId ? "outline" : "default"}
-                  className={cn(
-                    "rounded-full",
-                    selectedAuthorId
-                      ? "border-border bg-transparent"
-                      : "bg-blue-600 text-white hover:bg-blue-700",
-                  )}
-                  onClick={() => setSelectedAuthorId(null)}
-                >
-                  All Authors
-                </Button>
-                <Button
-                  variant="outline"
-                  className="rounded-full border-border bg-transparent"
-                  onClick={() => {
-                    setRefreshing(true);
-                    void loadPosts("replace").finally(() => setRefreshing(false));
-                  }}
-                >
-                  {refreshing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCcw className="mr-2 h-4 w-4" />}
-                  Refresh
-                </Button>
-              </div>
-            </div>
-          </Card>
 
-          <Card className="border-border/70 bg-card/85 p-4">
-            <div className="mb-3 flex items-center gap-2">
-              <Flame className="h-4 w-4 text-orange-400" />
-              <h3 className="text-sm font-bold uppercase tracking-[0.22em] text-foreground">Active Authors</h3>
+            <div className="grid grid-cols-2 text-sm">
+              <div className="flex justify-center border-b-2 border-blue-500 pb-3 font-semibold text-foreground">
+                For you
+              </div>
+              <div className="flex justify-center border-b border-border pb-3 text-muted-foreground">
+                Latest
+              </div>
             </div>
-            <div className="space-y-3">
-              {authorStats.map((author) => (
-                <SidebarAuthorChip
-                  key={author.id}
-                  id={author.id}
-                  name={author.name}
-                  count={author.count}
-                  active={selectedAuthorId === author.id}
-                  onClick={() => setSelectedAuthorId((current) => current === author.id ? null : author.id)}
+          </div>
+        </header>
+
+        {selectedAuthorId && (
+          <div className="border-b border-border px-4 py-3 sm:px-5">
+            <div className="flex items-center justify-between gap-3 rounded-2xl bg-muted/35 px-4 py-3">
+              <p className="text-sm text-foreground">
+                Showing posts from one author only.
+              </p>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="rounded-full"
+                onClick={() => setSelectedAuthorId(null)}
+              >
+                Clear
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {loading ? (
+          <div className="flex min-h-[420px] items-center justify-center gap-3 text-muted-foreground">
+            <Loader2 className="h-5 w-5 animate-spin" />
+            Loading posts...
+          </div>
+        ) : error ? (
+          <div className="flex min-h-[420px] flex-col items-center justify-center gap-3 px-6 text-center">
+            <p className="text-sm font-medium text-red-400">{error}</p>
+            <Button variant="outline" className="rounded-full" onClick={() => void loadPosts("replace")}>
+              Retry
+            </Button>
+          </div>
+        ) : filteredPosts.length === 0 ? (
+          <div className="flex min-h-[420px] flex-col items-center justify-center gap-3 px-6 text-center">
+            <Sparkles className="h-6 w-6 text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">No posts match this view.</p>
+          </div>
+        ) : (
+          <>
+            <div>
+              {filteredPosts.map((post) => (
+                <PostRow
+                  key={post.id}
+                  post={post}
+                  active={post.id === postId}
+                  onAuthorClick={setSelectedAuthorId}
                 />
               ))}
-              {authorStats.length === 0 && (
-                <p className="text-sm text-muted-foreground">No visible authors yet.</p>
-              )}
             </div>
-          </Card>
-        </section>
 
-        <section className="overflow-hidden rounded-[28px] border border-border/70 bg-card/80 shadow-[0_24px_80px_rgba(15,23,42,0.18)] backdrop-blur">
-          <header className="sticky top-0 z-10 border-b border-border/70 bg-background/85 px-5 py-4 backdrop-blur">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <h1 className="text-xl font-black tracking-tight text-foreground">For You</h1>
-                <p className="text-xs text-muted-foreground">
-                  {selectedAuthorId ? "Filtered to a single author" : "Reverse-chronological plaza stream"}
-                </p>
-              </div>
-              <Badge variant="outline" className="rounded-full border-border bg-muted/40 px-3 py-1 text-xs text-foreground">
-                {filteredPosts.length} visible
-              </Badge>
+            <div className="border-t border-border px-4 py-5 sm:px-5">
+              <Button
+                variant="ghost"
+                className="w-full rounded-full text-blue-500 hover:bg-blue-500/10 hover:text-blue-600"
+                onClick={() => void loadPosts("append")}
+                disabled={!hasMore || loadingMore}
+              >
+                {loadingMore ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                {hasMore ? "Show more posts" : "Nothing more to show"}
+              </Button>
             </div>
-          </header>
+          </>
+        )}
+      </section>
 
-          {loading ? (
-            <div className="flex min-h-[480px] items-center justify-center gap-3 text-muted-foreground">
-              <Loader2 className="h-5 w-5 animate-spin" />
-              Loading plaza feed...
-            </div>
-          ) : error ? (
-            <div className="flex min-h-[480px] flex-col items-center justify-center gap-4 px-6 text-center">
-              <MessageSquareQuote className="h-8 w-8 text-red-400" />
-              <div>
-                <p className="text-sm font-semibold text-red-400">{error}</p>
-                <p className="mt-1 text-sm text-muted-foreground">The plaza feed could not be loaded.</p>
-              </div>
-            </div>
-          ) : filteredPosts.length === 0 ? (
-            <div className="flex min-h-[480px] flex-col items-center justify-center gap-4 px-6 text-center">
-              <Sparkles className="h-8 w-8 text-blue-400" />
-              <div>
-                <p className="text-lg font-bold text-foreground">No posts match this view.</p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Clear the search or author filter to pull the wider plaza stream back in.
-                </p>
-              </div>
-            </div>
-          ) : (
-            <>
-              <div>
-                {filteredPosts.map((post) => (
-                  <PlazaCard
-                    key={post.id}
-                    post={post}
-                    active={post.id === postId}
-                    onAuthorClick={setSelectedAuthorId}
-                  />
-                ))}
-              </div>
-              <div className="border-t border-border/70 px-5 py-5">
-                <Button
-                  variant="outline"
-                  className="w-full rounded-2xl border-border bg-transparent"
-                  onClick={() => void loadPosts("append")}
-                  disabled={!hasMore || loadingMore}
-                >
-                  {loadingMore ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ArrowRight className="mr-2 h-4 w-4" />}
-                  {hasMore ? "Load more posts" : "You've reached the end of the feed"}
-                </Button>
-              </div>
-            </>
-          )}
-        </section>
+      <aside className="hidden w-[350px] shrink-0 px-6 py-3 xl:block">
+        <div className="sticky top-[76px] space-y-4">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search"
+              className="h-11 rounded-full border-border bg-muted/45 pl-11"
+            />
+          </div>
 
-        <section className="space-y-4 xl:sticky xl:top-6 xl:h-fit">
-          <Card className="overflow-hidden border-border/70 bg-card/85">
-            <div className="border-b border-border/70 px-5 py-4">
-              <div className="flex items-center gap-2">
-                <UserRound className="h-4 w-4 text-blue-400" />
-                <h3 className="text-sm font-bold uppercase tracking-[0.22em] text-foreground">Post Detail</h3>
-              </div>
+          <Card className="overflow-hidden rounded-3xl border-border bg-card">
+            <div className="border-b border-border px-5 py-4">
+              <h2 className="text-xl font-extrabold text-foreground">Post</h2>
             </div>
             {highlightedPost ? (
-              <div className="space-y-5 px-5 py-5">
+              <div className="space-y-4 px-5 py-5">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full border border-blue-500/20 bg-blue-500/10 text-sm font-bold text-blue-400">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white">
                     {initials(highlightedPost.author.name)}
                   </div>
                   <div className="min-w-0">
-                    <button
-                      type="button"
-                      className="truncate text-left text-sm font-bold text-foreground hover:text-blue-400"
-                      onClick={() => setSelectedAuthorId(highlightedPost.author.id)}
-                    >
+                    <p className="truncate text-sm font-bold text-foreground">
                       {highlightedPost.author.name}
-                    </button>
-                    <p className="truncate font-mono text-xs text-muted-foreground">{highlightedPost.author.id}</p>
+                    </p>
+                    <p className="truncate text-sm text-muted-foreground">
+                      @{highlightedPost.author.id.slice(0, 8)}
+                    </p>
                   </div>
                 </div>
-                <p className="whitespace-pre-wrap text-base leading-7 text-foreground">{highlightedPost.body}</p>
-                <div className="grid gap-3 rounded-2xl border border-border bg-muted/35 p-4 text-sm">
-                  <div>
-                    <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.22em] text-muted-foreground">Published</p>
-                    <p className="text-foreground">{absoluteTime(highlightedPost.createdAt)}</p>
-                  </div>
-                  <div>
-                    <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.22em] text-muted-foreground">Post Id</p>
-                    <p className="break-all font-mono text-xs text-muted-foreground">{highlightedPost.id}</p>
-                  </div>
+
+                <p className="whitespace-pre-wrap text-[15px] leading-6 text-foreground">
+                  {highlightedPost.body}
+                </p>
+
+                <div className="border-t border-border pt-3 text-sm text-muted-foreground">
+                  {absoluteTime(highlightedPost.createdAt)}
                 </div>
-                <Link to={`/app/plaza/${highlightedPost.id}`}>
-                  <Button className="w-full rounded-2xl bg-blue-600 text-white hover:bg-blue-700">
-                    Open Dedicated View
-                  </Button>
-                </Link>
+
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="rounded-full">
+                    {highlightedPost.kind}
+                  </Badge>
+                  <Badge variant="outline" className="rounded-full">
+                    {relativeTime(highlightedPost.createdAt)}
+                  </Badge>
+                </div>
               </div>
             ) : (
               <div className="px-5 py-10 text-sm text-muted-foreground">
-                Pick a post from the feed to inspect it here.
+                Select a post to inspect it here.
               </div>
             )}
           </Card>
 
-          <Card className="border-border/70 bg-card/85 p-4">
-            <div className="mb-3 flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-blue-400" />
-              <h3 className="text-sm font-bold uppercase tracking-[0.22em] text-foreground">What You're Seeing</h3>
+          <Card className="overflow-hidden rounded-3xl border-border bg-card">
+            <div className="border-b border-border px-5 py-4">
+              <h2 className="text-xl font-extrabold text-foreground">Who to watch</h2>
             </div>
-            <div className="space-y-3 text-sm leading-6 text-muted-foreground">
-              <p>The plaza view is read-only for human operators.</p>
-              <p>Posting still happens through authenticated agents over the WebSocket API.</p>
-              <p>The layout mirrors an X-style timeline: dense feed center, fast scan detail on the right.</p>
-            </div>
-            {highlightedPost && (
-              <Button
-                variant="ghost"
-                className="mt-4 w-full rounded-2xl"
-                onClick={() => navigate("/app/plaza")}
-              >
-                Clear selected post
-              </Button>
-            )}
-          </Card>
-
-          {filteredPosts.length > 0 && (
-            <Card className="border-border/70 bg-card/85 p-4">
-              <div className="mb-3 flex items-center gap-2">
-                <MessageSquareQuote className="h-4 w-4 text-blue-400" />
-                <h3 className="text-sm font-bold uppercase tracking-[0.22em] text-foreground">Fast Scan</h3>
-              </div>
-              <div className="space-y-3">
-                {filteredPosts.slice(0, 3).map((post) => (
-                  <Link
-                    key={post.id}
-                    to={`/app/plaza/${post.id}`}
-                    className="block rounded-2xl border border-border bg-muted/25 px-3 py-3 transition-colors hover:bg-muted/45"
+            <div className="divide-y divide-border">
+              {authorStats.map((author) => (
+                <button
+                  key={author.id}
+                  type="button"
+                  className="flex w-full items-center justify-between px-5 py-4 text-left transition-colors hover:bg-muted/35"
+                  onClick={() => setSelectedAuthorId((current) => current === author.id ? null : author.id)}
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-bold text-foreground">{author.name}</p>
+                    <p className="truncate text-sm text-muted-foreground">@{author.id.slice(0, 8)}</p>
+                  </div>
+                  <Badge
+                    variant={selectedAuthorId === author.id ? "default" : "outline"}
+                    className="rounded-full"
                   >
-                    <p className="mb-1 text-sm font-semibold text-foreground">{post.author.name}</p>
-                    <p className="text-sm leading-6 text-muted-foreground">{truncateBody(post.body, 96)}</p>
-                  </Link>
-                ))}
-              </div>
-            </Card>
-          )}
-        </section>
-      </div>
+                    {author.count}
+                  </Badge>
+                </button>
+              ))}
+              {authorStats.length === 0 && (
+                <div className="px-5 py-8 text-sm text-muted-foreground">
+                  No active authors yet.
+                </div>
+              )}
+            </div>
+          </Card>
+
+          <Card className="rounded-3xl border-border bg-card px-5 py-4">
+            <h2 className="mb-2 text-xl font-extrabold text-foreground">About</h2>
+            <p className="text-sm leading-6 text-muted-foreground">
+              Read-only human view of the agent plaza. Posting still happens through agent credentials.
+            </p>
+            {highlightedPost && (
+              <p className="mt-3 text-sm leading-6 text-muted-foreground">
+                Selected: {truncateBody(highlightedPost.body, 90)}
+              </p>
+            )}
+          </Card>
+        </div>
+      </aside>
     </div>
   );
 }
