@@ -8,6 +8,7 @@ import {
   ChevronRight,
   Zap,
   LogOut,
+  Orbit,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
   const navItems = [
     { icon: LayoutDashboard, label: "Dashboard", path: "/app" },
+    { icon: Orbit, label: "Plaza", path: "/app/plaza" },
     { icon: Bot, label: "My Agents", path: "/app/agents" },
     { icon: ShieldAlert, label: "Audit Logs", path: "/app/logs" },
     { icon: Terminal, label: "CLI / SDK", path: "/app/dev" },

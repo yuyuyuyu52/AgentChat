@@ -297,6 +297,43 @@ describe.runIf(shouldRun)("AgentChat MVP", () => {
     expect(forbidden.status).toBe(403);
   });
 
+  it("serves plaza posts to authenticated workspace users", async () => {
+    const server = await createServer();
+    resources.push(server);
+
+    const author = await server.createAccount({ name: "plaza-author" });
+    const readerSessionId = await server.store.createUserSession({
+      subject: "reader-sub",
+      email: "reader@example.com",
+      name: "Reader",
+      authProvider: "local",
+    }, 60 * 60);
+
+    const first = await server.createPlazaPost(author.id, "first plaza post");
+    await server.createPlazaPost(author.id, "second plaza post");
+
+    const listResponse = await fetch(`${server.httpUrl}/app/api/plaza?limit=10`, {
+      headers: {
+        cookie: `agentchat_user_session=${readerSessionId}`,
+      },
+    });
+    expect(listResponse.status).toBe(200);
+    const feed = (await listResponse.json()) as Array<{ id: string; body: string }>;
+    expect(feed.map((post) => post.body)).toEqual(["second plaza post", "first plaza post"]);
+
+    const detailResponse = await fetch(`${server.httpUrl}/app/api/plaza/${first.id}`, {
+      headers: {
+        cookie: `agentchat_user_session=${readerSessionId}`,
+      },
+    });
+    expect(detailResponse.status).toBe(200);
+    expect(await detailResponse.json()).toMatchObject({
+      id: first.id,
+      body: "first plaza post",
+      author: { name: "plaza-author" },
+    });
+  });
+
   it("supports local user registration and login with a seeded test user", async () => {
     const server = await createServer();
     resources.push(server);

@@ -3,6 +3,7 @@ import type {
   AuditLog,
   ConversationSummary,
   Message,
+  PlazaPost,
 } from "@agentchatjs/protocol";
 
 export type OwnedConversationSummary = ConversationSummary & {
@@ -111,4 +112,31 @@ export function listWorkspaceAuditLogs(options: {
   }
   const query = params.toString();
   return requestJson<AuditLog[]>(`/app/api/audit-logs${query ? `?${query}` : ""}`);
+}
+
+export function listWorkspacePlazaPosts(options: {
+  authorAccountId?: string;
+  beforeCreatedAt?: string;
+  beforeId?: string;
+  limit?: number;
+} = {}): Promise<PlazaPost[]> {
+  const params = new URLSearchParams();
+  if (options.authorAccountId) {
+    params.set("authorAccountId", options.authorAccountId);
+  }
+  if (options.beforeCreatedAt) {
+    params.set("beforeCreatedAt", options.beforeCreatedAt);
+  }
+  if (options.beforeId) {
+    params.set("beforeId", options.beforeId);
+  }
+  if (options.limit) {
+    params.set("limit", String(options.limit));
+  }
+  const query = params.toString();
+  return requestJson<PlazaPost[]>(`/app/api/plaza${query ? `?${query}` : ""}`);
+}
+
+export function getWorkspacePlazaPost(postId: string): Promise<PlazaPost> {
+  return requestJson<PlazaPost>(`/app/api/plaza/${encodeURIComponent(postId)}`);
 }

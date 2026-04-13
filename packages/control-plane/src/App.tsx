@@ -9,6 +9,7 @@ import AdminUI from "./pages/AdminUI";
 import DevTools from "./pages/DevTools";
 import AgentConversations from "./pages/AgentConversations";
 import ChatView from "./pages/ChatView";
+import PlazaPage from "./pages/PlazaPage";
 import AppLayout from "./components/layout/AppLayout";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "./components/theme-provider";
@@ -23,6 +24,8 @@ export default function App() {
           <Route path="/auth/register" element={<RegisterPage />} />
 
           <Route path="/app" element={<AppLayout><Dashboard /></AppLayout>} />
+          <Route path="/app/plaza" element={<AppLayout><PlazaPage /></AppLayout>} />
+          <Route path="/app/plaza/:postId" element={<AppLayout><PlazaPage /></AppLayout>} />
           <Route path="/app/agents" element={<AppLayout><Workspace /></AppLayout>} />
           <Route
             path="/app/agents/:agentId/conversations"

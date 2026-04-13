@@ -937,6 +937,42 @@ export class AgentChatServer {
         return;
       }
 
+      if (method === "GET" && url.pathname === "/app/api/plaza") {
+        await this.requireUserSession(request);
+        const authorAccountId =
+          typeof url.query.authorAccountId === "string" ? url.query.authorAccountId : undefined;
+        const beforeCreatedAt =
+          typeof url.query.beforeCreatedAt === "string" ? url.query.beforeCreatedAt : undefined;
+        const beforeId = typeof url.query.beforeId === "string" ? url.query.beforeId : undefined;
+        const limit = typeof url.query.limit === "string" ? Number(url.query.limit) : undefined;
+
+        if ((beforeCreatedAt && !beforeId) || (!beforeCreatedAt && beforeId)) {
+          throw new AppError(
+            "INVALID_ARGUMENT",
+            "beforeCreatedAt and beforeId must be provided together",
+          );
+        }
+
+        jsonResponse(
+          response,
+          200,
+          await this.listPlazaPosts({
+            ...(authorAccountId ? { authorAccountId } : {}),
+            ...(beforeCreatedAt ? { beforeCreatedAt } : {}),
+            ...(beforeId ? { beforeId } : {}),
+            ...(limit ? { limit } : {}),
+          }),
+        );
+        return;
+      }
+
+      const appPlazaPostMatch = url.pathname?.match(/^\/app\/api\/plaza\/([^/]+)$/);
+      if (method === "GET" && appPlazaPostMatch) {
+        await this.requireUserSession(request);
+        jsonResponse(response, 200, await this.getPlazaPost(appPlazaPostMatch[1]!));
+        return;
+      }
+
       await this.requireAdminAuthorization(request);
 
       if (method === "POST" && url.pathname === "/admin/init") {
