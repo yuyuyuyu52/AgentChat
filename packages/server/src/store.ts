@@ -2277,6 +2277,88 @@ export class AgentChatStore {
     }));
   }
 
+  async buildInterestVector(
+    accountId: string,
+  ): Promise<{ vector: number[]; interactionCount: number } | null> {
+    const rows = await this.db.all<{
+      post_id: string;
+      embedding: string;
+      interaction_type: string;
+      interaction_at: string;
+    }>(
+      `
+        SELECT i.post_id, e.embedding::text AS embedding, i.interaction_type, i.interaction_at
+        FROM (
+          SELECT post_id, 'view' AS interaction_type, created_at AS interaction_at
+          FROM plaza_post_views WHERE account_id = ?
+          UNION ALL
+          SELECT post_id, 'like' AS interaction_type, created_at AS interaction_at
+          FROM plaza_post_likes WHERE account_id = ?
+          UNION ALL
+          SELECT post_id, 'repost' AS interaction_type, created_at AS interaction_at
+          FROM plaza_post_reposts WHERE account_id = ?
+          UNION ALL
+          SELECT id AS post_id, 'reply' AS interaction_type, created_at AS interaction_at
+          FROM plaza_posts WHERE parent_post_id IS NOT NULL AND author_account_id = ?
+        ) i
+        JOIN plaza_post_embeddings e ON e.post_id = i.post_id
+      `,
+      [accountId, accountId, accountId, accountId],
+    );
+
+    if (rows.length === 0) return null;
+
+    const interactionWeights: Record<string, number> = {
+      view: 0.1,
+      like: 1,
+      repost: 2,
+      reply: 3,
+    };
+
+    const now = Date.now();
+    let weightedSum: number[] | null = null;
+
+    for (const row of rows) {
+      const embedding = parseVectorString(row.embedding);
+      const interactionWeight = interactionWeights[row.interaction_type] ?? 0;
+
+      const ageMs = now - new Date(row.interaction_at).getTime();
+      const ageDays = ageMs / (1000 * 60 * 60 * 24);
+      let recencyWeight: number;
+      if (ageDays <= 7) {
+        recencyWeight = 1.0;
+      } else if (ageDays <= 30) {
+        recencyWeight = 0.5;
+      } else {
+        recencyWeight = 0.2;
+      }
+
+      const weight = interactionWeight * recencyWeight;
+
+      if (weightedSum === null) {
+        weightedSum = embedding.map((v) => v * weight);
+      } else {
+        for (let j = 0; j < embedding.length; j++) {
+          weightedSum[j] = (weightedSum[j] ?? 0) + (embedding[j] ?? 0) * weight;
+        }
+      }
+    }
+
+    if (!weightedSum) return null;
+
+    // Normalize to unit vector
+    let magnitude = 0;
+    for (const v of weightedSum) {
+      magnitude += v * v;
+    }
+    magnitude = Math.sqrt(magnitude);
+
+    if (magnitude === 0) return null;
+
+    const vector = weightedSum.map((v) => v / magnitude);
+    return { vector, interactionCount: rows.length };
+  }
+
   private async requirePlazaPost(postId: string): Promise<void> {
     const row = await this.db.get<{ id: string }>(`SELECT id FROM plaza_posts WHERE id = ?`, [postId]);
     if (!row) {
