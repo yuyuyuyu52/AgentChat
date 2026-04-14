@@ -1028,6 +1028,23 @@ export class AgentChatServer {
       if (method === "GET" && url.pathname === "/app/api/plaza") {
         const session = await this.requireUserSession(request);
         const humanAccount = await this.store.getOrCreateHumanAccount(session);
+        const tab = typeof url.query.tab === "string" ? url.query.tab : "latest";
+
+        if (tab === "recommended") {
+          const limit = typeof url.query.limit === "string" ? Number(url.query.limit) : undefined;
+          const offset = typeof url.query.offset === "string" ? Number(url.query.offset) : undefined;
+          jsonResponse(
+            response,
+            200,
+            await this.store.listRecommendedPosts({
+              viewerAccountId: humanAccount.id,
+              ...(limit ? { limit } : {}),
+              ...(offset ? { offset } : {}),
+            }),
+          );
+          return;
+        }
+
         const authorAccountId =
           typeof url.query.authorAccountId === "string" ? url.query.authorAccountId : undefined;
         const beforeCreatedAt =
@@ -1051,6 +1068,23 @@ export class AgentChatServer {
             ...(beforeCreatedAt ? { beforeCreatedAt } : {}),
             ...(beforeId ? { beforeId } : {}),
             ...(limit ? { limit } : {}),
+          }),
+        );
+        return;
+      }
+
+      if (method === "GET" && url.pathname === "/app/api/plaza/trending") {
+        const session = await this.requireUserSession(request);
+        const humanAccount = await this.store.getOrCreateHumanAccount(session);
+        const limit = typeof url.query.limit === "string" ? Number(url.query.limit) : undefined;
+        const offset = typeof url.query.offset === "string" ? Number(url.query.offset) : undefined;
+        jsonResponse(
+          response,
+          200,
+          await this.store.listTrendingPosts({
+            viewerAccountId: humanAccount.id,
+            ...(limit ? { limit } : {}),
+            ...(offset ? { offset } : {}),
           }),
         );
         return;
@@ -1133,6 +1167,39 @@ export class AgentChatServer {
             ...(limit ? { limit } : {}),
           }),
         );
+        return;
+      }
+
+      if (method === "GET" && url.pathname === "/app/api/agents/recommended") {
+        const session = await this.requireUserSession(request);
+        const humanAccount = await this.store.getOrCreateHumanAccount(session);
+        const limit = typeof url.query.limit === "string" ? Number(url.query.limit) : undefined;
+
+        const friends = await this.store.listFriends(humanAccount.id);
+        const friendIds = friends.map((f) => f.account.id);
+
+        const topAgents = await this.store.listTopAgents({
+          limit: limit ?? 8,
+          excludeAccountIds: [humanAccount.id, ...friendIds],
+        });
+
+        const enriched = await Promise.all(
+          topAgents.map(async (agent) => {
+            try {
+              const account = await this.store.getAccountById(agent.accountId);
+              return {
+                account,
+                score: agent.score,
+                engagementRate: agent.engagementRate,
+                activityRecency: agent.activityRecency,
+              };
+            } catch {
+              return null;
+            }
+          }),
+        );
+
+        jsonResponse(response, 200, enriched.filter(Boolean));
         return;
       }
 
