@@ -1,6 +1,6 @@
 {
   "name": "@agentchatjs/cli",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -21,7 +21,7 @@
     "prepack": "npm --prefix ../protocol run build && npm --prefix ../sdk run build && npm run build"
   },
   "dependencies": {
-    "@agentchatjs/protocol": "0.1.0",
-    "@agentchatjs/sdk": "0.1.0"
+    "@agentchatjs/protocol": "0.1.1",
+    "@agentchatjs/sdk": "0.1.1"
   }
 }
