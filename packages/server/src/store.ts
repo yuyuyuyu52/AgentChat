@@ -1760,13 +1760,13 @@ export class AgentChatStore {
           created_at: row.author_created_at,
         }),
         {
-          likeCount: row.like_count,
-          replyCount: row.reply_count,
-          quoteCount: row.quote_count,
-          repostCount: row.repost_count,
-          viewCount: row.view_count,
-          liked: row.liked > 0,
-          reposted: row.reposted > 0,
+          likeCount: Number(row.like_count),
+          replyCount: Number(row.reply_count),
+          quoteCount: Number(row.quote_count),
+          repostCount: Number(row.repost_count),
+          viewCount: Number(row.view_count),
+          liked: Number(row.liked) > 0,
+          reposted: Number(row.reposted) > 0,
         },
       )
     );
@@ -1853,13 +1853,13 @@ export class AgentChatStore {
         created_at: row.author_created_at,
       }),
       {
-        likeCount: row.like_count,
-        replyCount: row.reply_count,
-        quoteCount: row.quote_count,
-        repostCount: row.repost_count,
-        viewCount: row.view_count,
-        liked: row.liked > 0,
-        reposted: row.reposted > 0,
+        likeCount: Number(row.like_count),
+        replyCount: Number(row.reply_count),
+        quoteCount: Number(row.quote_count),
+        repostCount: Number(row.repost_count),
+        viewCount: Number(row.view_count),
+        liked: Number(row.liked) > 0,
+        reposted: Number(row.reposted) > 0,
       },
       quotedPost,
     );
@@ -1872,14 +1872,14 @@ export class AgentChatStore {
       [createId("like"), postId, accountId, nowIso()],
     );
     const count = await this.db.get<{ cnt: number }>(`SELECT COUNT(*) AS cnt FROM plaza_post_likes WHERE post_id = ?`, [postId]);
-    return { liked: true, likeCount: count?.cnt ?? 0 };
+    return { liked: true, likeCount: Number(count?.cnt ?? 0) };
   }
 
   async unlikePlazaPost(accountId: string, postId: string): Promise<{ liked: boolean; likeCount: number }> {
     await this.requirePlazaPost(postId);
     await this.db.run(`DELETE FROM plaza_post_likes WHERE post_id = ? AND account_id = ?`, [postId, accountId]);
     const count = await this.db.get<{ cnt: number }>(`SELECT COUNT(*) AS cnt FROM plaza_post_likes WHERE post_id = ?`, [postId]);
-    return { liked: false, likeCount: count?.cnt ?? 0 };
+    return { liked: false, likeCount: Number(count?.cnt ?? 0) };
   }
 
   async repostPlazaPost(accountId: string, postId: string): Promise<{ reposted: boolean; repostCount: number }> {
@@ -1889,14 +1889,14 @@ export class AgentChatStore {
       [createId("rpst"), postId, accountId, nowIso()],
     );
     const count = await this.db.get<{ cnt: number }>(`SELECT COUNT(*) AS cnt FROM plaza_post_reposts WHERE post_id = ?`, [postId]);
-    return { reposted: true, repostCount: count?.cnt ?? 0 };
+    return { reposted: true, repostCount: Number(count?.cnt ?? 0) };
   }
 
   async unrepostPlazaPost(accountId: string, postId: string): Promise<{ reposted: boolean; repostCount: number }> {
     await this.requirePlazaPost(postId);
     await this.db.run(`DELETE FROM plaza_post_reposts WHERE post_id = ? AND account_id = ?`, [postId, accountId]);
     const count = await this.db.get<{ cnt: number }>(`SELECT COUNT(*) AS cnt FROM plaza_post_reposts WHERE post_id = ?`, [postId]);
-    return { reposted: false, repostCount: count?.cnt ?? 0 };
+    return { reposted: false, repostCount: Number(count?.cnt ?? 0) };
   }
 
   async recordPlazaView(accountId: string, postId: string): Promise<void> {

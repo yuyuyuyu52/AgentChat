@@ -972,6 +972,7 @@ export class AgentChatServer {
 
       if (method === "GET" && url.pathname === "/app/api/plaza") {
         const session = await this.requireUserSession(request);
+        const humanAccount = await this.store.getOrCreateHumanAccount(session);
         const authorAccountId =
           typeof url.query.authorAccountId === "string" ? url.query.authorAccountId : undefined;
         const beforeCreatedAt =
@@ -990,7 +991,7 @@ export class AgentChatServer {
           response,
           200,
           await this.listPlazaPosts({
-            viewerAccountId: session.subject,
+            viewerAccountId: humanAccount.id,
             ...(authorAccountId ? { authorAccountId } : {}),
             ...(beforeCreatedAt ? { beforeCreatedAt } : {}),
             ...(beforeId ? { beforeId } : {}),
@@ -1003,7 +1004,8 @@ export class AgentChatServer {
       const appPlazaPostMatch = url.pathname?.match(/^\/app\/api\/plaza\/([^/]+)$/);
       if (method === "GET" && appPlazaPostMatch) {
         const session = await this.requireUserSession(request);
-        jsonResponse(response, 200, await this.getPlazaPost(appPlazaPostMatch[1]!, session.subject));
+        const humanAccount = await this.store.getOrCreateHumanAccount(session);
+        jsonResponse(response, 200, await this.getPlazaPost(appPlazaPostMatch[1]!, humanAccount.id));
         return;
       }
 
@@ -1025,7 +1027,8 @@ export class AgentChatServer {
       const appPlazaPostViewMatch = url.pathname?.match(/^\/app\/api\/plaza\/([^/]+)\/view$/);
       if (method === "POST" && appPlazaPostViewMatch) {
         const session = await this.requireUserSession(request);
-        await this.store.recordPlazaView(session.subject, appPlazaPostViewMatch[1]!);
+        const humanAccount = await this.store.getOrCreateHumanAccount(session);
+        await this.store.recordPlazaView(humanAccount.id, appPlazaPostViewMatch[1]!);
         jsonResponse(response, 200, { ok: true });
         return;
       }
@@ -1033,30 +1036,35 @@ export class AgentChatServer {
       const appPlazaPostLikeMatch = url.pathname?.match(/^\/app\/api\/plaza\/([^/]+)\/like$/);
       if (method === "POST" && appPlazaPostLikeMatch) {
         const session = await this.requireUserSession(request);
-        jsonResponse(response, 200, await this.store.likePlazaPost(session.subject, appPlazaPostLikeMatch[1]!));
+        const humanAccount = await this.store.getOrCreateHumanAccount(session);
+        jsonResponse(response, 200, await this.store.likePlazaPost(humanAccount.id, appPlazaPostLikeMatch[1]!));
         return;
       }
       if (method === "DELETE" && appPlazaPostLikeMatch) {
         const session = await this.requireUserSession(request);
-        jsonResponse(response, 200, await this.store.unlikePlazaPost(session.subject, appPlazaPostLikeMatch[1]!));
+        const humanAccount = await this.store.getOrCreateHumanAccount(session);
+        jsonResponse(response, 200, await this.store.unlikePlazaPost(humanAccount.id, appPlazaPostLikeMatch[1]!));
         return;
       }
 
       const appPlazaPostRepostMatch = url.pathname?.match(/^\/app\/api\/plaza\/([^/]+)\/repost$/);
       if (method === "POST" && appPlazaPostRepostMatch) {
         const session = await this.requireUserSession(request);
-        jsonResponse(response, 200, await this.store.repostPlazaPost(session.subject, appPlazaPostRepostMatch[1]!));
+        const humanAccount = await this.store.getOrCreateHumanAccount(session);
+        jsonResponse(response, 200, await this.store.repostPlazaPost(humanAccount.id, appPlazaPostRepostMatch[1]!));
         return;
       }
       if (method === "DELETE" && appPlazaPostRepostMatch) {
         const session = await this.requireUserSession(request);
-        jsonResponse(response, 200, await this.store.unrepostPlazaPost(session.subject, appPlazaPostRepostMatch[1]!));
+        const humanAccount = await this.store.getOrCreateHumanAccount(session);
+        jsonResponse(response, 200, await this.store.unrepostPlazaPost(humanAccount.id, appPlazaPostRepostMatch[1]!));
         return;
       }
 
       const appPlazaPostRepliesMatch = url.pathname?.match(/^\/app\/api\/plaza\/([^/]+)\/replies$/);
       if (method === "GET" && appPlazaPostRepliesMatch) {
         const session = await this.requireUserSession(request);
+        const humanAccount = await this.store.getOrCreateHumanAccount(session);
         const beforeCreatedAt = typeof url.query.beforeCreatedAt === "string" ? url.query.beforeCreatedAt : undefined;
         const beforeId = typeof url.query.beforeId === "string" ? url.query.beforeId : undefined;
         const limit = typeof url.query.limit === "string" ? Number(url.query.limit) : undefined;
@@ -1064,7 +1072,7 @@ export class AgentChatServer {
           response,
           200,
           await this.store.listPlazaReplies(appPlazaPostRepliesMatch[1]!, {
-            viewerAccountId: session.subject,
+            viewerAccountId: humanAccount.id,
             ...(beforeCreatedAt ? { beforeCreatedAt } : {}),
             ...(beforeId ? { beforeId } : {}),
             ...(limit ? { limit } : {}),
