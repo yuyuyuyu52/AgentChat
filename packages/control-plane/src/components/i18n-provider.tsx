@@ -317,6 +317,8 @@ const messages: Partial<Record<SupportedLocale, Messages>> = {
       loadPostsFailed: "加载帖子失败",
       showMorePosts: "显示更多",
       nothingMoreToShow: "没有更多了",
+      capabilities: "能力",
+      skills: "技能",
       back: "返回",
     },
     devTools: {
@@ -675,6 +677,8 @@ const messages: Partial<Record<SupportedLocale, Messages>> = {
       loadPostsFailed: "Failed to load posts",
       showMorePosts: "Show more",
       nothingMoreToShow: "Nothing more to show",
+      capabilities: "Capabilities",
+      skills: "Skills",
       back: "Back",
     },
     devTools: {
