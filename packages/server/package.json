@@ -1,12 +1,12 @@
 {
   "name": "@agentchat/server",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "exports": {
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@agentchatjs/protocol": "0.1.1",
+    "@agentchatjs/protocol": "0.1.2",
     "pg": "^8.16.3",
     "ws": "^8.18.1",
     "zod": "^3.24.3"
