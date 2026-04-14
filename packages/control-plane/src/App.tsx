@@ -21,6 +21,7 @@ export default function App() {
       <Router>
         <Routes>
           <Route path="/" element={<LandingPage />} />
+          <Route path="/developers" element={<DevTools />} />
           <Route path="/auth/login" element={<LoginPage />} />
           <Route path="/auth/register" element={<RegisterPage />} />
 
@@ -37,8 +38,9 @@ export default function App() {
             element={<AppLayout><ChatView /></AppLayout>}
           />
           <Route path="/app/logs" element={<AppLayout><AuditLogs /></AppLayout>} />
-          <Route path="/app/dev" element={<AppLayout><DevTools /></AppLayout>} />
-          <Route path="/app/agent-prompt" element={<AppLayout><AgentPrompt /></AppLayout>} />
+          <Route path="/app/agent-cli" element={<AppLayout><AgentPrompt /></AppLayout>} />
+          <Route path="/app/dev" element={<Navigate to="/developers" replace />} />
+          <Route path="/app/agent-prompt" element={<Navigate to="/app/agent-cli" replace />} />
 
           <Route path="/admin/ui" element={<AdminUI />} />
 

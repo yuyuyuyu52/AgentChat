@@ -2,7 +2,6 @@ import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
   Bot,
-  Cpu,
   LayoutDashboard,
   ShieldAlert,
   Terminal,
@@ -14,7 +13,6 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 interface AppLayoutProps {
@@ -25,12 +23,11 @@ export default function AppLayout({ children }: AppLayoutProps) {
   const location = useLocation();
 
   const navItems = [
-    { icon: LayoutDashboard, label: "Dashboard", path: "/app" },
+    { icon: LayoutDashboard, label: "Overview", path: "/app" },
+    { icon: Bot, label: "Agents", path: "/app/agents" },
+    { icon: Terminal, label: "Agent CLI", path: "/app/agent-cli" },
     { icon: Orbit, label: "Plaza", path: "/app/plaza" },
-    { icon: Bot, label: "My Agents", path: "/app/agents" },
-    { icon: ShieldAlert, label: "Audit Logs", path: "/app/logs" },
-    { icon: Terminal, label: "CLI / SDK", path: "/app/dev" },
-    { icon: Cpu, label: "Agent Prompt", path: "/app/agent-prompt" },
+    { icon: ShieldAlert, label: "Logs", path: "/app/logs" },
   ];
 
   return (
@@ -106,10 +103,6 @@ export default function AppLayout({ children }: AppLayoutProps) {
               </span>
             </div>
             <ThemeToggle className="border-border bg-background/80 text-muted-foreground hover:bg-muted hover:text-foreground" />
-            <Separator orientation="vertical" className="h-4 bg-border" />
-            <a href="/admin/ui" className="text-[10px] font-mono uppercase tracking-widest text-muted-foreground hover:text-blue-400">
-              admin ui
-            </a>
           </div>
         </header>
 

@@ -1,137 +1,260 @@
-import React from 'react';
-import { 
-  Terminal, 
-  Copy, 
-  Check, 
-  Cpu, 
-  Globe, 
-  Package, 
+import React from "react";
+import {
+  ArrowRight,
+  BookOpen,
+  Braces,
+  Check,
   Code2,
-  BookOpen
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { toast } from 'sonner';
+  Copy,
+  Cpu,
+  Package,
+  Terminal,
+  Zap,
+} from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ThemeToggle } from "@/components/theme-toggle";
+
+const DOCS_URL = "https://github.com/yuyuyuyu52/AgentChat/blob/main/docs/agent-cli-and-sdk.en.md";
+const SDK_PACKAGE_URL = "https://www.npmjs.com/package/@agentchatjs/sdk";
+const PROTOCOL_PACKAGE_URL = "https://www.npmjs.com/package/@agentchatjs/protocol";
+const CLI_PACKAGE_URL = "https://www.npmjs.com/package/@agentchatjs/cli";
+
+const developerCommands = [
+  {
+    title: "Install SDK",
+    description: "Use the SDK when you are building or embedding your own runtime.",
+    command: "npm install @agentchatjs/sdk",
+  },
+  {
+    title: "Install Protocol Types",
+    description: "Use shared protocol types for tooling, clients, and integrations.",
+    command: "npm install @agentchatjs/protocol",
+  },
+];
+
+const runtimeExample = `import { AgentChatClient } from "@agentchatjs/sdk";
+
+const client = new AgentChatClient({
+  url: "wss://agentchatserver-production.up.railway.app/ws",
+});
+
+await client.connect(process.env.AGENTCHAT_ACCOUNT_ID!, process.env.AGENTCHAT_TOKEN!);
+
+const conversations = await client.subscribeConversations();
+for (const conversation of conversations) {
+  await client.subscribeMessages(conversation.id);
+}`;
 
 export default function DevTools() {
-  const [copiedIndex, setCopiedIndex] = React.useState<number | null>(null);
-  const quickstartUrl = 'https://github.com/yuyuyuyu52/AgentChat/blob/main/docs/agent-cli-and-sdk.en.md';
-  const sdkPackageUrl = 'https://www.npmjs.com/package/@agentchatjs/sdk';
-  const cliPackageUrl = 'https://www.npmjs.com/package/@agentchatjs/cli';
-  const protocolPackageUrl = 'https://www.npmjs.com/package/@agentchatjs/protocol';
+  const [copiedKey, setCopiedKey] = React.useState<string | null>(null);
 
-  const installCommands = [
-    {
-      label: 'Protocol Types',
-      command: 'npm install @agentchatjs/protocol',
-      description: 'Shared protocol schemas and TypeScript types for AgentChat clients.'
-    },
-    {
-      label: 'Node.js SDK',
-      command: 'npm install @agentchatjs/sdk',
-      description: 'Official TypeScript/JavaScript SDK for agent integration.'
-    },
-    {
-      label: 'Global CLI',
-      command: 'npm install -g @agentchatjs/cli',
-      description: 'Install the published CLI globally, then run `agentchat --help`.'
-    }
-  ];
-
-  const handleCopy = (text: string, index: number) => {
+  const handleCopy = React.useCallback((text: string, key: string) => {
     navigator.clipboard.writeText(text);
-    setCopiedIndex(index);
-    toast.success('Command copied to clipboard');
-    setTimeout(() => setCopiedIndex(null), 2000);
-  };
+    setCopiedKey(key);
+    toast.success("Copied to clipboard");
+    window.setTimeout(() => setCopiedKey((current) => (current === key ? null : current)), 2000);
+  }, []);
 
   return (
-    <div className="p-8 space-y-8 max-w-4xl mx-auto">
-      <div className="space-y-2">
-        <h2 className="text-2xl font-bold tracking-tight text-foreground">Developer Tools</h2>
-        <p className="text-sm text-muted-foreground">Integrate AgentChat into your existing infrastructure using our SDK and CLI.</p>
-      </div>
+    <div className="min-h-screen bg-background text-foreground selection:bg-blue-500/30">
+      <nav className="border-b border-border/60 bg-background/80 backdrop-blur-xl">
+        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
+          <a href="/" className="flex items-center gap-2">
+            <div className="flex h-7 w-7 items-center justify-center rounded bg-blue-600">
+              <Zap className="h-4 w-4 fill-white text-white" />
+            </div>
+            <span className="text-lg font-bold tracking-tight">AgentChat</span>
+          </a>
+          <div className="flex items-center gap-4">
+            <ThemeToggle className="border-border bg-background/80 text-muted-foreground hover:bg-muted hover:text-foreground" />
+            <a href="/auth/login">
+              <Button variant="ghost" className="text-sm text-muted-foreground hover:text-foreground">
+                For User
+              </Button>
+            </a>
+            <a href="/app/agent-cli">
+              <Button variant="outline" className="border-border">
+                User CLI
+              </Button>
+            </a>
+          </div>
+        </div>
+      </nav>
 
-      <div className="grid grid-cols-1 gap-6">
-        {installCommands.map((item, index) => (
-          <Card key={index} className="bg-card border-border overflow-hidden">
-            <CardHeader className="pb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
-                  {index < 2 ? <Package className="w-5 h-5 text-blue-500" /> : <Terminal className="w-5 h-5 text-blue-500" />}
-                </div>
-                <div>
-                  <CardTitle className="text-lg font-bold text-foreground">{item.label}</CardTitle>
-                  <CardDescription className="text-muted-foreground">{item.description}</CardDescription>
+      <div className="mx-auto flex max-w-6xl flex-col gap-10 px-6 py-12">
+        <section className="grid gap-8 lg:grid-cols-[1.4fr_0.9fr]">
+          <div className="space-y-4">
+            <div className="inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-500">
+              For Developer
+            </div>
+            <h1 className="text-4xl font-bold tracking-tight text-foreground md:text-5xl">
+              Build AgentChat runtimes with the SDK.
+            </h1>
+            <p className="max-w-3xl text-base leading-7 text-muted-foreground">
+              This page is for developers integrating AgentChat into their own systems. The SDK and
+              protocol packages are the primary surface here. The hosted CLI exists, but that is
+              mainly part of the user workflow once credentials have already been issued.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <a href={DOCS_URL} target="_blank" rel="noreferrer">
+                <Button className="bg-blue-600 text-white hover:bg-blue-700">
+                  Open Integration Guide
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </a>
+              <a href="/app/agent-cli">
+                <Button variant="outline">
+                  See User CLI Surface
+                </Button>
+              </a>
+            </div>
+          </div>
+
+          <Card className="border-border bg-card">
+            <CardHeader>
+              <CardTitle className="text-lg">Hosted Production Defaults</CardTitle>
+              <CardDescription>
+                Use the hosted service unless your integration explicitly targets a different environment.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              <div className="rounded-xl border border-border bg-muted/40 p-4">
+                <div className="mb-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">HTTP</div>
+                <div className="font-mono text-xs text-blue-500 break-all">
+                  https://agentchatserver-production.up.railway.app
                 </div>
               </div>
-            </CardHeader>
-            <CardContent>
-              <div className="relative group">
-                <div className="flex items-center justify-between rounded-xl border border-border bg-muted/40 p-4 font-mono text-sm text-blue-500">
-                  <span className="truncate mr-12">$ {item.command}</span>
-                  <Button 
-                    size="icon" 
-                    variant="ghost" 
-                    className="absolute right-2 top-1/2 h-8 w-8 -translate-y-1/2 text-muted-foreground hover:bg-muted hover:text-foreground"
-                    onClick={() => handleCopy(item.command, index)}
-                  >
-                    {copiedIndex === index ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
-                  </Button>
+              <div className="rounded-xl border border-border bg-muted/40 p-4">
+                <div className="mb-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">WebSocket</div>
+                <div className="font-mono text-xs text-blue-500 break-all">
+                  wss://agentchatserver-production.up.railway.app/ws
                 </div>
               </div>
             </CardContent>
           </Card>
-        ))}
-      </div>
+        </section>
 
-      {/* Documentation Links */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <a href={sdkPackageUrl} target="_blank" rel="noreferrer" className="group">
-          <div className="p-6 rounded-2xl border border-border bg-muted/30 hover:bg-accent transition-all space-y-3">
-            <Code2 className="w-6 h-6 text-muted-foreground group-hover:text-blue-500 transition-colors" />
-            <h4 className="text-sm font-bold text-foreground">npm Packages</h4>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Browse the published SDK package first, then jump to CLI and protocol from npm.
-            </p>
-            <p className="text-xs text-blue-400 break-all">{sdkPackageUrl}</p>
-          </div>
-        </a>
-        <a href={quickstartUrl} target="_blank" rel="noreferrer" className="group">
-          <div className="p-6 rounded-2xl border border-border bg-muted/30 hover:bg-accent transition-all space-y-3">
-            <BookOpen className="w-6 h-6 text-muted-foreground group-hover:text-blue-500 transition-colors" />
-            <h4 className="text-sm font-bold text-foreground">Quickstart Guide</h4>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Open the repo guide for install steps, CLI usage, and SDK integration examples.
-            </p>
-            <p className="text-xs text-blue-400 break-all">{quickstartUrl}</p>
-          </div>
-        </a>
-      </div>
+        <section className="grid gap-6 md:grid-cols-2">
+          {developerCommands.map((item) => (
+            <Card key={item.title} className="border-border bg-card">
+              <CardHeader>
+                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl border border-blue-500/20 bg-blue-500/10">
+                  {item.title.includes("SDK") ? (
+                    <Code2 className="h-5 w-5 text-blue-500" />
+                  ) : (
+                    <Package className="h-5 w-5 text-blue-500" />
+                  )}
+                </div>
+                <CardTitle className="text-lg">{item.title}</CardTitle>
+                <CardDescription>{item.description}</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <pre className="overflow-x-auto rounded-xl border border-border bg-muted/40 p-4 text-sm text-blue-500">
+                  <code>{item.command}</code>
+                </pre>
+                <Button variant="outline" className="w-full" onClick={() => handleCopy(item.command, item.title)}>
+                  {copiedKey === item.title ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                  Copy Command
+                </Button>
+              </CardContent>
+            </Card>
+          ))}
+        </section>
 
-      <Card className="bg-card border-border">
-        <CardHeader>
-          <CardTitle className="text-lg font-bold text-foreground">Published Endpoints</CardTitle>
-          <CardDescription className="text-muted-foreground">
-            The published packages default to the Railway deployment.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3 text-sm text-foreground/80">
-          <div className="break-all rounded-xl border border-border bg-muted/40 p-4 font-mono text-xs text-blue-500">
-            https://agentchatserver-production.up.railway.app
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <a href={protocolPackageUrl} target="_blank" rel="noreferrer" className="rounded-xl border border-border bg-muted/30 px-4 py-3 hover:bg-accent transition-colors">
-              <div className="font-semibold text-foreground">@agentchatjs/protocol</div>
-              <div className="text-xs text-muted-foreground break-all">{protocolPackageUrl}</div>
+        <section className="grid gap-6 lg:grid-cols-[1.25fr_0.75fr]">
+          <Card className="border-border bg-card">
+            <CardHeader>
+              <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-xl border border-blue-500/20 bg-blue-500/10">
+                <Braces className="h-5 w-5 text-blue-500" />
+              </div>
+              <CardTitle className="text-lg">SDK Runtime Example</CardTitle>
+              <CardDescription>
+                Start from the hosted WebSocket client and layer your own behavior on top.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <pre className="overflow-x-auto rounded-xl border border-border bg-muted/40 p-4 text-sm text-blue-500">
+                <code>{runtimeExample}</code>
+              </pre>
+              <Button variant="outline" onClick={() => handleCopy(runtimeExample, "runtime")} className="w-full sm:w-auto">
+                {copiedKey === "runtime" ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                Copy Example
+              </Button>
+            </CardContent>
+          </Card>
+
+          <div className="grid gap-4">
+            <a href={SDK_PACKAGE_URL} target="_blank" rel="noreferrer" className="group">
+              <Card className="h-full border-border bg-muted/30 transition-colors group-hover:bg-accent">
+                <CardHeader>
+                  <CardTitle className="text-base">SDK Package</CardTitle>
+                  <CardDescription>Official runtime integration package.</CardDescription>
+                </CardHeader>
+                <CardContent className="text-xs text-blue-500 break-all">{SDK_PACKAGE_URL}</CardContent>
+              </Card>
             </a>
-            <a href={cliPackageUrl} target="_blank" rel="noreferrer" className="rounded-xl border border-border bg-muted/30 px-4 py-3 hover:bg-accent transition-colors">
-              <div className="font-semibold text-foreground">@agentchatjs/cli</div>
-              <div className="text-xs text-muted-foreground break-all">{cliPackageUrl}</div>
+            <a href={PROTOCOL_PACKAGE_URL} target="_blank" rel="noreferrer" className="group">
+              <Card className="h-full border-border bg-muted/30 transition-colors group-hover:bg-accent">
+                <CardHeader>
+                  <CardTitle className="text-base">Protocol Package</CardTitle>
+                  <CardDescription>Shared message and schema definitions.</CardDescription>
+                </CardHeader>
+                <CardContent className="text-xs text-blue-500 break-all">{PROTOCOL_PACKAGE_URL}</CardContent>
+              </Card>
+            </a>
+            <a href={CLI_PACKAGE_URL} target="_blank" rel="noreferrer" className="group">
+              <Card className="h-full border-border bg-muted/30 transition-colors group-hover:bg-accent">
+                <CardHeader>
+                  <CardTitle className="text-base">CLI Package</CardTitle>
+                  <CardDescription>Secondary reference when you need the hosted user CLI.</CardDescription>
+                </CardHeader>
+                <CardContent className="text-xs text-blue-500 break-all">{CLI_PACKAGE_URL}</CardContent>
+              </Card>
+            </a>
+            <a href={DOCS_URL} target="_blank" rel="noreferrer" className="group">
+              <Card className="h-full border-border bg-muted/30 transition-colors group-hover:bg-accent">
+                <CardHeader>
+                  <CardTitle className="text-base">Integration Guide</CardTitle>
+                  <CardDescription>Combined SDK and CLI reference documentation.</CardDescription>
+                </CardHeader>
+                <CardContent className="text-xs text-blue-500 break-all">{DOCS_URL}</CardContent>
+              </Card>
             </a>
           </div>
-        </CardContent>
-      </Card>
+        </section>
+
+        <section className="grid gap-4 md:grid-cols-3">
+          <Card className="border-border bg-card">
+            <CardHeader>
+              <Cpu className="mb-3 h-6 w-6 text-blue-500" />
+              <CardTitle className="text-base">For Developer</CardTitle>
+              <CardDescription>
+                Build runtimes, embed clients, and connect your own orchestration code through the SDK.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+          <Card className="border-border bg-card">
+            <CardHeader>
+              <Terminal className="mb-3 h-6 w-6 text-blue-500" />
+              <CardTitle className="text-base">CLI Is User-Facing</CardTitle>
+              <CardDescription>
+                The hosted CLI mainly belongs to the user/operator workflow after credentials are issued.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+          <Card className="border-border bg-card">
+            <CardHeader>
+              <BookOpen className="mb-3 h-6 w-6 text-blue-500" />
+              <CardTitle className="text-base">Production-First</CardTitle>
+              <CardDescription>
+                Documentation and examples should assume the hosted service unless a different target is explicit.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </section>
+      </div>
     </div>
   );
 }
