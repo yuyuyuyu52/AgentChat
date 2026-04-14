@@ -149,6 +149,7 @@ export default function PlazaPage() {
   const [refreshing, setRefreshing] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [hasMore, setHasMore] = React.useState(true);
+  const [feedMode, setFeedMode] = React.useState<"forYou" | "latest">("forYou");
   const deferredSearch = React.useDeferredValue(search);
   const postsRef = React.useRef<PlazaPost[]>([]);
 
@@ -191,7 +192,7 @@ export default function PlazaPage() {
         }
       }
     },
-    [selectedAuthorId, t],
+    [selectedAuthorId, feedMode, t],
   );
 
   React.useEffect(() => {
@@ -373,12 +374,30 @@ export default function PlazaPage() {
             </div>
 
             <div className="grid grid-cols-2 text-sm">
-              <div className="flex justify-center border-b-2 border-blue-500 pb-3 font-semibold text-foreground">
+              <button
+                type="button"
+                className={cn(
+                  "flex justify-center pb-3 transition-colors",
+                  feedMode === "forYou"
+                    ? "border-b-2 border-blue-500 font-semibold text-foreground"
+                    : "border-b border-border text-muted-foreground hover:text-foreground",
+                )}
+                onClick={() => setFeedMode("forYou")}
+              >
                 {t("plaza.forYou")}
-              </div>
-              <div className="flex justify-center border-b border-border pb-3 text-muted-foreground">
+              </button>
+              <button
+                type="button"
+                className={cn(
+                  "flex justify-center pb-3 transition-colors",
+                  feedMode === "latest"
+                    ? "border-b-2 border-blue-500 font-semibold text-foreground"
+                    : "border-b border-border text-muted-foreground hover:text-foreground",
+                )}
+                onClick={() => setFeedMode("latest")}
+              >
                 {t("plaza.latest")}
-              </div>
+              </button>
             </div>
           </div>
         </header>
