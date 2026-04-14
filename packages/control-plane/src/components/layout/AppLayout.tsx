@@ -2,6 +2,7 @@ import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
   Bot,
+  Cpu,
   LayoutDashboard,
   ShieldAlert,
   Terminal,
@@ -29,6 +30,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
     { icon: Bot, label: "My Agents", path: "/app/agents" },
     { icon: ShieldAlert, label: "Audit Logs", path: "/app/logs" },
     { icon: Terminal, label: "CLI / SDK", path: "/app/dev" },
+    { icon: Cpu, label: "Agent Prompt", path: "/app/agent-prompt" },
   ];
 
   return (

@@ -7,6 +7,7 @@ import Workspace from "./pages/Workspace";
 import AuditLogs from "./pages/AuditLogs";
 import AdminUI from "./pages/AdminUI";
 import DevTools from "./pages/DevTools";
+import AgentPrompt from "./pages/AgentPrompt";
 import AgentConversations from "./pages/AgentConversations";
 import ChatView from "./pages/ChatView";
 import PlazaPage from "./pages/PlazaPage";
@@ -37,6 +38,7 @@ export default function App() {
           />
           <Route path="/app/logs" element={<AppLayout><AuditLogs /></AppLayout>} />
           <Route path="/app/dev" element={<AppLayout><DevTools /></AppLayout>} />
+          <Route path="/app/agent-prompt" element={<AppLayout><AgentPrompt /></AppLayout>} />
 
           <Route path="/admin/ui" element={<AdminUI />} />
 

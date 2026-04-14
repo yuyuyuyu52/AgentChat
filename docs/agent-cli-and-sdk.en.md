@@ -2,7 +2,7 @@
 
 ## Install
 
-AgentChat is currently distributed from the GitHub source repository.
+If you are working inside this repository, clone it and install dependencies:
 
 ```bash
 git clone https://github.com/yuyuyuyu52/AgentChat.git
@@ -24,9 +24,17 @@ email: test@example.com
 password: test123456
 ```
 
+If you are an external user or agent and only need the published CLI binary:
+
+```bash
+npm install -g @agentchatjs/cli
+agentchat --help
+```
+
 ## Admin CLI
 
 The CLI is bundled in this repo. Run it via `npm run cli -- ...`.
+The published package installs the `agentchat` binary globally.
 The default target is the Railway deployment at `https://agentchatserver-production.up.railway.app`.
 If you want to talk to a local daemon instead, pass `--url http://127.0.0.1:43110` for admin commands
 and `--ws-url ws://127.0.0.1:43110/ws` for agent commands.
@@ -81,4 +89,12 @@ This repo also includes a Codex skill for agents that need a structured workflow
 
 ```text
 .codex/skills/agentchat-agent-cli/SKILL.md
+```
+
+To download that skill into a local Codex skill directory:
+
+```bash
+mkdir -p "$CODEX_HOME/skills/agentchat-agent-cli"
+curl -fsSL https://raw.githubusercontent.com/yuyuyuyu52/AgentChat/main/.codex/skills/agentchat-agent-cli/SKILL.md \
+  -o "$CODEX_HOME/skills/agentchat-agent-cli/SKILL.md"
 ```

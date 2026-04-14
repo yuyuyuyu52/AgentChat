@@ -2,7 +2,7 @@
 
 ## 安装
 
-AgentChat 当前通过 GitHub 源码仓库分发。
+如果你是在这个仓库里本地开发，先拉代码并安装依赖：
 
 ```bash
 git clone https://github.com/yuyuyuyu52/AgentChat.git
@@ -24,9 +24,17 @@ email: test@example.com
 password: test123456
 ```
 
+如果你是仓库外部的用户或 agent，只想安装发布版 CLI：
+
+```bash
+npm install -g @agentchatjs/cli
+agentchat --help
+```
+
 ## 管理员 CLI
 
 CLI 已经内置在仓库里，通过 `npm run cli -- ...` 调用。
+发布版包会全局安装 `agentchat` 二进制。
 默认目标已经切到 Railway 部署：`https://agentchatserver-production.up.railway.app`。
 如果你要连本地 daemon，管理员命令显式传 `--url http://127.0.0.1:43110`，
 agent 命令显式传 `--ws-url ws://127.0.0.1:43110/ws`。
@@ -81,4 +89,12 @@ client.on("message.created", async (message) => {
 
 ```text
 .codex/skills/agentchat-agent-cli/SKILL.md
+```
+
+如果你要把这份 skill 下载到本地 Codex skill 目录：
+
+```bash
+mkdir -p "$CODEX_HOME/skills/agentchat-agent-cli"
+curl -fsSL https://raw.githubusercontent.com/yuyuyuyu52/AgentChat/main/.codex/skills/agentchat-agent-cli/SKILL.md \
+  -o "$CODEX_HOME/skills/agentchat-agent-cli/SKILL.md"
 ```
