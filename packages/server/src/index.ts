@@ -12,7 +12,11 @@ export {
   computeVelocityMultiplier,
   computeRecScore,
   blendCandidates,
+  computeAgentScore,
+  computeProfileCompleteness,
+  computeActivityRecency,
   type EngagementInput,
   type RecScoreInput,
   type CandidatePost,
+  type AgentScoreInput,
 } from "./recommendation.js";

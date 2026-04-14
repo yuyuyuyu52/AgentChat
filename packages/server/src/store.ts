@@ -2180,6 +2180,103 @@ export class AgentChatStore {
     }));
   }
 
+  async upsertAgentScore(
+    accountId: string,
+    scores: {
+      score: number;
+      engagementRate: number;
+      postQualityAvg: number;
+      activityRecency: number;
+      profileCompleteness: number;
+      contentVector?: number[];
+    },
+  ): Promise<void> {
+    if (scores.contentVector) {
+      const vectorStr = `[${scores.contentVector.join(",")}]`;
+      await this.db.run(
+        `
+          INSERT INTO agent_scores (account_id, score, engagement_rate, post_quality_avg, activity_recency, profile_completeness, content_vector, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?::vector, ?)
+          ON CONFLICT (account_id)
+          DO UPDATE SET score = EXCLUDED.score,
+                        engagement_rate = EXCLUDED.engagement_rate,
+                        post_quality_avg = EXCLUDED.post_quality_avg,
+                        activity_recency = EXCLUDED.activity_recency,
+                        profile_completeness = EXCLUDED.profile_completeness,
+                        content_vector = EXCLUDED.content_vector,
+                        updated_at = EXCLUDED.updated_at
+        `,
+        [accountId, scores.score, scores.engagementRate, scores.postQualityAvg, scores.activityRecency, scores.profileCompleteness, vectorStr, nowIso()],
+      );
+    } else {
+      await this.db.run(
+        `
+          INSERT INTO agent_scores (account_id, score, engagement_rate, post_quality_avg, activity_recency, profile_completeness, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT (account_id)
+          DO UPDATE SET score = EXCLUDED.score,
+                        engagement_rate = EXCLUDED.engagement_rate,
+                        post_quality_avg = EXCLUDED.post_quality_avg,
+                        activity_recency = EXCLUDED.activity_recency,
+                        profile_completeness = EXCLUDED.profile_completeness,
+                        updated_at = EXCLUDED.updated_at
+        `,
+        [accountId, scores.score, scores.engagementRate, scores.postQualityAvg, scores.activityRecency, scores.profileCompleteness, nowIso()],
+      );
+    }
+  }
+
+  async listTopAgents(options: {
+    limit?: number;
+    excludeAccountIds?: string[];
+  } = {}): Promise<Array<{
+    accountId: string;
+    score: number;
+    engagementRate: number;
+    postQualityAvg: number;
+    activityRecency: number;
+    profileCompleteness: number;
+  }>> {
+    const limit = options.limit ?? 20;
+    let excludeClause = "";
+    const params: SqlValue[] = [];
+
+    if (options.excludeAccountIds && options.excludeAccountIds.length > 0) {
+      const placeholders = options.excludeAccountIds.map(() => "?").join(",");
+      excludeClause = `WHERE account_id NOT IN (${placeholders})`;
+      params.push(...options.excludeAccountIds);
+    }
+
+    params.push(limit);
+
+    const rows = await this.db.all<{
+      account_id: string;
+      score: number;
+      engagement_rate: number;
+      post_quality_avg: number;
+      activity_recency: number;
+      profile_completeness: number;
+    }>(
+      `
+        SELECT account_id, score, engagement_rate, post_quality_avg, activity_recency, profile_completeness
+        FROM agent_scores
+        ${excludeClause}
+        ORDER BY score DESC
+        LIMIT ?
+      `,
+      params,
+    );
+
+    return rows.map((r) => ({
+      accountId: r.account_id,
+      score: Number(r.score),
+      engagementRate: Number(r.engagement_rate),
+      postQualityAvg: Number(r.post_quality_avg),
+      activityRecency: Number(r.activity_recency),
+      profileCompleteness: Number(r.profile_completeness),
+    }));
+  }
+
   private async requirePlazaPost(postId: string): Promise<void> {
     const row = await this.db.get<{ id: string }>(`SELECT id FROM plaza_posts WHERE id = ?`, [postId]);
     if (!row) {

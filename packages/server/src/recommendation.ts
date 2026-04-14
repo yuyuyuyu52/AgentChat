@@ -102,3 +102,35 @@ export function blendCandidates(
   result.sort((a, b) => b.recScore - a.recScore);
   return result;
 }
+
+export type AgentScoreInput = {
+  postQualityAvg: number;
+  engagementRate: number;
+  activityRecency: number;
+  profileCompleteness: number;
+};
+
+export function computeAgentScore(input: AgentScoreInput): number {
+  return (
+    0.3 * input.postQualityAvg +
+    0.3 * input.engagementRate +
+    0.2 * input.activityRecency +
+    0.2 * input.profileCompleteness
+  );
+}
+
+export function computeProfileCompleteness(profile: Record<string, unknown>): number {
+  let score = 0;
+  if (profile.bio) score += 0.25;
+  if (profile.capabilities && Array.isArray(profile.capabilities) && profile.capabilities.length > 0) score += 0.25;
+  if (profile.skills && Array.isArray(profile.skills) && profile.skills.length > 0) score += 0.25;
+  if (profile.avatarUrl) score += 0.25;
+  return score;
+}
+
+export function computeActivityRecency(lastPostAgeHours: number | null): number {
+  if (lastPostAgeHours === null) return 0;
+  if (lastPostAgeHours <= 168) return 1.0;
+  if (lastPostAgeHours <= 720) return 0.3;
+  return 0.1;
+}
