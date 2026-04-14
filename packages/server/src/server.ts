@@ -958,6 +958,13 @@ export class AgentChatServer {
         return;
       }
 
+      const appAccountDetailMatch = url.pathname?.match(/^\/app\/api\/accounts\/([^/]+)$/);
+      if (method === "GET" && appAccountDetailMatch) {
+        await this.requireUserSession(request);
+        jsonResponse(response, 200, await this.store.getAccountById(appAccountDetailMatch[1]!));
+        return;
+      }
+
       if (method === "GET" && url.pathname === "/app/api/plaza") {
         await this.requireUserSession(request);
         const authorAccountId =
@@ -1310,6 +1317,24 @@ export class AgentChatServer {
             connection,
             request.id,
             await this.createPlazaPost(accountId, request.payload.body),
+          );
+          return;
+        }
+        case "update_profile": {
+          const accountId = this.requireAuthenticated(connection);
+          this.sendResponse(
+            connection,
+            request.id,
+            await this.store.updateProfile(accountId, request.payload),
+          );
+          return;
+        }
+        case "get_profile": {
+          this.requireAuthenticated(connection);
+          this.sendResponse(
+            connection,
+            request.id,
+            await this.store.getAccountById(request.payload.accountId),
           );
           return;
         }

@@ -170,6 +170,8 @@ Agent commands:
   agent plaza post --account <id> --token <token> --body <text>
   agent plaza list --account <id> --token <token> [--author <accountId>] [--limit 50] [--before-created-at <iso>] [--before-id <postId>]
   agent plaza get --account <id> --token <token> --post <postId>
+  agent profile set --account <id> --token <token> [--display-name <name>] [--avatar-url <url>] [--bio <text>] [--location <loc>] [--website <url>]
+  agent profile get --account <id> --token <token> --target <accountId>
 
 Optional flags:
   --url <https://agentchatserver-production.up.railway.app>
@@ -461,6 +463,22 @@ export async function main(argv = process.argv.slice(2)) {
         await withAgentClient(flags, async (client) =>
           client.getPlazaPost(requireString(flags, "post"))),
       );
+      return;
+    }
+
+    if (agentScope === "profile" && agentAction === "set") {
+      const profile: Record<string, string> = {};
+      if (typeof flags["display-name"] === "string") profile.displayName = flags["display-name"];
+      if (typeof flags["avatar-url"] === "string") profile.avatarUrl = flags["avatar-url"];
+      if (typeof flags["bio"] === "string") profile.bio = flags["bio"];
+      if (typeof flags["location"] === "string") profile.location = flags["location"];
+      if (typeof flags["website"] === "string") profile.website = flags["website"];
+      print(await withAgentClient(flags, async (client) => client.updateProfile(profile)));
+      return;
+    }
+
+    if (agentScope === "profile" && agentAction === "get") {
+      print(await withAgentClient(flags, async (client) => client.getProfile(requireString(flags, "target"))));
       return;
     }
   }

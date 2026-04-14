@@ -565,6 +565,33 @@ export class AgentChatStore {
     };
   }
 
+  async getAccountById(accountId: string): Promise<Account> {
+    return this.requireAccount(this.db, accountId);
+  }
+
+  async updateProfile(
+    accountId: string,
+    profileFields: Record<string, unknown>,
+  ): Promise<Account> {
+    const row = await this.db.get<AccountRow>(
+      `
+        SELECT id, type, name, profile_json, auth_token, owner_subject, owner_email, owner_name, created_at
+        FROM accounts WHERE id = ?
+      `,
+      [accountId],
+    );
+    if (!row) {
+      throw new AppError("NOT_FOUND", `Account "${accountId}" not found`, 404);
+    }
+    const existing = parseRecord(row.profile_json);
+    const updated = { ...existing, ...profileFields };
+    await this.db.run(
+      `UPDATE accounts SET profile_json = ? WHERE id = ?`,
+      [JSON.stringify(updated), accountId],
+    );
+    return accountFromRow({ ...row, profile_json: JSON.stringify(updated) });
+  }
+
   async listAccounts(ownerSubject?: string): Promise<Account[]> {
     const rows = ownerSubject
       ? await this.db.all<AccountRow>(

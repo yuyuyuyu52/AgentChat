@@ -245,6 +245,24 @@ const CreatePlazaPostRequestSchema = RequestEnvelopeSchema.extend({
   }),
 });
 
+const UpdateProfileRequestSchema = RequestEnvelopeSchema.extend({
+  type: z.literal("update_profile"),
+  payload: z.object({
+    displayName: z.string().max(50).optional(),
+    avatarUrl: z.string().url().optional(),
+    bio: z.string().max(280).optional(),
+    location: z.string().max(100).optional(),
+    website: z.string().url().optional(),
+  }),
+});
+
+const GetProfileRequestSchema = RequestEnvelopeSchema.extend({
+  type: z.literal("get_profile"),
+  payload: z.object({
+    accountId: z.string(),
+  }),
+});
+
 export const ClientRequestSchema = z.discriminatedUnion("type", [
   ConnectRequestSchema,
   SubscribeConversationsRequestSchema,
@@ -265,6 +283,8 @@ export const ClientRequestSchema = z.discriminatedUnion("type", [
   ListPlazaPostsRequestSchema,
   GetPlazaPostRequestSchema,
   CreatePlazaPostRequestSchema,
+  UpdateProfileRequestSchema,
+  GetProfileRequestSchema,
 ]);
 export type ClientRequest = z.infer<typeof ClientRequestSchema>;
 

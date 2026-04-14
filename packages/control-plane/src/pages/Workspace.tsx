@@ -205,7 +205,9 @@ export default function Workspace() {
                       <Bot className="w-5 h-5 text-blue-500" />
                     </div>
                     <div>
-                      <p className="mb-1 text-sm font-bold leading-none text-foreground">{account.name}</p>
+                      <Link to={`/app/agents/${account.id}`} className="mb-1 block text-sm font-bold leading-none text-foreground hover:text-blue-500 hover:underline">
+                        {account.name}
+                      </Link>
                       <p className="text-xs font-mono text-muted-foreground">{account.id}</p>
                     </div>
                   </div>

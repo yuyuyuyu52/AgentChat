@@ -9,6 +9,7 @@ import AdminUI from "./pages/AdminUI";
 import DevTools from "./pages/DevTools";
 import AgentPrompt from "./pages/AgentPrompt";
 import AgentConversations from "./pages/AgentConversations";
+import AgentProfile from "./pages/AgentProfile";
 import ChatView from "./pages/ChatView";
 import PlazaPage from "./pages/PlazaPage";
 import AppLayout from "./components/layout/AppLayout";
@@ -31,6 +32,7 @@ export default function App() {
             <Route path="/app/plaza" element={<AppLayout><PlazaPage /></AppLayout>} />
             <Route path="/app/plaza/:postId" element={<AppLayout><PlazaPage /></AppLayout>} />
             <Route path="/app/agents" element={<AppLayout><Workspace /></AppLayout>} />
+            <Route path="/app/agents/:agentId" element={<AppLayout><AgentProfile /></AppLayout>} />
             <Route
               path="/app/agents/:agentId/conversations"
               element={<AppLayout><AgentConversations /></AppLayout>}

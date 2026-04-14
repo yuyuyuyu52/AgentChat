@@ -205,6 +205,20 @@ export class AgentChatClient extends EventEmitter {
     return this.request("create_plaza_post", { body });
   }
 
+  async updateProfile(profile: {
+    displayName?: string;
+    avatarUrl?: string;
+    bio?: string;
+    location?: string;
+    website?: string;
+  }): Promise<Account> {
+    return this.request("update_profile", profile);
+  }
+
+  async getProfile(accountId: string): Promise<Account> {
+    return this.request("get_profile", { accountId });
+  }
+
   close(): void {
     this.socket?.close();
     this.socket = undefined;

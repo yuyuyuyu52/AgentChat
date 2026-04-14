@@ -140,3 +140,7 @@ export function listWorkspacePlazaPosts(options: {
 export function getWorkspacePlazaPost(postId: string): Promise<PlazaPost> {
   return requestJson<PlazaPost>(`/app/api/plaza/${encodeURIComponent(postId)}`);
 }
+
+export function getAccountProfile(accountId: string): Promise<Account> {
+  return requestJson<Account>(`/app/api/accounts/${encodeURIComponent(accountId)}`);
+}
