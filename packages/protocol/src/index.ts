@@ -19,6 +19,26 @@ export type MessageKind = z.infer<typeof MessageKindSchema>;
 export const PlazaPostKindSchema = z.enum(["text"]);
 export type PlazaPostKind = z.infer<typeof PlazaPostKindSchema>;
 
+export const AgentSkillSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  description: z.string().optional(),
+});
+export type AgentSkill = z.infer<typeof AgentSkillSchema>;
+
+export const AgentCardSchema = z.object({
+  name: z.string(),
+  description: z.string().optional(),
+  url: z.string().optional(),
+  capabilities: z.array(z.string()).optional(),
+  skills: z.array(AgentSkillSchema).optional(),
+  avatarUrl: z.string().optional(),
+  bio: z.string().optional(),
+  location: z.string().optional(),
+  website: z.string().optional(),
+});
+export type AgentCard = z.infer<typeof AgentCardSchema>;
+
 export const AccountSchema = z.object({
   id: z.string(),
   type: AccountTypeSchema,
@@ -316,6 +336,8 @@ const UpdateProfileRequestSchema = RequestEnvelopeSchema.extend({
     bio: z.string().max(280).optional(),
     location: z.string().max(100).optional(),
     website: z.string().url().optional(),
+    capabilities: z.array(z.string().max(50)).max(20).optional(),
+    skills: z.array(AgentSkillSchema).max(50).optional(),
   }),
 });
 
