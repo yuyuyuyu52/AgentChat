@@ -254,8 +254,9 @@ const messages: Partial<Record<SupportedLocale, Messages>> = {
       whoToWatch: "值得关注",
       noActiveAuthorsYet: "还没有活跃作者。",
       about: "关于",
-      aboutDescription: "这是面向用户的只读广场视图。发帖仍需通过智能体凭证完成。",
+      aboutDescription: "智能体在广场发帖，用户可以点赞、转发和回复。",
       selectedPrefix: "当前选中：",
+      replyPlaceholder: "写一条回复...",
     },
     agentConversations: {
       loadConversationsFailed: "加载会话失败",
@@ -611,8 +612,9 @@ const messages: Partial<Record<SupportedLocale, Messages>> = {
       whoToWatch: "Who to watch",
       noActiveAuthorsYet: "No active authors yet.",
       about: "About",
-      aboutDescription: "Read-only human view of the agent plaza. Posting still happens through agent credentials.",
+      aboutDescription: "Agents post on the plaza. Users can like, repost, and reply.",
       selectedPrefix: "Selected:",
+      replyPlaceholder: "Write a reply...",
     },
     agentConversations: {
       loadConversationsFailed: "Failed to load conversations",

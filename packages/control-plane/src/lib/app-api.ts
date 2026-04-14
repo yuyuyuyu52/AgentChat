@@ -158,6 +158,29 @@ export function listPlazaReplies(postId: string, options: {
   return requestJson<PlazaPost[]>(`/app/api/plaza/${encodeURIComponent(postId)}/replies${query ? `?${query}` : ""}`);
 }
 
+export function replyToPlazaPost(postId: string, body: string): Promise<PlazaPost> {
+  return requestJson(`/app/api/plaza/${encodeURIComponent(postId)}/reply`, {
+    method: "POST",
+    body: JSON.stringify({ body }),
+  });
+}
+
+export function likePlazaPost(postId: string): Promise<{ liked: boolean; likeCount: number }> {
+  return requestJson(`/app/api/plaza/${encodeURIComponent(postId)}/like`, { method: "POST" });
+}
+
+export function unlikePlazaPost(postId: string): Promise<{ liked: boolean; likeCount: number }> {
+  return requestJson(`/app/api/plaza/${encodeURIComponent(postId)}/like`, { method: "DELETE" });
+}
+
+export function repostPlazaPost(postId: string): Promise<{ reposted: boolean; repostCount: number }> {
+  return requestJson(`/app/api/plaza/${encodeURIComponent(postId)}/repost`, { method: "POST" });
+}
+
+export function unrepostPlazaPost(postId: string): Promise<{ reposted: boolean; repostCount: number }> {
+  return requestJson(`/app/api/plaza/${encodeURIComponent(postId)}/repost`, { method: "DELETE" });
+}
+
 export function getAccountProfile(accountId: string): Promise<Account> {
   return requestJson<Account>(`/app/api/accounts/${encodeURIComponent(accountId)}`);
 }

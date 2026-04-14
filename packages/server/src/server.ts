@@ -971,7 +971,7 @@ export class AgentChatServer {
       }
 
       if (method === "GET" && url.pathname === "/app/api/plaza") {
-        await this.requireUserSession(request);
+        const session = await this.requireUserSession(request);
         const authorAccountId =
           typeof url.query.authorAccountId === "string" ? url.query.authorAccountId : undefined;
         const beforeCreatedAt =
@@ -990,6 +990,7 @@ export class AgentChatServer {
           response,
           200,
           await this.listPlazaPosts({
+            viewerAccountId: session.subject,
             ...(authorAccountId ? { authorAccountId } : {}),
             ...(beforeCreatedAt ? { beforeCreatedAt } : {}),
             ...(beforeId ? { beforeId } : {}),
@@ -1001,8 +1002,23 @@ export class AgentChatServer {
 
       const appPlazaPostMatch = url.pathname?.match(/^\/app\/api\/plaza\/([^/]+)$/);
       if (method === "GET" && appPlazaPostMatch) {
-        await this.requireUserSession(request);
-        jsonResponse(response, 200, await this.getPlazaPost(appPlazaPostMatch[1]!));
+        const session = await this.requireUserSession(request);
+        jsonResponse(response, 200, await this.getPlazaPost(appPlazaPostMatch[1]!, session.subject));
+        return;
+      }
+
+      const appPlazaPostReplyMatch = url.pathname?.match(/^\/app\/api\/plaza\/([^/]+)\/reply$/);
+      if (method === "POST" && appPlazaPostReplyMatch) {
+        const session = await this.requireUserSession(request);
+        const body = await readJson(request) as { body?: string };
+        if (!body.body || typeof body.body !== "string") {
+          throw new AppError("INVALID_ARGUMENT", "Reply body is required");
+        }
+        const humanAccount = await this.store.getOrCreateHumanAccount(session);
+        const reply = await this.createPlazaPost(humanAccount.id, body.body, {
+          parentPostId: appPlazaPostReplyMatch[1]!,
+        });
+        jsonResponse(response, 200, reply);
         return;
       }
 
@@ -1014,9 +1030,33 @@ export class AgentChatServer {
         return;
       }
 
+      const appPlazaPostLikeMatch = url.pathname?.match(/^\/app\/api\/plaza\/([^/]+)\/like$/);
+      if (method === "POST" && appPlazaPostLikeMatch) {
+        const session = await this.requireUserSession(request);
+        jsonResponse(response, 200, await this.store.likePlazaPost(session.subject, appPlazaPostLikeMatch[1]!));
+        return;
+      }
+      if (method === "DELETE" && appPlazaPostLikeMatch) {
+        const session = await this.requireUserSession(request);
+        jsonResponse(response, 200, await this.store.unlikePlazaPost(session.subject, appPlazaPostLikeMatch[1]!));
+        return;
+      }
+
+      const appPlazaPostRepostMatch = url.pathname?.match(/^\/app\/api\/plaza\/([^/]+)\/repost$/);
+      if (method === "POST" && appPlazaPostRepostMatch) {
+        const session = await this.requireUserSession(request);
+        jsonResponse(response, 200, await this.store.repostPlazaPost(session.subject, appPlazaPostRepostMatch[1]!));
+        return;
+      }
+      if (method === "DELETE" && appPlazaPostRepostMatch) {
+        const session = await this.requireUserSession(request);
+        jsonResponse(response, 200, await this.store.unrepostPlazaPost(session.subject, appPlazaPostRepostMatch[1]!));
+        return;
+      }
+
       const appPlazaPostRepliesMatch = url.pathname?.match(/^\/app\/api\/plaza\/([^/]+)\/replies$/);
       if (method === "GET" && appPlazaPostRepliesMatch) {
-        await this.requireUserSession(request);
+        const session = await this.requireUserSession(request);
         const beforeCreatedAt = typeof url.query.beforeCreatedAt === "string" ? url.query.beforeCreatedAt : undefined;
         const beforeId = typeof url.query.beforeId === "string" ? url.query.beforeId : undefined;
         const limit = typeof url.query.limit === "string" ? Number(url.query.limit) : undefined;
@@ -1024,6 +1064,7 @@ export class AgentChatServer {
           response,
           200,
           await this.store.listPlazaReplies(appPlazaPostRepliesMatch[1]!, {
+            viewerAccountId: session.subject,
             ...(beforeCreatedAt ? { beforeCreatedAt } : {}),
             ...(beforeId ? { beforeId } : {}),
             ...(limit ? { limit } : {}),

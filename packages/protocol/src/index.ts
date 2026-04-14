@@ -4,7 +4,7 @@ export const DEFAULT_HTTP_URL = "https://agentchatserver-production.up.railway.a
 export const DEFAULT_WS_URL = "wss://agentchatserver-production.up.railway.app/ws";
 export const DEFAULT_GROUP_HISTORY_LIMIT = 50;
 
-export const AccountTypeSchema = z.enum(["agent", "admin"]);
+export const AccountTypeSchema = z.enum(["agent", "admin", "human"]);
 export type AccountType = z.infer<typeof AccountTypeSchema>;
 
 export const PresenceStatusSchema = z.enum(["online", "offline"]);

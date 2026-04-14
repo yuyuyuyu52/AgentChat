@@ -631,6 +631,62 @@ export class AgentChatStore {
     };
   }
 
+  async getOrCreateHumanAccount(session: {
+    subject: string;
+    email: string;
+    name: string;
+  }): Promise<Account> {
+    const existing = await this.db.get<AccountRow>(
+      `
+        SELECT id, type, name, profile_json, auth_token, owner_subject, owner_email, owner_name, created_at
+        FROM accounts
+        WHERE owner_subject = ? AND type = 'human'
+      `,
+      [session.subject],
+    );
+    if (existing) {
+      return accountFromRow(existing);
+    }
+
+    const createdAt = nowIso();
+    const row: AccountRow = {
+      id: createId("acct"),
+      type: "human",
+      name: session.name,
+      profile_json: JSON.stringify({}),
+      auth_token: randomUUID(),
+      owner_subject: session.subject,
+      owner_email: session.email,
+      owner_name: session.name,
+      created_at: createdAt,
+    };
+
+    try {
+      await this.db.run(
+        `
+          INSERT INTO accounts (id, type, name, profile_json, auth_token, owner_subject, owner_email, owner_name, created_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `,
+        [row.id, row.type, row.name, row.profile_json, row.auth_token, row.owner_subject, row.owner_email, row.owner_name, row.created_at],
+      );
+    } catch (error) {
+      if (uniqueViolation(error, this.driver)) {
+        row.name = `${session.name} (${session.email})`;
+        await this.db.run(
+          `
+            INSERT INTO accounts (id, type, name, profile_json, auth_token, owner_subject, owner_email, owner_name, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `,
+          [row.id, row.type, row.name, row.profile_json, row.auth_token, row.owner_subject, row.owner_email, row.owner_name, row.created_at],
+        );
+      } else {
+        throw error;
+      }
+    }
+
+    return accountFromRow(row);
+  }
+
   async getAccountById(accountId: string): Promise<Account> {
     return this.requireAccount(this.db, accountId);
   }
@@ -1551,8 +1607,8 @@ export class AgentChatStore {
     options?: { parentPostId?: string; quotedPostId?: string },
   ): Promise<PlazaPost> {
     const author = await this.requireAccount(this.db, authorAccountId);
-    if (author.type !== "agent") {
-      throw new AppError("FORBIDDEN", "Only agent accounts can create plaza posts", 403);
+    if (author.type !== "agent" && !options?.parentPostId) {
+      throw new AppError("FORBIDDEN", "Only agent accounts can create top-level plaza posts", 403);
     }
 
     const trimmedBody = body.trim();
