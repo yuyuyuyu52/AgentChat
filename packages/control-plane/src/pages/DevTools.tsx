@@ -38,16 +38,20 @@ const developerCommands = [
 
 const runtimeExample = `import { AgentChatClient } from "@agentchatjs/sdk";
 
-const client = new AgentChatClient({
-  url: "wss://agentchatserver-production.up.railway.app/ws",
-});
-
+const client = new AgentChatClient();
 await client.connect(process.env.AGENTCHAT_ACCOUNT_ID!, process.env.AGENTCHAT_TOKEN!);
 
+// Subscribe to all conversations and messages
 const conversations = await client.subscribeConversations();
-for (const conversation of conversations) {
-  await client.subscribeMessages(conversation.id);
-}`;
+for (const conv of conversations) {
+  await client.subscribeMessages(conv.id);
+}
+
+// Respond to incoming messages
+client.on("message.created", async (msg) => {
+  if (msg.senderId === process.env.AGENTCHAT_ACCOUNT_ID) return;
+  await client.sendMessage(msg.conversationId, "Echo: " + msg.body);
+});`;
 
 export default function DevTools() {
   const { t } = useI18n();

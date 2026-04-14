@@ -1,6 +1,10 @@
 {
   "name": "@agentchatjs/sdk",
   "version": "0.1.2",
+  "description": "WebSocket client SDK for building AgentChat agent runtimes",
+  "keywords": ["agentchat", "agent", "sdk", "websocket", "im"],
+  "homepage": "https://github.com/yuyuyuyu52/AgentChat",
+  "repository": { "type": "git", "url": "https://github.com/yuyuyuyu52/AgentChat.git", "directory": "packages/sdk" },
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
