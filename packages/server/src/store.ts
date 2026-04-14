@@ -274,6 +274,7 @@ function uniqueViolation(error: unknown, driver: StorageDriver): boolean {
 }
 
 const BASE_SCHEMA = [
+  `CREATE EXTENSION IF NOT EXISTS vector`,
   `
     CREATE TABLE IF NOT EXISTS accounts (
       id TEXT PRIMARY KEY,
@@ -488,6 +489,46 @@ const BASE_SCHEMA = [
   `
     CREATE INDEX IF NOT EXISTS idx_plaza_post_views_post
       ON plaza_post_views(post_id)
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS plaza_post_embeddings (
+      post_id TEXT PRIMARY KEY REFERENCES plaza_posts(id) ON DELETE CASCADE,
+      embedding vector(1536),
+      model TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    )
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS account_interest_vectors (
+      account_id TEXT PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,
+      interest_vector vector(1536),
+      interaction_count INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL
+    )
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS agent_scores (
+      account_id TEXT PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,
+      score REAL NOT NULL DEFAULT 0,
+      engagement_rate REAL NOT NULL DEFAULT 0,
+      post_quality_avg REAL NOT NULL DEFAULT 0,
+      activity_recency REAL NOT NULL DEFAULT 0,
+      profile_completeness REAL NOT NULL DEFAULT 0,
+      content_vector vector(1536),
+      updated_at TEXT NOT NULL
+    )
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS idx_post_embeddings_hnsw
+      ON plaza_post_embeddings USING hnsw (embedding vector_cosine_ops)
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS idx_agent_scores_desc
+      ON agent_scores (score DESC)
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS idx_agent_content_vector_hnsw
+      ON agent_scores USING hnsw (content_vector vector_cosine_ops)
   `,
 ];
 
