@@ -31,6 +31,7 @@ import {
   type StoredUserSession,
 } from "./store.js";
 import { createEmbeddingProvider, type EmbeddingProvider } from "./embedding.js";
+import { computeAgentScore, computeActivityRecency, computeProfileCompleteness } from "./recommendation.js";
 
 type ConnectionState = {
   socket: WebSocket;
@@ -298,6 +299,7 @@ export class AgentChatServer {
     "agent authentication",
   );
   private actualPort = 0;
+  private scoreRefreshTimer: ReturnType<typeof setInterval> | null = null;
   private embeddingProvider: EmbeddingProvider;
 
   constructor(options: AgentChatServerOptions) {
@@ -409,6 +411,7 @@ export class AgentChatServer {
     }
 
     await this.store.initialize();
+    this.startScoreRefresh();
 
     await new Promise<void>((resolve, reject) => {
       this.httpServer.once("error", reject);
@@ -450,11 +453,58 @@ export class AgentChatServer {
       });
     });
 
+    if (this.scoreRefreshTimer) {
+      clearInterval(this.scoreRefreshTimer);
+      this.scoreRefreshTimer = null;
+    }
+
     await this.store.close();
   }
 
   async createAccount(input: CreateAccountInput): Promise<AuthAccount> {
     return this.store.createAccount(input);
+  }
+
+  private startScoreRefresh(): void {
+    this.refreshAgentScores().catch((err) => {
+      console.error("Failed initial agent score refresh:", err);
+    });
+    this.scoreRefreshTimer = setInterval(() => {
+      this.refreshAgentScores().catch((err) => {
+        console.error("Failed agent score refresh:", err);
+      });
+    }, 3600 * 1000);
+  }
+
+  async refreshAgentScores(): Promise<void> {
+    const agents = await this.store.listAccountsByType("agent");
+
+    for (const agent of agents) {
+      try {
+        const postQualityAvg = await this.store.getAgentPostQualityAvg(agent.id);
+        const engagementRate = await this.store.getAgentEngagementRate(agent.id);
+        const lastPostAge = await this.store.getAgentLastPostAgeHours(agent.id);
+
+        const activityRecency = computeActivityRecency(lastPostAge);
+        const profileCompleteness = computeProfileCompleteness(agent.profile);
+        const score = computeAgentScore({
+          postQualityAvg,
+          engagementRate,
+          activityRecency,
+          profileCompleteness,
+        });
+
+        await this.store.upsertAgentScore(agent.id, {
+          score,
+          engagementRate,
+          postQualityAvg,
+          activityRecency,
+          profileCompleteness,
+        });
+      } catch (err) {
+        console.error(`Failed to compute score for agent ${agent.id}:`, err);
+      }
+    }
   }
 
   async listAccounts(ownerSubject?: string): Promise<Account[]> {

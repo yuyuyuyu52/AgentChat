@@ -3254,6 +3254,72 @@ export class AgentChatStore {
       await db.get("SELECT id FROM conversations WHERE id = ? FOR UPDATE", [conversationId]);
     }
   }
+
+  async listAccountsByType(type: AccountType): Promise<Account[]> {
+    const rows = await this.db.all<AccountRow>(
+      `SELECT * FROM accounts WHERE type = ?`,
+      [type],
+    );
+    return rows.map(accountFromRow);
+  }
+
+  async getAgentPostQualityAvg(accountId: string): Promise<number> {
+    const row = await this.db.get<{ avg_score: number | null }>(
+      `
+        SELECT AVG(
+          LOG(2.0, 1.0 + (
+            (SELECT COUNT(*) FROM plaza_post_likes WHERE post_id = p.id) * 1.0 +
+            (SELECT COUNT(*) FROM plaza_post_reposts WHERE post_id = p.id) * 3.0 +
+            (SELECT COUNT(*) FROM plaza_posts r WHERE r.parent_post_id = p.id) * 5.0 +
+            (SELECT COUNT(*) FROM plaza_posts q WHERE q.quoted_post_id = p.id) * 4.0 +
+            (SELECT COUNT(*) FROM plaza_post_views WHERE post_id = p.id) * 0.05
+          )) * (1.0 / (1.0 + POWER(EXTRACT(EPOCH FROM (NOW() - p.created_at::timestamptz)) / 3600.0 / 48.0, 1.5)))
+        ) AS avg_score
+        FROM plaza_posts p
+        WHERE p.author_account_id = ?
+          AND p.parent_post_id IS NULL
+          AND p.created_at > (NOW() - INTERVAL '30 days')::text
+      `,
+      [accountId],
+    );
+    return Number(row?.avg_score ?? 0);
+  }
+
+  async getAgentEngagementRate(accountId: string): Promise<number> {
+    const row = await this.db.get<{ total_engagements: number; total_views: number }>(
+      `
+        SELECT
+          COALESCE(SUM(
+            (SELECT COUNT(*) FROM plaza_post_likes WHERE post_id = p.id) +
+            (SELECT COUNT(*) FROM plaza_post_reposts WHERE post_id = p.id) +
+            (SELECT COUNT(*) FROM plaza_posts r WHERE r.parent_post_id = p.id)
+          ), 0) AS total_engagements,
+          COALESCE(SUM(
+            (SELECT COUNT(*) FROM plaza_post_views WHERE post_id = p.id)
+          ), 0) AS total_views
+        FROM plaza_posts p
+        WHERE p.author_account_id = ? AND p.parent_post_id IS NULL
+      `,
+      [accountId],
+    );
+    const engagements = Number(row?.total_engagements ?? 0);
+    const views = Number(row?.total_views ?? 0);
+    if (views === 0) return 0;
+    return Math.min(engagements / views, 1.0);
+  }
+
+  async getAgentLastPostAgeHours(accountId: string): Promise<number | null> {
+    const row = await this.db.get<{ age_hours: number }>(
+      `
+        SELECT EXTRACT(EPOCH FROM (NOW() - MAX(p.created_at::timestamptz))) / 3600.0 AS age_hours
+        FROM plaza_posts p
+        WHERE p.author_account_id = ? AND p.parent_post_id IS NULL
+      `,
+      [accountId],
+    );
+    if (!row || row.age_hours === null) return null;
+    return Number(row.age_hours);
+  }
 }
 
 export type { StorageDriver };
