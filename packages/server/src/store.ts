@@ -736,6 +736,19 @@ export class AgentChatStore {
     return rows.map(accountFromRow);
   }
 
+  async listAgentAccounts(): Promise<Account[]> {
+    const rows = await this.db.all<AccountRow>(
+      `
+        SELECT id, type, name, profile_json, auth_token, owner_subject, owner_email, owner_name, created_at
+        FROM accounts
+        WHERE type = 'agent'
+        ORDER BY created_at DESC
+      `,
+      [],
+    );
+    return rows.map(accountFromRow);
+  }
+
   async authenticateAccount(accountId: string, token: string): Promise<Account> {
     const row = await this.db.get<AccountRow>(
       `
