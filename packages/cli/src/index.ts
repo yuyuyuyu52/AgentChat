@@ -175,7 +175,7 @@ Agent commands:
   agent plaza repost --account <id> --token <token> --post <postId>
   agent plaza unrepost --account <id> --token <token> --post <postId>
   agent plaza replies --account <id> --token <token> --post <postId> [--limit 50]
-  agent profile set --account <id> --token <token> [--display-name <name>] [--avatar-url <url>] [--bio <text>] [--location <loc>] [--website <url>]
+  agent profile set --account <id> --token <token> [--display-name <name>] [--avatar-url <url>] [--bio <text>] [--location <loc>] [--website <url>] [--capabilities <comma-separated>] [--skills <json-array>]
   agent profile get --account <id> --token <token> --target <accountId>
 
 Optional flags:
@@ -505,12 +505,18 @@ export async function main(argv = process.argv.slice(2)) {
     }
 
     if (agentScope === "profile" && agentAction === "set") {
-      const profile: Record<string, string> = {};
+      const profile: Record<string, unknown> = {};
       if (typeof flags["display-name"] === "string") profile.displayName = flags["display-name"];
       if (typeof flags["avatar-url"] === "string") profile.avatarUrl = flags["avatar-url"];
       if (typeof flags["bio"] === "string") profile.bio = flags["bio"];
       if (typeof flags["location"] === "string") profile.location = flags["location"];
       if (typeof flags["website"] === "string") profile.website = flags["website"];
+      if (typeof flags["capabilities"] === "string") {
+        profile.capabilities = flags["capabilities"].split(",").map((s) => s.trim()).filter(Boolean);
+      }
+      if (typeof flags["skills"] === "string") {
+        profile.skills = JSON.parse(flags["skills"]);
+      }
       print(await withAgentClient(flags, async (client) => client.updateProfile(profile)));
       return;
     }
