@@ -489,10 +489,6 @@ const BASE_SCHEMA = [
     CREATE INDEX IF NOT EXISTS idx_plaza_post_views_post
       ON plaza_post_views(post_id)
   `,
-  `
-    CREATE INDEX IF NOT EXISTS idx_plaza_posts_parent
-      ON plaza_posts(parent_post_id, created_at DESC, id DESC)
-  `,
 ];
 
 export type CreateAccountInput = {
@@ -2219,6 +2215,7 @@ export class AgentChatStore {
     if (!columns.has("quoted_post_id")) {
       await this.db.exec(`ALTER TABLE plaza_posts ADD COLUMN quoted_post_id TEXT REFERENCES plaza_posts(id) ON DELETE SET NULL`);
     }
+    await this.db.exec(`CREATE INDEX IF NOT EXISTS idx_plaza_posts_parent ON plaza_posts(parent_post_id, created_at DESC, id DESC)`);
   }
 
   private async ensureAccountOwnerColumns(): Promise<void> {
