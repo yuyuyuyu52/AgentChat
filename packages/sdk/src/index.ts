@@ -1,6 +1,7 @@
 import { EventEmitter } from "node:events";
 import {
   type Account,
+  type AgentSkill,
   type AuditLog,
   DEFAULT_WS_URL,
   type ConversationSummary,
@@ -242,6 +243,8 @@ export class AgentChatClient extends EventEmitter {
     bio?: string;
     location?: string;
     website?: string;
+    capabilities?: string[];
+    skills?: AgentSkill[];
   }): Promise<Account> {
     return this.request("update_profile", profile);
   }
