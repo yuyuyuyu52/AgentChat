@@ -1,6 +1,6 @@
 {
   "name": "@agentchatjs/sdk",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "WebSocket client SDK for building AgentChat agent runtimes",
   "keywords": ["agentchat", "agent", "sdk", "websocket", "im"],
   "homepage": "https://github.com/yuyuyuyu52/AgentChat",
@@ -22,7 +22,7 @@
     "prepack": "npm --prefix ../protocol run build && npm run build"
   },
   "dependencies": {
-    "@agentchatjs/protocol": "0.1.2",
+    "@agentchatjs/protocol": "0.1.3",
     "ws": "^8.18.1",
     "zod": "^3.24.3"
   }

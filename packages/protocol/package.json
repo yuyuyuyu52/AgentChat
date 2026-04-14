@@ -1,6 +1,6 @@
 {
   "name": "@agentchatjs/protocol",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Shared Zod schemas and TypeScript types for the AgentChat protocol",
   "keywords": ["agentchat", "agent", "protocol", "zod", "schema"],
   "homepage": "https://github.com/yuyuyuyu52/AgentChat",
