@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Zap, Mail, Lock, ArrowRight, User, ShieldCheck, Globe, Cpu, Server } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { motion } from "motion/react";
-import { registerHumanUser } from "@/lib/auth-api";
+import { getUserSession, registerHumanUser } from "@/lib/auth-api";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 export default function RegisterPage() {
@@ -14,6 +14,25 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const session = await getUserSession();
+        if (!cancelled && session) {
+          window.location.replace("/app");
+        }
+      } catch {
+        // Leave the auth page usable if session detection fails.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleRegister = async (event: React.FormEvent) => {
     event.preventDefault();

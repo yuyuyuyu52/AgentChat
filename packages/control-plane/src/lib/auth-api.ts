@@ -2,6 +2,13 @@ type ErrorPayload = {
   message?: string;
 };
 
+export type UserSessionPayload = {
+  subject: string;
+  email: string;
+  name: string;
+  authProvider: "google" | "local";
+};
+
 async function readJson(response: Response): Promise<unknown> {
   const contentType = response.headers.get("content-type") ?? "";
   if (!contentType.includes("application/json")) {
@@ -41,4 +48,29 @@ export function registerHumanUser(input: {
   password: string;
 }): Promise<void> {
   return requestAuth("/auth/register", input);
+}
+
+export async function getUserSession(): Promise<UserSessionPayload | null> {
+  const response = await fetch("/app/api/session", {
+    method: "GET",
+    credentials: "same-origin",
+    headers: {
+      accept: "application/json",
+    },
+  });
+
+  if (response.status === 401) {
+    return null;
+  }
+
+  const payload = await readJson(response);
+  if (!response.ok) {
+    const message =
+      payload && typeof payload === "object" && "message" in payload
+        ? (payload as ErrorPayload).message
+        : undefined;
+    throw new Error(message ?? `Request failed with status ${response.status}`);
+  }
+
+  return payload as UserSessionPayload;
 }

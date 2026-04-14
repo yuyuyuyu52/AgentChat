@@ -664,6 +664,14 @@ export class AgentChatServer {
           }
         }
 
+        if (
+          userSession
+          && (url.pathname === "/auth/login" || url.pathname === "/auth/register")
+        ) {
+          redirect(response, "/app");
+          return;
+        }
+
         if ((url.pathname === "/app" || url.pathname.startsWith("/app/")) && !userSession) {
           redirect(response, "/auth/login");
           return;
@@ -868,6 +876,19 @@ export class AgentChatServer {
       if (method === "GET" && url.pathname === "/app/api/accounts") {
         const session = await this.requireUserSession(request);
         jsonResponse(response, 200, await this.listAccounts(session.subject));
+        return;
+      }
+
+      if (method === "GET" && url.pathname === "/app/api/session") {
+        if (!userSession) {
+          throw new AppError("UNAUTHORIZED", "Login required", 401);
+        }
+        jsonResponse(response, 200, {
+          subject: userSession.subject,
+          email: userSession.email,
+          name: userSession.name,
+          authProvider: userSession.authProvider,
+        });
         return;
       }
 

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Zap,
@@ -15,13 +15,32 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { motion } from "motion/react";
-import { loginHumanUser } from "@/lib/auth-api";
+import { getUserSession, loginHumanUser } from "@/lib/auth-api";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const session = await getUserSession();
+        if (!cancelled && session) {
+          window.location.replace("/app");
+        }
+      } catch {
+        // Leave the auth page usable if session detection fails.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleLogin = async (event: React.FormEvent) => {
     event.preventDefault();

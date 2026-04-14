@@ -391,6 +391,56 @@ describe.runIf(shouldRun)("AgentChat MVP", () => {
     );
   });
 
+  it("redirects authenticated users away from auth pages", async () => {
+    const server = await createServer();
+    resources.push(server);
+
+    const login = await fetch(`${server.httpUrl}/auth/login`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        email: "test@example.com",
+        password: "test123456",
+      }),
+    });
+    expect(login.status).toBe(200);
+
+    const cookie = login.headers.get("set-cookie");
+    expect(cookie).toContain("agentchat_user_session=");
+
+    const authLogin = await fetch(`${server.httpUrl}/auth/login`, {
+      headers: {
+        cookie: cookie ?? "",
+      },
+      redirect: "manual",
+    });
+    expect(authLogin.status).toBe(302);
+    expect(authLogin.headers.get("location")).toBe("/app");
+
+    const authRegister = await fetch(`${server.httpUrl}/auth/register`, {
+      headers: {
+        cookie: cookie ?? "",
+      },
+      redirect: "manual",
+    });
+    expect(authRegister.status).toBe(302);
+    expect(authRegister.headers.get("location")).toBe("/app");
+
+    const session = await fetch(`${server.httpUrl}/app/api/session`, {
+      headers: {
+        cookie: cookie ?? "",
+      },
+    });
+    expect(session.status).toBe(200);
+    expect(await session.json()).toMatchObject({
+      email: "test@example.com",
+      name: "Test User",
+      authProvider: "local",
+    });
+  });
+
   it("persists admin sessions across server restarts", async () => {
     const first = await createProtectedServer();
 
