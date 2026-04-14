@@ -31,10 +31,10 @@ export default function AppLayout({ children }: AppLayoutProps) {
   ];
 
   return (
-    <div className="flex h-screen bg-background text-foreground font-sans selection:bg-blue-500/30">
-      <aside className="flex w-64 flex-col border-r border-border/70 bg-card">
+    <div className="flex h-screen bg-transparent text-foreground font-sans selection:bg-blue-500/30">
+      <aside className="surface-sidebar flex w-64 flex-col">
         <div className="flex items-center gap-3 p-6">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 shadow-[0_0_15px_rgba(37,99,235,0.4)]">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600 shadow-[var(--glow-brand)]">
             <Zap className="h-5 w-5 fill-white text-white" />
           </div>
           <span className="text-lg font-bold tracking-tight text-foreground">AgentChat</span>
@@ -55,13 +55,13 @@ export default function AppLayout({ children }: AppLayoutProps) {
                   <Button
                     variant="ghost"
                     className={cn(
-                      "h-10 w-full justify-start gap-3 px-3 py-2 transition-all duration-200",
+                      "h-11 w-full justify-start gap-3 px-3 py-2 transition-all duration-200",
                       isActive
-                        ? "border border-blue-500/20 bg-blue-600/10 text-blue-400"
-                        : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+                        ? "surface-nav-active pl-5 text-blue-500"
+                        : "text-muted-foreground hover:bg-[hsl(var(--surface-2)/0.82)] hover:text-foreground",
                     )}
                   >
-                    <item.icon className={cn("h-4 w-4", isActive ? "text-blue-400" : "text-muted-foreground")} />
+                    <item.icon className={cn("h-4 w-4", isActive ? "text-blue-500" : "text-muted-foreground")} />
                     <span className="text-sm font-medium">{item.label}</span>
                     {isActive && <ChevronRight className="ml-auto h-3 w-3 opacity-50" />}
                   </Button>
@@ -71,9 +71,9 @@ export default function AppLayout({ children }: AppLayoutProps) {
           </div>
         </ScrollArea>
 
-        <div className="border-t border-border/70 p-4">
-          <div className="flex items-center gap-3 rounded-xl border border-border/70 bg-muted/50 px-2 py-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full border border-border bg-gradient-to-br from-slate-200 to-slate-400 text-xs font-bold text-slate-900 dark:from-slate-700 dark:to-slate-900 dark:text-slate-300">
+        <div className="p-4 pt-3">
+          <div className="surface-panel-subtle flex items-center gap-3 rounded-2xl border-transparent px-3 py-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-slate-200 to-slate-400 text-xs font-bold text-slate-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] dark:from-slate-600 dark:to-slate-900 dark:text-slate-200">
               U
             </div>
             <div className="min-w-0 flex-1">
@@ -90,19 +90,19 @@ export default function AppLayout({ children }: AppLayoutProps) {
       </aside>
 
       <main className="flex flex-1 flex-col overflow-hidden">
-        <header className="z-10 flex h-16 items-center justify-between border-b border-border/70 bg-background/80 px-8 backdrop-blur-md">
+        <header className="surface-header z-10 flex h-16 items-center justify-between px-8 backdrop-blur-xl">
           <div className="flex items-center gap-2">
             <span className="text-xs font-mono text-muted-foreground">PATH:</span>
             <span className="text-xs font-mono text-blue-400">{location.pathname}</span>
           </div>
           <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 rounded-full border border-green-500/20 bg-green-500/10 px-3 py-1">
+            <div className="surface-chip flex items-center gap-2 rounded-full border-transparent bg-[linear-gradient(180deg,rgba(34,197,94,0.16),rgba(34,197,94,0.08))] px-3 py-1 text-green-600 dark:text-green-400">
               <div className="h-1.5 w-1.5 rounded-full bg-green-500" />
-              <span className="text-[10px] font-bold uppercase tracking-tighter text-green-500">
+              <span className="text-[10px] font-bold uppercase tracking-tighter">
                 Workspace Online
               </span>
             </div>
-            <ThemeToggle className="border-border bg-background/80 text-muted-foreground hover:bg-muted hover:text-foreground" />
+            <ThemeToggle className="text-muted-foreground hover:text-foreground" />
           </div>
         </header>
 

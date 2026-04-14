@@ -97,7 +97,7 @@ export default function Dashboard() {
   return (
     <div className="p-8 space-y-8 max-w-7xl mx-auto">
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="bg-card border-border">
+        <Card className="surface-panel-subtle surface-hover-lift border-transparent">
           <CardHeader className="pb-2">
             <CardDescription className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">My Agents</CardDescription>
             <CardTitle className="text-3xl font-bold text-foreground">{accounts.length}</CardTitle>
@@ -108,7 +108,7 @@ export default function Dashboard() {
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-card border-border">
+        <Card className="surface-panel-subtle surface-hover-lift border-transparent">
           <CardHeader className="pb-2">
             <CardDescription className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Visible Conversations</CardDescription>
             <CardTitle className="text-3xl font-bold text-foreground">{conversations.length}</CardTitle>
@@ -119,7 +119,7 @@ export default function Dashboard() {
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-card border-border">
+        <Card className="surface-panel-subtle surface-hover-lift border-transparent">
           <CardHeader className="pb-2">
             <CardDescription className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Audit Events</CardDescription>
             <CardTitle className="text-3xl font-bold text-foreground">{auditLogs.length}</CardTitle>
@@ -130,7 +130,7 @@ export default function Dashboard() {
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-card border-border">
+        <Card className="surface-panel-subtle surface-hover-lift border-transparent">
           <CardHeader className="pb-2">
             <CardDescription className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Scope</CardDescription>
             <CardTitle className="text-3xl font-bold text-foreground">Owned</CardTitle>
@@ -152,17 +152,17 @@ export default function Dashboard() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             placeholder="Search agents..."
-            className="border-border bg-muted/40 pl-10 text-foreground placeholder:text-muted-foreground focus-visible:ring-blue-500"
+            className="pl-10 focus-visible:ring-blue-500"
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
           />
         </div>
       </div>
 
-      <Card className="bg-card border-border overflow-hidden">
+      <Card className="overflow-hidden border-transparent">
         <Table>
-          <TableHeader className="bg-muted/40">
-            <TableRow className="border-border hover:bg-transparent">
+          <TableHeader className="bg-[hsl(var(--surface-2)/0.52)]">
+            <TableRow className="hover:bg-transparent">
               <TableHead className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Agent</TableHead>
               <TableHead className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Type</TableHead>
               <TableHead className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Created</TableHead>
@@ -171,15 +171,15 @@ export default function Dashboard() {
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow className="border-border">
+              <TableRow>
                 <TableCell className="text-muted-foreground" colSpan={4}>Loading agents...</TableCell>
               </TableRow>
             ) : error ? (
-              <TableRow className="border-border">
+              <TableRow>
                 <TableCell className="text-red-400" colSpan={4}>{error}</TableCell>
               </TableRow>
             ) : filteredAccounts.map((account) => (
-              <TableRow key={account.id} className="border-border hover:bg-muted/30 transition-colors">
+              <TableRow key={account.id}>
                 <TableCell>
                   <div>
                     <p className="text-sm font-bold text-foreground">{account.name}</p>
@@ -187,7 +187,7 @@ export default function Dashboard() {
                   </div>
                 </TableCell>
                 <TableCell>
-                  <Badge variant="outline" className="bg-muted/40 border-border text-foreground/80 text-[10px] uppercase tracking-tighter">
+                  <Badge variant="outline" className="text-[10px] uppercase tracking-tighter">
                     {account.type}
                   </Badge>
                 </TableCell>
@@ -204,7 +204,7 @@ export default function Dashboard() {
       </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <Card className="bg-card border-border">
+        <Card className="border-transparent">
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
               <CardTitle className="text-lg font-bold text-foreground">Recent Conversations</CardTitle>
@@ -219,8 +219,8 @@ export default function Dashboard() {
               const routeAccountId = conversation.ownedAgents[0]?.id ?? "";
               return (
                 <Link key={conversation.id} to={`/app/agents/${routeAccountId}/conversations/${conversation.id}`}>
-                  <div className="flex items-center gap-4 p-3 rounded-xl border border-border hover:bg-muted/30 transition-colors">
-                    <div className="w-10 h-10 rounded-full bg-blue-500/10 flex items-center justify-center border border-blue-500/20">
+                  <div className="surface-panel-subtle surface-hover-lift flex items-center gap-4 rounded-2xl border-transparent p-3">
+                    <div className="surface-chip flex h-10 w-10 items-center justify-center rounded-full border-transparent bg-[linear-gradient(180deg,rgba(37,99,235,0.16),rgba(37,99,235,0.08))]">
                       <MessageSquare className="w-5 h-5 text-blue-500" />
                     </div>
                     <div className="flex-1 min-w-0">
@@ -241,7 +241,7 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card className="bg-card border-border">
+        <Card className="border-transparent">
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
               <CardTitle className="text-lg font-bold text-foreground">Audit Trail</CardTitle>
@@ -253,7 +253,7 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent className="space-y-4">
             {auditLogs.slice(0, 5).map((log) => (
-              <div key={log.id} className="flex items-start gap-4 p-3 rounded-xl border border-border">
+              <div key={log.id} className="surface-panel-subtle flex items-start gap-4 rounded-2xl border-transparent p-3">
                 <div className="mt-1 w-2 h-2 rounded-full bg-green-500" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-1">

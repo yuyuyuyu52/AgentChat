@@ -28,28 +28,54 @@
     --input: 214 32% 88%;
     --ring: 217 91% 60%;
     --radius: 0.75rem;
+    --surface-1: 0 0% 100%;
+    --surface-2: 210 36% 96%;
+    --surface-3: 210 55% 99%;
+    --line-soft: 214 28% 90%;
+    --line-strong: 214 24% 82%;
+    --shadow-soft: 0 18px 40px rgba(15, 23, 42, 0.08);
+    --shadow-float: 0 26px 54px rgba(15, 23, 42, 0.12);
+    --glow-brand: 0 18px 42px rgba(37, 99, 235, 0.16);
+    --panel-tint: linear-gradient(
+      180deg,
+      hsl(var(--surface-3) / 0.94) 0%,
+      hsl(var(--surface-1) / 0.98) 100%
+    );
   }
 
   .dark {
-    --background: 240 10% 3.9%;
+    --background: 222 30% 8%;
     --foreground: 0 0% 98%;
-    --card: 240 10% 3.9%;
+    --card: 223 24% 11%;
     --card-foreground: 0 0% 98%;
-    --popover: 240 10% 3.9%;
+    --popover: 223 24% 11%;
     --popover-foreground: 0 0% 98%;
     --primary: 217 91% 60%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 240 3.7% 15.9%;
+    --secondary: 223 17% 18%;
     --secondary-foreground: 0 0% 98%;
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
-    --accent: 240 3.7% 15.9%;
+    --muted: 223 18% 16%;
+    --muted-foreground: 220 9% 66%;
+    --accent: 223 18% 16%;
     --accent-foreground: 0 0% 98%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
+    --border: 223 18% 18%;
+    --input: 223 18% 18%;
     --ring: 240 4.9% 83.9%;
+    --surface-1: 223 24% 11%;
+    --surface-2: 223 21% 14%;
+    --surface-3: 223 19% 18%;
+    --line-soft: 223 16% 23%;
+    --line-strong: 223 14% 31%;
+    --shadow-soft: 0 22px 48px rgba(0, 0, 0, 0.28);
+    --shadow-float: 0 34px 72px rgba(0, 0, 0, 0.4);
+    --glow-brand: 0 20px 48px rgba(59, 130, 246, 0.18);
+    --panel-tint: linear-gradient(
+      180deg,
+      hsl(var(--surface-3) / 0.82) 0%,
+      hsl(var(--surface-1) / 0.94) 100%
+    );
   }
 }
 
@@ -101,17 +127,174 @@
     --color-border: var(--border);
     --color-input: var(--input);
     --color-ring: var(--ring);
+    --color-surface-1: var(--surface-1);
+    --color-surface-2: var(--surface-2);
+    --color-surface-3: var(--surface-3);
+    --color-line-soft: var(--line-soft);
+    --color-line-strong: var(--line-strong);
 }
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    @apply outline-ring/50;
   }
   body {
     @apply bg-background text-foreground antialiased;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    background-image:
+      radial-gradient(circle at top, hsl(var(--primary) / 0.08), transparent 28%),
+      linear-gradient(180deg, hsl(var(--background)) 0%, hsl(var(--surface-2) / 0.45) 100%);
+    background-attachment: fixed;
   }
   html {
     @apply font-sans;
+  }
+}
+
+@layer components {
+  .surface-panel {
+    background: var(--panel-tint);
+    border: 1px solid hsl(var(--line-soft) / 0.86);
+    box-shadow: var(--shadow-soft), inset 0 1px 0 hsl(0 0% 100% / 0.45);
+    backdrop-filter: blur(18px);
+  }
+
+  .surface-panel-subtle {
+    background: linear-gradient(
+      180deg,
+      hsl(var(--surface-2) / 0.82) 0%,
+      hsl(var(--surface-1) / 0.92) 100%
+    );
+    border: 1px solid hsl(var(--line-soft) / 0.74);
+    box-shadow: inset 0 1px 0 hsl(0 0% 100% / 0.34);
+    backdrop-filter: blur(14px);
+  }
+
+  .surface-float {
+    background: linear-gradient(
+      180deg,
+      hsl(var(--surface-3) / 0.86) 0%,
+      hsl(var(--surface-2) / 0.92) 100%
+    );
+    border: 1px solid hsl(var(--line-soft) / 0.82);
+    box-shadow: var(--shadow-float), inset 0 1px 0 hsl(0 0% 100% / 0.4);
+    backdrop-filter: blur(22px);
+  }
+
+  .surface-sidebar {
+    background: linear-gradient(
+      180deg,
+      hsl(var(--surface-1) / 0.98) 0%,
+      hsl(var(--surface-2) / 0.95) 100%
+    );
+    box-shadow: inset -1px 0 0 hsl(var(--line-soft) / 0.9);
+  }
+
+  .surface-header {
+    background: linear-gradient(
+      180deg,
+      hsl(var(--surface-3) / 0.8) 0%,
+      hsl(var(--surface-2) / 0.72) 100%
+    );
+    box-shadow: inset 0 -1px 0 hsl(var(--line-soft) / 0.9);
+  }
+
+  .surface-input {
+    background: linear-gradient(
+      180deg,
+      hsl(var(--surface-2) / 0.84) 0%,
+      hsl(var(--surface-1) / 0.96) 100%
+    );
+    border: 1px solid hsl(var(--line-soft) / 0.92);
+    box-shadow: inset 0 1px 0 hsl(0 0% 100% / 0.42);
+  }
+
+  .surface-chip {
+    background: linear-gradient(
+      180deg,
+      hsl(var(--surface-2) / 0.84) 0%,
+      hsl(var(--surface-1) / 0.92) 100%
+    );
+    border: 1px solid hsl(var(--line-soft) / 0.88);
+    box-shadow: inset 0 1px 0 hsl(0 0% 100% / 0.34);
+  }
+
+  .surface-button-outline {
+    background: linear-gradient(
+      180deg,
+      hsl(var(--surface-2) / 0.84) 0%,
+      hsl(var(--surface-1) / 0.94) 100%
+    );
+    border: 1px solid hsl(var(--line-soft) / 0.88);
+    box-shadow: var(--shadow-soft), inset 0 1px 0 hsl(0 0% 100% / 0.4);
+  }
+
+  .surface-button-ghost {
+    background: transparent;
+    border: 1px solid transparent;
+  }
+
+  .surface-nav-active {
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(
+      135deg,
+      hsl(var(--primary) / 0.18) 0%,
+      hsl(var(--primary) / 0.08) 100%
+    );
+    border: 1px solid hsl(var(--primary) / 0.18);
+    box-shadow: inset 0 1px 0 hsl(0 0% 100% / 0.18), var(--glow-brand);
+  }
+
+  .surface-nav-active::before {
+    content: "";
+    position: absolute;
+    left: 0.45rem;
+    top: 20%;
+    bottom: 20%;
+    width: 3px;
+    border-radius: 999px;
+    background: hsl(var(--primary));
+    opacity: 0.8;
+  }
+
+  .surface-hover-lift {
+    transition:
+      transform 180ms ease,
+      box-shadow 180ms ease,
+      background-color 180ms ease,
+      border-color 180ms ease;
+  }
+
+  .surface-hover-lift:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-float), inset 0 1px 0 hsl(0 0% 100% / 0.34);
+  }
+
+  .surface-section {
+    position: relative;
+  }
+
+  .surface-section::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto auto 50%;
+    height: 220px;
+    width: min(72vw, 900px);
+    transform: translateX(-50%);
+    border-radius: 999px;
+    background: radial-gradient(circle, hsl(var(--primary) / 0.08), transparent 68%);
+    pointer-events: none;
+    filter: blur(26px);
+    opacity: 0.7;
+  }
+
+  .surface-grid-fade {
+    background-image:
+      linear-gradient(180deg, hsl(var(--line-soft) / 0.12) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(var(--line-soft) / 0.12) 1px, transparent 1px);
+    background-position: center;
+    background-size: 28px 28px;
+    mask-image: radial-gradient(circle at center, black 45%, transparent 85%);
   }
 }

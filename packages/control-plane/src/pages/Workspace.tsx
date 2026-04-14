@@ -124,7 +124,7 @@ export default function Workspace() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               placeholder="Search agents..."
-              className="border-border bg-muted/40 pl-10 text-foreground placeholder:text-muted-foreground focus-visible:ring-blue-500"
+              className="pl-10 focus-visible:ring-blue-500"
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
             />
@@ -136,7 +136,7 @@ export default function Workspace() {
                 Create Agent
               </Button>
             </DialogTrigger>
-            <DialogContent className="border-border bg-card text-foreground">
+            <DialogContent className="surface-float border-transparent text-foreground">
               <DialogHeader>
                 <DialogTitle>Create New Agent</DialogTitle>
                 <DialogDescription className="text-muted-foreground">
@@ -149,12 +149,11 @@ export default function Workspace() {
                   <Input
                     id="name"
                     placeholder="e.g. Sales Assistant"
-                    className="bg-muted/40 border-border"
                     value={newAgentName}
                     onChange={(event) => setNewAgentName(event.target.value)}
                   />
                 </div>
-                <div className="p-4 bg-blue-500/5 border border-blue-500/20 rounded-lg">
+                <div className="surface-panel-subtle rounded-2xl border-transparent bg-[linear-gradient(180deg,rgba(37,99,235,0.12),rgba(37,99,235,0.05))] p-4">
                   <p className="text-xs text-blue-400 leading-relaxed">
                     <ShieldAlert className="w-3 h-3 inline mr-1" />
                     Save the token before you navigate away. The API will not return it again unless you reset it.
@@ -176,10 +175,10 @@ export default function Workspace() {
         </div>
       </div>
 
-      <Card className="bg-card border-border overflow-hidden">
+      <Card className="overflow-hidden border-transparent">
         <Table>
-          <TableHeader className="bg-muted/40">
-            <TableRow className="border-border hover:bg-transparent">
+          <TableHeader className="bg-[hsl(var(--surface-2)/0.52)]">
+            <TableRow className="hover:bg-transparent">
               <TableHead className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Agent</TableHead>
               <TableHead className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Type</TableHead>
               <TableHead className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Latest Token</TableHead>
@@ -189,18 +188,18 @@ export default function Workspace() {
           </TableHeader>
           <TableBody>
             {loading ? (
-              <TableRow className="border-border">
+              <TableRow>
                 <TableCell className="text-muted-foreground" colSpan={5}>Loading agents...</TableCell>
               </TableRow>
             ) : error ? (
-              <TableRow className="border-border">
+              <TableRow>
                 <TableCell className="text-red-400" colSpan={5}>{error}</TableCell>
               </TableRow>
             ) : filteredAccounts.map((account) => (
-              <TableRow key={account.id} className="border-border hover:bg-muted/30 transition-colors group">
+              <TableRow key={account.id} className="group">
                 <TableCell>
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg flex items-center justify-center border bg-blue-500/10 border-blue-500/20">
+                    <div className="surface-chip flex h-10 w-10 items-center justify-center rounded-2xl border-transparent bg-[linear-gradient(180deg,rgba(37,99,235,0.16),rgba(37,99,235,0.08))]">
                       <Bot className="w-5 h-5 text-blue-500" />
                     </div>
                     <div>
@@ -210,13 +209,13 @@ export default function Workspace() {
                   </div>
                 </TableCell>
                 <TableCell>
-                  <Badge variant="outline" className="rounded-full px-2 py-0 text-[10px] font-bold uppercase tracking-tighter bg-green-500/10 text-green-500 border-green-500/20">
+                  <Badge variant="outline" className="rounded-full px-2 py-0 text-[10px] font-bold uppercase tracking-tighter bg-[linear-gradient(180deg,rgba(34,197,94,0.16),rgba(34,197,94,0.08))] text-green-600 dark:text-green-400">
                     {account.type}
                   </Badge>
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-2">
-                    <code className="text-xs font-mono text-muted-foreground bg-muted/40 px-2 py-1 rounded border border-border">
+                    <code className="surface-chip rounded-xl border-transparent px-2 py-1 text-xs font-mono text-muted-foreground">
                       {maskToken(latestTokens[account.id])}
                     </code>
                     {latestTokens[account.id] && (
@@ -240,7 +239,7 @@ export default function Workspace() {
                     <Button
                       size="sm"
                       variant="outline"
-                      className="border-border bg-muted/40 text-foreground/80 hover:bg-accent"
+                      className="text-foreground/80"
                       onClick={() => void handleResetToken(account.id)}
                     >
                       <KeyRound className="w-3 h-3 mr-1" />

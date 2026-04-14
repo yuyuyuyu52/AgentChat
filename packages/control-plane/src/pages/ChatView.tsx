@@ -105,8 +105,8 @@ export default function ChatView() {
   }
 
   return (
-    <div className="flex flex-col h-full bg-background">
-      <header className="h-16 border-b border-border flex items-center justify-between px-6 bg-card/50 backdrop-blur-md">
+    <div className="flex flex-col h-full bg-transparent">
+      <header className="surface-header flex h-16 items-center justify-between px-6 backdrop-blur-xl">
         <div className="flex items-center gap-4">
           <Link to={`/app/agents/${agentId}/conversations`}>
             <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
@@ -114,7 +114,7 @@ export default function ChatView() {
             </Button>
           </Link>
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
+            <div className="surface-chip flex h-8 w-8 items-center justify-center rounded-full border-transparent bg-[linear-gradient(180deg,rgba(37,99,235,0.16),rgba(37,99,235,0.08))]">
               <Bot className="w-5 h-5 text-blue-500" />
             </div>
             <div>
@@ -130,7 +130,7 @@ export default function ChatView() {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <Badge variant="outline" className="bg-blue-500/10 text-blue-400 border-blue-500/20 text-[10px] uppercase font-bold tracking-tighter">
+          <Badge variant="outline" className="bg-[linear-gradient(180deg,rgba(37,99,235,0.16),rgba(37,99,235,0.08))] text-[10px] uppercase font-bold tracking-tighter text-blue-500">
             {conversation.kind}
           </Badge>
           <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground">
@@ -142,7 +142,7 @@ export default function ChatView() {
       <ScrollArea className="flex-1 p-6" viewportRef={scrollRef}>
         <div className="max-w-3xl mx-auto space-y-6">
           <div className="flex justify-center">
-            <div className="px-3 py-1 bg-muted/40 border border-border rounded-full text-[10px] text-muted-foreground uppercase tracking-widest font-bold">
+            <div className="surface-chip rounded-full border-transparent px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
               Conversation started on {new Date(conversation.createdAt).toLocaleDateString()}
             </div>
           </div>
@@ -155,8 +155,10 @@ export default function ChatView() {
                 className={cn("flex gap-4 group", isSelectedAgent ? "flex-row-reverse" : "flex-row")}
               >
                 <div className={cn(
-                  "w-8 h-8 rounded-lg shrink-0 flex items-center justify-center border",
-                  isSelectedAgent ? "bg-blue-500/10 border-blue-500/20" : "bg-slate-700/10 border-slate-700/20",
+                  "surface-chip flex h-8 w-8 shrink-0 items-center justify-center rounded-2xl border-transparent",
+                  isSelectedAgent
+                    ? "bg-[linear-gradient(180deg,rgba(37,99,235,0.16),rgba(37,99,235,0.08))]"
+                    : "bg-[linear-gradient(180deg,rgba(148,163,184,0.12),rgba(148,163,184,0.04))]",
                 )}>
                   {isSelectedAgent
                     ? <Bot className="w-4 h-4 text-blue-500" />
@@ -175,8 +177,8 @@ export default function ChatView() {
                   <div className={cn(
                     "px-4 py-2 rounded-2xl text-sm leading-relaxed",
                     isSelectedAgent
-                      ? "bg-blue-600 text-white rounded-tr-none"
-                      : "border border-border bg-muted/40 text-foreground rounded-tl-none",
+                      ? "rounded-tr-none bg-[linear-gradient(135deg,#2563eb,#1d4ed8)] text-white shadow-[var(--glow-brand)]"
+                      : "surface-panel-subtle rounded-tl-none border-transparent text-foreground",
                   )}>
                     {message.body}
                   </div>
@@ -187,9 +189,9 @@ export default function ChatView() {
         </div>
       </ScrollArea>
 
-      <footer className="p-6 border-t border-border bg-card/50">
+      <footer className="surface-header p-6">
         <div className="max-w-3xl mx-auto">
-          <div className="mb-4 flex items-center gap-2 px-3 py-2 bg-yellow-500/5 border border-yellow-500/10 rounded-lg">
+          <div className="mb-4 flex items-center gap-2 rounded-2xl border border-yellow-500/10 bg-[linear-gradient(180deg,rgba(234,179,8,0.12),rgba(234,179,8,0.05))] px-3 py-2">
             <Eye className="w-3 h-3 text-yellow-500" />
             <p className="text-[10px] text-yellow-500/80 font-medium">
               User workspace message view is read-only. Sending messages still goes through agents or admin tools.

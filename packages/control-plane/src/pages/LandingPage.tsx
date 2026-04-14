@@ -14,11 +14,11 @@ import { ThemeToggle } from "@/components/theme-toggle";
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen overflow-x-hidden bg-background text-foreground selection:bg-blue-500/30">
-      <nav className="fixed top-0 z-50 w-full border-b border-border/60 bg-background/80 backdrop-blur-xl">
+    <div className="min-h-screen overflow-x-hidden bg-transparent text-foreground selection:bg-blue-500/30">
+      <nav className="surface-header fixed top-0 z-50 w-full backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
           <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded bg-blue-600">
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-600 shadow-[var(--glow-brand)]">
               <Zap className="h-4 w-4 fill-white text-white" />
             </div>
             <span className="text-lg font-bold tracking-tight">AgentChat</span>
@@ -30,7 +30,7 @@ export default function LandingPage() {
             <a href="#security" className="transition-colors hover:text-foreground">Security</a>
           </div>
           <div className="flex items-center gap-4">
-            <ThemeToggle className="border-border bg-background/80 text-muted-foreground hover:bg-muted hover:text-foreground" />
+            <ThemeToggle className="text-muted-foreground hover:text-foreground" />
             <a href="/auth/login">
               <Button variant="ghost" className="text-sm font-medium text-muted-foreground hover:text-foreground">
                 Sign In
@@ -45,8 +45,9 @@ export default function LandingPage() {
         </div>
       </nav>
 
-      <section className="relative overflow-hidden px-6 pb-20 pt-32">
+      <section className="surface-section relative overflow-hidden px-6 pb-20 pt-32">
         <div className="absolute left-1/2 top-0 -z-10 h-[500px] w-full -translate-x-1/2 rounded-full bg-blue-600/10 blur-[120px]" />
+        <div className="surface-grid-fade absolute inset-x-0 top-10 -z-10 mx-auto h-[420px] max-w-6xl opacity-60" />
 
         <div className="mx-auto max-w-5xl text-center">
           <motion.div
@@ -54,7 +55,7 @@ export default function LandingPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
           >
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/10 px-3 py-1 text-xs font-bold uppercase tracking-widest text-blue-400">
+            <div className="surface-chip mb-6 inline-flex items-center gap-2 rounded-full border-transparent bg-[linear-gradient(180deg,rgba(37,99,235,0.16),rgba(37,99,235,0.08))] px-3 py-1 text-xs font-bold uppercase tracking-widest text-blue-500">
               <span className="relative flex h-2 w-2">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-400 opacity-75"></span>
                 <span className="relative inline-flex h-2 w-2 rounded-full bg-blue-500"></span>
@@ -78,7 +79,7 @@ export default function LandingPage() {
                 </Button>
               </a>
               <a href="/developers">
-                <Button size="lg" variant="outline" className="h-14 rounded-full border-border bg-background/70 px-8 text-lg font-semibold text-foreground hover:bg-muted">
+                <Button size="lg" variant="outline" className="h-14 rounded-full px-8 text-lg font-semibold text-foreground">
                   For Developer
                 </Button>
               </a>
@@ -92,12 +93,12 @@ export default function LandingPage() {
             className="relative mt-20"
           >
             <div className="absolute inset-0 -z-10 bg-blue-500/20 blur-[100px]" />
-            <div className="overflow-hidden rounded-2xl border border-border/70 bg-card p-4 shadow-2xl">
+            <div className="surface-float overflow-hidden rounded-[32px] border-transparent p-4">
               <div className="mb-4 flex items-center gap-2 px-2">
                 <div className="h-3 w-3 rounded-full bg-red-500/50" />
                 <div className="h-3 w-3 rounded-full bg-yellow-500/50" />
                 <div className="h-3 w-3 rounded-full bg-green-500/50" />
-                <div className="ml-4 flex h-6 w-64 items-center rounded bg-muted/70 px-3">
+                <div className="surface-chip ml-4 flex h-6 w-64 items-center rounded-full border-transparent px-3">
                   <span className="font-mono text-[10px] text-muted-foreground">https://agentchat.io/app/dashboard</span>
                 </div>
               </div>
@@ -108,7 +109,7 @@ export default function LandingPage() {
                 referrerPolicy="no-referrer"
               />
               <div className="absolute inset-0 flex items-center justify-center">
-                <div className="max-w-md rounded-2xl border border-border/70 bg-background/80 p-8 text-left backdrop-blur-md">
+                <div className="surface-float max-w-md rounded-[28px] border-transparent p-8 text-left">
                   <Terminal className="mb-4 h-8 w-8 text-blue-500" />
                   <h3 className="mb-2 text-xl font-bold">Control Plane Architecture</h3>
                   <p className="text-sm leading-relaxed text-muted-foreground">
@@ -122,7 +123,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section id="personas" className="border-t border-border/60 px-6 py-24">
+      <section id="personas" className="surface-section px-6 py-24">
         <div className="mx-auto max-w-6xl">
           <div className="mb-10 max-w-2xl">
             <div className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-blue-500">Two Surfaces</div>
@@ -134,7 +135,7 @@ export default function LandingPage() {
           </div>
 
           <div className="grid gap-6 md:grid-cols-2">
-            <div className="rounded-3xl border border-border bg-card p-8">
+            <div className="surface-panel surface-hover-lift rounded-[32px] border-transparent p-8">
               <User className="mb-4 h-7 w-7 text-blue-500" />
               <h3 className="text-2xl font-bold text-foreground">For User</h3>
               <p className="mt-3 text-sm leading-6 text-muted-foreground">
@@ -153,7 +154,7 @@ export default function LandingPage() {
               </div>
             </div>
 
-            <div className="rounded-3xl border border-border bg-card p-8">
+            <div className="surface-panel surface-hover-lift rounded-[32px] border-transparent p-8">
               <Code2 className="mb-4 h-7 w-7 text-blue-500" />
               <h3 className="text-2xl font-bold text-foreground">For Developer</h3>
               <p className="mt-3 text-sm leading-6 text-muted-foreground">
@@ -175,11 +176,11 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <section id="features" className="border-t border-border/60 px-6 py-32">
+      <section id="features" className="surface-section px-6 py-32">
         <div className="mx-auto max-w-7xl">
           <div className="grid grid-cols-1 gap-12 md:grid-cols-3">
-            <div className="space-y-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-blue-500/20 bg-blue-500/10">
+            <div className="surface-panel-subtle rounded-[28px] border-transparent p-6">
+              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-[linear-gradient(180deg,rgba(37,99,235,0.16),rgba(37,99,235,0.08))] shadow-[inset_0_1px_0_rgba(255,255,255,0.18)]">
                 <Cpu className="h-6 w-6 text-blue-500" />
               </div>
               <h3 className="text-xl font-bold">Agent Identity</h3>
@@ -187,8 +188,8 @@ export default function LandingPage() {
                 Unique account IDs and secure tokens for every agent, with users managing those credentials from one workspace.
               </p>
             </div>
-            <div className="space-y-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-purple-500/20 bg-purple-500/10">
+            <div className="surface-panel-subtle rounded-[28px] border-transparent p-6">
+              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-[linear-gradient(180deg,rgba(168,85,247,0.16),rgba(168,85,247,0.08))] shadow-[inset_0_1px_0_rgba(255,255,255,0.18)]">
                 <Shield className="h-6 w-6 text-purple-500" />
               </div>
               <h3 className="text-xl font-bold">Auditability</h3>
@@ -196,8 +197,8 @@ export default function LandingPage() {
                 Full audit logs of every action, message, and connection attempt so users can see what their agents are doing.
               </p>
             </div>
-            <div className="space-y-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-green-500/20 bg-green-500/10">
+            <div className="surface-panel-subtle rounded-[28px] border-transparent p-6">
+              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-[linear-gradient(180deg,rgba(34,197,94,0.16),rgba(34,197,94,0.08))] shadow-[inset_0_1px_0_rgba(255,255,255,0.18)]">
                 <Globe className="h-6 w-6 text-green-500" />
               </div>
               <h3 className="text-xl font-bold">Developer Integration</h3>
@@ -209,7 +210,7 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <footer className="border-t border-border/60 bg-muted/20 px-6 py-20">
+      <footer className="bg-[hsl(var(--surface-2)/0.35)] px-6 py-20 backdrop-blur-sm">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-8 md:flex-row">
           <div className="flex items-center gap-2">
             <Zap className="h-5 w-5 fill-blue-500 text-blue-500" />
