@@ -225,6 +225,14 @@ function normalizeFriendshipPair(a: string, b: string): [string, string] {
   return a < b ? [a, b] : [b, a];
 }
 
+function parseVectorString(vectorStr: string): number[] {
+  return vectorStr
+    .replace(/^\[/, "")
+    .replace(/\]$/, "")
+    .split(",")
+    .map(Number);
+}
+
 function createId(prefix: string): string {
   return `${prefix}_${randomUUID()}`;
 }
@@ -1969,6 +1977,108 @@ export class AgentChatStore {
       ...options,
       parentPostId: postId,
     });
+  }
+
+  async upsertPostEmbedding(
+    postId: string,
+    embedding: number[],
+    model: string,
+  ): Promise<void> {
+    const vectorStr = `[${embedding.join(",")}]`;
+    await this.db.run(
+      `
+        INSERT INTO plaza_post_embeddings (post_id, embedding, model, created_at)
+        VALUES (?, ?::vector, ?, ?)
+        ON CONFLICT (post_id)
+        DO UPDATE SET embedding = EXCLUDED.embedding, model = EXCLUDED.model, created_at = EXCLUDED.created_at
+      `,
+      [postId, vectorStr, model, nowIso()],
+    );
+  }
+
+  async getPostEmbedding(
+    postId: string,
+  ): Promise<{ postId: string; embedding: number[]; model: string } | null> {
+    const row = await this.db.get<{
+      post_id: string;
+      embedding: string;
+      model: string;
+    }>(`SELECT post_id, embedding::text, model FROM plaza_post_embeddings WHERE post_id = ?`, [postId]);
+    if (!row) return null;
+    return {
+      postId: row.post_id,
+      embedding: parseVectorString(row.embedding),
+      model: row.model,
+    };
+  }
+
+  async upsertInterestVector(
+    accountId: string,
+    vector: number[],
+    interactionCount: number,
+  ): Promise<void> {
+    const vectorStr = `[${vector.join(",")}]`;
+    await this.db.run(
+      `
+        INSERT INTO account_interest_vectors (account_id, interest_vector, interaction_count, updated_at)
+        VALUES (?, ?::vector, ?, ?)
+        ON CONFLICT (account_id)
+        DO UPDATE SET interest_vector = EXCLUDED.interest_vector,
+                      interaction_count = EXCLUDED.interaction_count,
+                      updated_at = EXCLUDED.updated_at
+      `,
+      [accountId, vectorStr, interactionCount, nowIso()],
+    );
+  }
+
+  async getInterestVector(
+    accountId: string,
+  ): Promise<{ interestVector: number[]; interactionCount: number } | null> {
+    const row = await this.db.get<{
+      interest_vector: string;
+      interaction_count: number;
+    }>(
+      `SELECT interest_vector::text, interaction_count FROM account_interest_vectors WHERE account_id = ?`,
+      [accountId],
+    );
+    if (!row) return null;
+    return {
+      interestVector: parseVectorString(row.interest_vector),
+      interactionCount: Number(row.interaction_count),
+    };
+  }
+
+  async findSimilarPosts(
+    queryVector: number[],
+    options: { limit?: number; excludePostIds?: string[] } = {},
+  ): Promise<Array<{ postId: string; similarity: number }>> {
+    const limit = options.limit ?? 20;
+    const vectorStr = `[${queryVector.join(",")}]`;
+
+    let excludeClause = "";
+    const params: SqlValue[] = [vectorStr, vectorStr, limit];
+
+    if (options.excludePostIds && options.excludePostIds.length > 0) {
+      const placeholders = options.excludePostIds.map(() => "?").join(",");
+      excludeClause = `AND e.post_id NOT IN (${placeholders})`;
+      params.splice(2, 0, ...options.excludePostIds);
+    }
+
+    const rows = await this.db.all<{ post_id: string; similarity: number }>(
+      `
+        SELECT e.post_id, 1 - (e.embedding <=> ?::vector) AS similarity
+        FROM plaza_post_embeddings e
+        JOIN plaza_posts p ON p.id = e.post_id AND p.parent_post_id IS NULL
+        WHERE true ${excludeClause}
+        ORDER BY e.embedding <=> ?::vector
+        LIMIT ?
+      `,
+      params,
+    );
+    return rows.map((r) => ({
+      postId: r.post_id,
+      similarity: Number(r.similarity),
+    }));
   }
 
   private async requirePlazaPost(postId: string): Promise<void> {
