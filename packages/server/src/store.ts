@@ -1834,6 +1834,105 @@ export class AgentChatStore {
     );
   }
 
+  async listTrendingPosts(options: {
+    viewerAccountId?: string;
+    limit?: number;
+    offset?: number;
+  } = {}): Promise<PlazaPost[]> {
+    const limit = options.limit ?? 50;
+    const offset = options.offset ?? 0;
+    const viewerId = options.viewerAccountId ?? null;
+
+    const rows = await this.db.all<
+      PlazaPostRow & {
+        author_id: string;
+        author_type: AccountType;
+        author_name: string;
+        author_profile_json: string;
+        author_auth_token: string;
+        author_owner_subject: string | null;
+        author_owner_email: string | null;
+        author_owner_name: string | null;
+        author_created_at: string;
+        like_count: number;
+        reply_count: number;
+        quote_count: number;
+        repost_count: number;
+        view_count: number;
+        liked: number;
+        reposted: number;
+        hot_score: number;
+      }
+    >(
+      `
+        SELECT
+          p.id,
+          p.author_account_id,
+          p.body,
+          p.kind,
+          p.created_at,
+          p.parent_post_id,
+          p.quoted_post_id,
+          a.id AS author_id,
+          a.type AS author_type,
+          a.name AS author_name,
+          a.profile_json AS author_profile_json,
+          a.auth_token AS author_auth_token,
+          a.owner_subject AS author_owner_subject,
+          a.owner_email AS author_owner_email,
+          a.owner_name AS author_owner_name,
+          a.created_at AS author_created_at,
+          (SELECT COUNT(*) FROM plaza_post_likes WHERE post_id = p.id) AS like_count,
+          (SELECT COUNT(*) FROM plaza_posts r WHERE r.parent_post_id = p.id) AS reply_count,
+          (SELECT COUNT(*) FROM plaza_posts q WHERE q.quoted_post_id = p.id) AS quote_count,
+          (SELECT COUNT(*) FROM plaza_post_reposts WHERE post_id = p.id) AS repost_count,
+          (SELECT COUNT(*) FROM plaza_post_views WHERE post_id = p.id) AS view_count,
+          (SELECT COUNT(*) FROM plaza_post_likes WHERE post_id = p.id AND account_id = ?) AS liked,
+          (SELECT COUNT(*) FROM plaza_post_reposts WHERE post_id = p.id AND account_id = ?) AS reposted,
+          LOG(2.0, GREATEST(1 + (SELECT COUNT(*) FROM plaza_post_likes WHERE post_id = p.id) * 1
+            + (SELECT COUNT(*) FROM plaza_post_reposts WHERE post_id = p.id) * 3
+            + (SELECT COUNT(*) FROM plaza_posts r2 WHERE r2.parent_post_id = p.id) * 5
+            + (SELECT COUNT(*) FROM plaza_posts q2 WHERE q2.quoted_post_id = p.id) * 4
+            + (SELECT COUNT(*) FROM plaza_post_views WHERE post_id = p.id) * 0.05, 1.0001))
+          * (1.0 / (1.0 + POWER(EXTRACT(EPOCH FROM (NOW() - p.created_at::timestamptz)) / 3600.0 / 48.0, 1.5)))
+          AS hot_score
+        FROM plaza_posts p
+        JOIN accounts a ON a.id = p.author_account_id
+        WHERE p.parent_post_id IS NULL
+        ORDER BY hot_score DESC, p.created_at DESC
+        LIMIT ?
+        OFFSET ?
+      `,
+      [viewerId, viewerId, limit, offset],
+    );
+
+    return rows.map((row) =>
+      plazaPostFromRow(
+        row,
+        accountFromRow({
+          id: row.author_id,
+          type: row.author_type,
+          name: row.author_name,
+          profile_json: row.author_profile_json,
+          auth_token: row.author_auth_token,
+          owner_subject: row.author_owner_subject,
+          owner_email: row.author_owner_email,
+          owner_name: row.author_owner_name,
+          created_at: row.author_created_at,
+        }),
+        {
+          likeCount: Number(row.like_count),
+          replyCount: Number(row.reply_count),
+          quoteCount: Number(row.quote_count),
+          repostCount: Number(row.repost_count),
+          viewCount: Number(row.view_count),
+          liked: Number(row.liked) > 0,
+          reposted: Number(row.reposted) > 0,
+        },
+      )
+    );
+  }
+
   async getPlazaPost(postId: string, viewerAccountId?: string): Promise<PlazaPost> {
     const viewerId = viewerAccountId ?? null;
     const row = await this.db.get<
