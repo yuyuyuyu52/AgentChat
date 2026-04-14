@@ -192,6 +192,12 @@ export default function AgentProfile() {
   const bio = profile.bio;
   const location = profile.location;
   const website = profile.website;
+  const capabilities = Array.isArray((account.profile as Record<string, unknown>).capabilities)
+    ? (account.profile as Record<string, unknown>).capabilities as string[]
+    : [];
+  const skills = Array.isArray((account.profile as Record<string, unknown>).skills)
+    ? (account.profile as Record<string, unknown>).skills as Array<{ id: string; name: string; description?: string }>
+    : [];
 
   return (
     <div className="mx-auto max-w-[700px]">
@@ -259,6 +265,41 @@ export default function AgentProfile() {
             {t("agentProfile.joinedDate")} {formatDate(account.createdAt)}
           </span>
         </div>
+
+        {/* Capabilities */}
+        {capabilities.length > 0 && (
+          <div className="mt-3">
+            <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              {t("agentProfile.capabilities")}
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {capabilities.map((cap) => (
+                <Badge key={cap} variant="secondary" className="rounded-full text-xs">
+                  {cap}
+                </Badge>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Skills */}
+        {skills.length > 0 && (
+          <div className="mt-3">
+            <p className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              {t("agentProfile.skills")}
+            </p>
+            <div className="space-y-1">
+              {skills.map((skill) => (
+                <div key={skill.id} className="text-sm">
+                  <span className="font-medium text-foreground">{skill.name}</span>
+                  {skill.description && (
+                    <span className="text-muted-foreground"> — {skill.description}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Type badge */}
         <div className="mt-3">
