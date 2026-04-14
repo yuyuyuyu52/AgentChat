@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/components/i18n-provider";
 
 function summarizeStatus(log: AuditLog): "success" | "failure" {
   return /(fail|reject|error)/i.test(log.eventType) ? "failure" : "success";
@@ -36,10 +37,11 @@ function summarizeDetails(log: AuditLog): string {
   const metadata = Object.entries(log.metadata)
     .map(([key, value]) => `${key}=${String(value)}`)
     .join(", ");
-  return metadata || "No additional metadata";
+  return metadata;
 }
 
 export default function AuditLogs() {
+  const { t, formatDateTime } = useI18n();
   const [logs, setLogs] = React.useState<AuditLog[]>([]);
   const [searchQuery, setSearchQuery] = React.useState("");
   const [loading, setLoading] = React.useState(true);
@@ -57,7 +59,7 @@ export default function AuditLogs() {
         }
       } catch (nextError) {
         if (active) {
-          setError(nextError instanceof Error ? nextError.message : "Failed to load audit logs");
+          setError(nextError instanceof Error ? nextError.message : t("auditLogs.loadAuditFailed"));
         }
       } finally {
         if (active) {
@@ -68,7 +70,7 @@ export default function AuditLogs() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [t]);
 
   const filteredLogs = React.useMemo(
     () =>
@@ -85,11 +87,11 @@ export default function AuditLogs() {
       ["timestamp", "actor", "eventType", "target", "status", "details"],
       ...filteredLogs.map((log) => [
         log.createdAt,
-        log.actorName ?? log.actorAccountId ?? "system",
+        log.actorName ?? log.actorAccountId ?? t("common.system"),
         log.eventType,
         summarizeTarget(log),
         summarizeStatus(log),
-        summarizeDetails(log),
+        summarizeDetails(log) || t("auditLogs.noAdditionalMetadata"),
       ]),
     ];
     const csv = rows
@@ -99,7 +101,7 @@ export default function AuditLogs() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = "agentchat-workspace-audit.csv";
+    link.download = t("auditLogs.csvFilename");
     link.click();
     URL.revokeObjectURL(url);
   };
@@ -108,8 +110,8 @@ export default function AuditLogs() {
     <div className="p-8 space-y-8 max-w-7xl mx-auto">
       <div className="flex flex-col md:flex-row items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight text-foreground">Audit Logs</h2>
-          <p className="text-sm text-muted-foreground">Events for the agents owned by your current user session.</p>
+          <h2 className="text-2xl font-bold tracking-tight text-foreground">{t("auditLogs.title")}</h2>
+          <p className="text-sm text-muted-foreground">{t("auditLogs.description")}</p>
         </div>
         <div className="flex items-center gap-3">
           <Button
@@ -119,7 +121,7 @@ export default function AuditLogs() {
             disabled={filteredLogs.length === 0}
           >
             <Download className="w-4 h-4" />
-            Export CSV
+            {t("auditLogs.exportCsv")}
           </Button>
         </div>
       </div>
@@ -130,7 +132,7 @@ export default function AuditLogs() {
             <div className="relative w-full max-w-md">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
-                placeholder="Search logs by actor, action, or target..."
+                placeholder={t("auditLogs.searchLogs")}
                 className="border-border bg-muted/40 pl-10 text-foreground placeholder:text-muted-foreground focus-visible:ring-blue-500"
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
@@ -138,7 +140,7 @@ export default function AuditLogs() {
             </div>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Clock className="w-3 h-3" />
-              {loading ? "Syncing..." : `${filteredLogs.length} visible events`}
+              {loading ? t("auditLogs.syncing") : t("auditLogs.visibleEvents", { count: filteredLogs.length })}
             </div>
           </div>
         </CardHeader>
@@ -146,18 +148,18 @@ export default function AuditLogs() {
           <Table>
             <TableHeader className="bg-muted/40">
               <TableRow className="border-border hover:bg-transparent">
-                <TableHead className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Timestamp</TableHead>
-                <TableHead className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Actor</TableHead>
-                <TableHead className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Action</TableHead>
-                <TableHead className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Target</TableHead>
-                <TableHead className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Status</TableHead>
-                <TableHead className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Details</TableHead>
+                <TableHead className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">{t("auditLogs.tableTimestamp")}</TableHead>
+                <TableHead className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">{t("auditLogs.tableActor")}</TableHead>
+                <TableHead className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">{t("auditLogs.tableAction")}</TableHead>
+                <TableHead className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">{t("auditLogs.tableTarget")}</TableHead>
+                <TableHead className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">{t("auditLogs.tableStatus")}</TableHead>
+                <TableHead className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">{t("auditLogs.tableDetails")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
                 <TableRow className="border-border">
-                  <TableCell className="text-muted-foreground" colSpan={6}>Loading audit records...</TableCell>
+                  <TableCell className="text-muted-foreground" colSpan={6}>{t("auditLogs.loadingAuditRecords")}</TableCell>
                 </TableRow>
               ) : error ? (
                 <TableRow className="border-border">
@@ -167,7 +169,7 @@ export default function AuditLogs() {
                 const status = summarizeStatus(log);
                 return (
                   <TableRow key={log.id} className="border-border hover:bg-muted/30 transition-colors group">
-                    <TableCell className="text-xs font-mono text-muted-foreground">{new Date(log.createdAt).toLocaleString()}</TableCell>
+                    <TableCell className="text-xs font-mono text-muted-foreground">{formatDateTime(log.createdAt)}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         {log.actorAccountId ? (
@@ -175,7 +177,7 @@ export default function AuditLogs() {
                         ) : (
                           <User className="w-3 h-3 text-blue-400" />
                         )}
-                        <span className="text-xs font-mono text-foreground/80">{log.actorName ?? log.actorAccountId ?? "system"}</span>
+                        <span className="text-xs font-mono text-foreground/80">{log.actorName ?? log.actorAccountId ?? t("common.system")}</span>
                       </div>
                     </TableCell>
                     <TableCell>
@@ -192,13 +194,13 @@ export default function AuditLogs() {
                           <AlertCircle className="w-3 h-3 text-red-500" />
                         )}
                         <span className={cn("text-[10px] font-bold uppercase tracking-tighter", status === "success" ? "text-green-500" : "text-red-500")}>
-                          {status}
+                          {t(`enums.auditStatus.${status}`, undefined, status)}
                         </span>
                       </div>
                     </TableCell>
                     <TableCell className="max-w-xs">
                       <p className="text-xs text-muted-foreground truncate group-hover:whitespace-normal group-hover:overflow-visible transition-all">
-                        {summarizeDetails(log)}
+                        {summarizeDetails(log) || t("auditLogs.noAdditionalMetadata")}
                       </p>
                     </TableCell>
                   </TableRow>

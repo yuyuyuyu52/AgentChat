@@ -14,6 +14,8 @@ import {
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { LanguageSwitcher } from "@/components/language-switcher";
+import { useI18n } from "@/components/i18n-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 const DOCS_URL = "https://github.com/yuyuyuyu52/AgentChat/blob/main/docs/agent-cli-and-sdk.en.md";
@@ -48,14 +50,15 @@ for (const conversation of conversations) {
 }`;
 
 export default function DevTools() {
+  const { t } = useI18n();
   const [copiedKey, setCopiedKey] = React.useState<string | null>(null);
 
   const handleCopy = React.useCallback((text: string, key: string) => {
     navigator.clipboard.writeText(text);
     setCopiedKey(key);
-    toast.success("Copied to clipboard");
+    toast.success(t("common.copiedToClipboard"));
     window.setTimeout(() => setCopiedKey((current) => (current === key ? null : current)), 2000);
-  }, []);
+  }, [t]);
 
   return (
     <div className="min-h-screen bg-background text-foreground selection:bg-blue-500/30">
@@ -68,15 +71,16 @@ export default function DevTools() {
             <span className="text-lg font-bold tracking-tight">AgentChat</span>
           </a>
           <div className="flex items-center gap-4">
+            <LanguageSwitcher className="border-border bg-background/80 text-muted-foreground hover:bg-muted hover:text-foreground" />
             <ThemeToggle className="border-border bg-background/80 text-muted-foreground hover:bg-muted hover:text-foreground" />
             <a href="/auth/login">
               <Button variant="ghost" className="text-sm text-muted-foreground hover:text-foreground">
-                For User
+                {t("devTools.forUser")}
               </Button>
             </a>
             <a href="/app/agent-cli">
               <Button variant="outline" className="border-border">
-                User CLI
+                {t("devTools.userCli")}
               </Button>
             </a>
           </div>
@@ -87,26 +91,24 @@ export default function DevTools() {
         <section className="grid gap-8 lg:grid-cols-[1.4fr_0.9fr]">
           <div className="space-y-4">
             <div className="inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-500">
-              For Developer
+              {t("devTools.forDeveloperBadge")}
             </div>
             <h1 className="text-4xl font-bold tracking-tight text-foreground md:text-5xl">
-              Build AgentChat runtimes with the SDK.
+              {t("devTools.title")}
             </h1>
             <p className="max-w-3xl text-base leading-7 text-muted-foreground">
-              This page is for developers integrating AgentChat into their own systems. The SDK and
-              protocol packages are the primary surface here. The hosted CLI exists, but that is
-              mainly part of the user workflow once credentials have already been issued.
+              {t("devTools.description")}
             </p>
             <div className="flex flex-wrap gap-3">
               <a href={DOCS_URL} target="_blank" rel="noreferrer">
                 <Button className="bg-blue-600 text-white hover:bg-blue-700">
-                  Open Integration Guide
+                  {t("devTools.openIntegrationGuide")}
                   <ArrowRight className="h-4 w-4" />
                 </Button>
               </a>
               <a href="/app/agent-cli">
                 <Button variant="outline">
-                  See User CLI Surface
+                  {t("devTools.seeUserCliSurface")}
                 </Button>
               </a>
             </div>
@@ -116,18 +118,18 @@ export default function DevTools() {
             <CardHeader>
               <CardTitle className="text-lg">Hosted Production Defaults</CardTitle>
               <CardDescription>
-                Use the hosted service unless your integration explicitly targets a different environment.
+                {t("devTools.hostedProductionDefaultsDescription")}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
               <div className="rounded-xl border border-border bg-muted/40 p-4">
-                <div className="mb-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">HTTP</div>
+                <div className="mb-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{t("devTools.http")}</div>
                 <div className="font-mono text-xs text-blue-500 break-all">
                   https://agentchatserver-production.up.railway.app
                 </div>
               </div>
               <div className="rounded-xl border border-border bg-muted/40 p-4">
-                <div className="mb-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">WebSocket</div>
+                <div className="mb-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{t("devTools.websocket")}</div>
                 <div className="font-mono text-xs text-blue-500 break-all">
                   wss://agentchatserver-production.up.railway.app/ws
                 </div>

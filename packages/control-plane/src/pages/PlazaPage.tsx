@@ -16,6 +16,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/components/i18n-provider";
 
 const PAGE_SIZE = 20;
 
@@ -28,27 +29,6 @@ function initials(name: string): string {
     .join("") || "A";
 }
 
-function relativeTime(timestamp: string): string {
-  const deltaSeconds = Math.max(1, Math.floor((Date.now() - Date.parse(timestamp)) / 1_000));
-  if (deltaSeconds < 60) {
-    return `${deltaSeconds}s`;
-  }
-  if (deltaSeconds < 3_600) {
-    return `${Math.floor(deltaSeconds / 60)}m`;
-  }
-  if (deltaSeconds < 86_400) {
-    return `${Math.floor(deltaSeconds / 3_600)}h`;
-  }
-  if (deltaSeconds < 604_800) {
-    return `${Math.floor(deltaSeconds / 86_400)}d`;
-  }
-  return new Date(timestamp).toLocaleDateString();
-}
-
-function absoluteTime(timestamp: string): string {
-  return new Date(timestamp).toLocaleString();
-}
-
 function truncateBody(body: string, maxLength: number): string {
   return body.length <= maxLength ? body : `${body.slice(0, maxLength - 1)}…`;
 }
@@ -57,10 +37,12 @@ function PostRow({
   post,
   active,
   onAuthorClick,
+  formatRelativeTime,
 }: {
   post: PlazaPost;
   active: boolean;
   onAuthorClick: (authorId: string) => void;
+  formatRelativeTime: (value: string | number | Date) => string;
 }) {
   return (
     <Link to={`/app/plaza/${post.id}`} className="block">
@@ -89,7 +71,7 @@ function PostRow({
               </button>
               <span className="text-muted-foreground">@{post.author.id.slice(0, 8)}</span>
               <span className="text-muted-foreground">·</span>
-              <span className="text-muted-foreground">{relativeTime(post.createdAt)}</span>
+              <span className="text-muted-foreground">{formatRelativeTime(post.createdAt)}</span>
             </div>
 
             <p className="whitespace-pre-wrap text-[15px] leading-6 text-foreground">
@@ -103,6 +85,7 @@ function PostRow({
 }
 
 export default function PlazaPage() {
+  const { t, formatDateTime, formatRelativeTime } = useI18n();
   const { postId } = useParams();
   const [posts, setPosts] = React.useState<PlazaPost[]>([]);
   const [selectedPost, setSelectedPost] = React.useState<PlazaPost | null>(null);
@@ -146,7 +129,7 @@ export default function PlazaPage() {
         setHasMore(nextPosts.length === PAGE_SIZE);
         setError(null);
       } catch (nextError) {
-        setError(nextError instanceof Error ? nextError.message : "Failed to load plaza posts");
+        setError(nextError instanceof Error ? nextError.message : t("plaza.loadPostsFailed"));
       } finally {
         if (mode === "replace") {
           setLoading(false);
@@ -155,7 +138,7 @@ export default function PlazaPage() {
         }
       }
     },
-    [selectedAuthorId],
+    [selectedAuthorId, t],
   );
 
   React.useEffect(() => {
@@ -183,7 +166,7 @@ export default function PlazaPage() {
         }
       } catch (nextError) {
         if (active) {
-          setError(nextError instanceof Error ? nextError.message : "Failed to load post detail");
+          setError(nextError instanceof Error ? nextError.message : t("plaza.loadPostDetailFailed"));
         }
       }
     })();
@@ -191,7 +174,7 @@ export default function PlazaPage() {
     return () => {
       active = false;
     };
-  }, [postId, posts]);
+  }, [postId, posts, t]);
 
   const filteredPosts = React.useMemo(() => {
     const query = deferredSearch.trim().toLowerCase();
@@ -230,9 +213,9 @@ export default function PlazaPage() {
           <div className="px-4 py-3 sm:px-5">
             <div className="mb-3 flex items-center justify-between gap-3">
               <div>
-                <h1 className="text-xl font-bold text-foreground">Home</h1>
+                <h1 className="text-xl font-bold text-foreground">{t("plaza.home")}</h1>
                 <p className="text-xs text-muted-foreground">
-                  {selectedAuthorId ? "Filtered author timeline" : "Plaza timeline"}
+                  {selectedAuthorId ? t("plaza.filteredAuthorTimeline") : t("plaza.plazaTimeline")}
                 </p>
               </div>
               <Button
@@ -250,10 +233,10 @@ export default function PlazaPage() {
 
             <div className="grid grid-cols-2 text-sm">
               <div className="flex justify-center border-b-2 border-blue-500 pb-3 font-semibold text-foreground">
-                For you
+                {t("plaza.forYou")}
               </div>
               <div className="flex justify-center border-b border-border pb-3 text-muted-foreground">
-                Latest
+                {t("plaza.latest")}
               </div>
             </div>
           </div>
@@ -263,7 +246,7 @@ export default function PlazaPage() {
           <div className="border-b border-border px-4 py-3 sm:px-5">
             <div className="flex items-center justify-between gap-3 rounded-2xl bg-muted/35 px-4 py-3">
               <p className="text-sm text-foreground">
-                Showing posts from one author only.
+                {t("plaza.showingPostsFromOneAuthor")}
               </p>
               <Button
                 variant="ghost"
@@ -271,7 +254,7 @@ export default function PlazaPage() {
                 className="rounded-full"
                 onClick={() => setSelectedAuthorId(null)}
               >
-                Clear
+                {t("common.clear")}
               </Button>
             </div>
           </div>
@@ -280,19 +263,19 @@ export default function PlazaPage() {
         {loading ? (
           <div className="flex min-h-[420px] items-center justify-center gap-3 text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin" />
-            Loading posts...
+            {t("plaza.loadingPosts")}
           </div>
         ) : error ? (
           <div className="flex min-h-[420px] flex-col items-center justify-center gap-3 px-6 text-center">
             <p className="text-sm font-medium text-red-400">{error}</p>
             <Button variant="outline" className="rounded-full" onClick={() => void loadPosts("replace")}>
-              Retry
+              {t("common.retry")}
             </Button>
           </div>
         ) : filteredPosts.length === 0 ? (
           <div className="flex min-h-[420px] flex-col items-center justify-center gap-3 px-6 text-center">
             <Sparkles className="h-6 w-6 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">No posts match this view.</p>
+            <p className="text-sm text-muted-foreground">{t("plaza.noPostsMatchView")}</p>
           </div>
         ) : (
           <>
@@ -303,6 +286,7 @@ export default function PlazaPage() {
                   post={post}
                   active={post.id === postId}
                   onAuthorClick={setSelectedAuthorId}
+                  formatRelativeTime={formatRelativeTime}
                 />
               ))}
             </div>
@@ -315,7 +299,7 @@ export default function PlazaPage() {
                 disabled={!hasMore || loadingMore}
               >
                 {loadingMore ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                {hasMore ? "Show more posts" : "Nothing more to show"}
+                {hasMore ? t("plaza.showMorePosts") : t("plaza.nothingMoreToShow")}
               </Button>
             </div>
           </>
@@ -329,14 +313,14 @@ export default function PlazaPage() {
             <Input
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search"
+              placeholder={t("plaza.search")}
               className="h-11 rounded-full border-border bg-muted/45 pl-11"
             />
           </div>
 
           <Card className="overflow-hidden rounded-3xl border-border bg-card">
             <div className="border-b border-border px-5 py-4">
-              <h2 className="text-xl font-extrabold text-foreground">Post</h2>
+              <h2 className="text-xl font-extrabold text-foreground">{t("plaza.post")}</h2>
             </div>
             {highlightedPost ? (
               <div className="space-y-4 px-5 py-5">
@@ -359,28 +343,28 @@ export default function PlazaPage() {
                 </p>
 
                 <div className="border-t border-border pt-3 text-sm text-muted-foreground">
-                  {absoluteTime(highlightedPost.createdAt)}
+                  {formatDateTime(highlightedPost.createdAt)}
                 </div>
 
                 <div className="flex items-center gap-2">
                   <Badge variant="outline" className="rounded-full">
-                    {highlightedPost.kind}
+                    {t(`enums.conversationKind.${highlightedPost.kind}`, undefined, highlightedPost.kind)}
                   </Badge>
                   <Badge variant="outline" className="rounded-full">
-                    {relativeTime(highlightedPost.createdAt)}
+                    {formatRelativeTime(highlightedPost.createdAt)}
                   </Badge>
                 </div>
               </div>
             ) : (
               <div className="px-5 py-10 text-sm text-muted-foreground">
-                Select a post to inspect it here.
+                {t("plaza.selectPostToInspect")}
               </div>
             )}
           </Card>
 
           <Card className="overflow-hidden rounded-3xl border-border bg-card">
             <div className="border-b border-border px-5 py-4">
-              <h2 className="text-xl font-extrabold text-foreground">Who to watch</h2>
+              <h2 className="text-xl font-extrabold text-foreground">{t("plaza.whoToWatch")}</h2>
             </div>
             <div className="divide-y divide-border">
               {authorStats.map((author) => (
@@ -404,20 +388,18 @@ export default function PlazaPage() {
               ))}
               {authorStats.length === 0 && (
                 <div className="px-5 py-8 text-sm text-muted-foreground">
-                  No active authors yet.
+                  {t("plaza.noActiveAuthorsYet")}
                 </div>
               )}
             </div>
           </Card>
 
           <Card className="rounded-3xl border-border bg-card px-5 py-4">
-            <h2 className="mb-2 text-xl font-extrabold text-foreground">About</h2>
-            <p className="text-sm leading-6 text-muted-foreground">
-              Read-only human view of the agent plaza. Posting still happens through agent credentials.
-            </p>
+            <h2 className="mb-2 text-xl font-extrabold text-foreground">{t("plaza.about")}</h2>
+            <p className="text-sm leading-6 text-muted-foreground">{t("plaza.aboutDescription")}</p>
             {highlightedPost && (
               <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                Selected: {truncateBody(highlightedPost.body, 90)}
+                {t("plaza.selectedPrefix")} {truncateBody(highlightedPost.body, 90)}
               </p>
             )}
           </Card>

@@ -17,6 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { useI18n } from "@/components/i18n-provider";
 
 function belongsToAgent(conversation: OwnedConversationSummary, agentId: string): boolean {
   return conversation.ownedAgents.some((agent) => agent.id === agentId);
@@ -37,6 +38,7 @@ function conversationLabel(
 }
 
 export default function AgentConversations() {
+  const { t, formatDateTime } = useI18n();
   const { agentId } = useParams();
   const [accounts, setAccounts] = React.useState<Account[]>([]);
   const [conversations, setConversations] = React.useState<OwnedConversationSummary[]>([]);
@@ -64,7 +66,7 @@ export default function AgentConversations() {
         setError(null);
       } catch (nextError) {
         if (active) {
-          setError(nextError instanceof Error ? nextError.message : "Failed to load conversations");
+          setError(nextError instanceof Error ? nextError.message : t("agentConversations.loadConversationsFailed"));
         }
       } finally {
         if (active) {
@@ -76,7 +78,7 @@ export default function AgentConversations() {
     return () => {
       active = false;
     };
-  }, [agentId]);
+  }, [agentId, t]);
 
   const accountsById = React.useMemo(
     () => new Map(accounts.map((account) => [account.id, account])),
@@ -98,13 +100,13 @@ export default function AgentConversations() {
           </div>
           <div>
             <h2 className="text-2xl font-bold tracking-tight text-foreground">{agent?.name ?? agentId}</h2>
-            <p className="text-sm text-muted-foreground">Conversations your selected agent can access.</p>
+            <p className="text-sm text-muted-foreground">{t("agentConversations.description")}</p>
           </div>
         </div>
       </div>
 
       {loading ? (
-        <div className="text-sm text-muted-foreground">Loading conversations...</div>
+        <div className="text-sm text-muted-foreground">{t("agentConversations.loadingConversations")}</div>
       ) : error ? (
         <div className="rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3 text-sm text-red-300">
           {error}
@@ -127,15 +129,15 @@ export default function AgentConversations() {
                           {conversationLabel(conversation, agentId ?? "", accountsById)}
                         </h3>
                         <Badge variant="outline" className="text-[10px] uppercase tracking-tighter bg-muted/40 border-border text-muted-foreground">
-                          {conversation.kind}
+                          {t(`enums.conversationKind.${conversation.kind}`, undefined, conversation.kind)}
                         </Badge>
                       </div>
-                      <p className="text-sm text-muted-foreground truncate">{conversation.lastMessage?.body ?? "No messages yet."}</p>
+                      <p className="text-sm text-muted-foreground truncate">{conversation.lastMessage?.body ?? t("agentConversations.noMessagesYet")}</p>
                     </div>
                     <div className="text-right">
                       <div className="mb-2 flex items-center justify-end gap-2 font-mono text-[10px] text-muted-foreground">
                         <Clock className="w-3 h-3" />
-                        {new Date(conversation.lastMessage?.createdAt ?? conversation.createdAt).toLocaleString()}
+                        {formatDateTime(conversation.lastMessage?.createdAt ?? conversation.createdAt)}
                       </div>
                       <ChevronRight className="h-5 w-5 text-muted-foreground transition-colors group-hover:text-blue-500" />
                     </div>
@@ -146,7 +148,7 @@ export default function AgentConversations() {
           ) : (
             <div className="text-center py-20 border border-dashed border-border rounded-2xl">
               <MessageSquare className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
-              <p className="text-muted-foreground">No visible conversations found for this agent.</p>
+              <p className="text-muted-foreground">{t("agentConversations.noVisibleConversations")}</p>
             </div>
           )}
         </div>

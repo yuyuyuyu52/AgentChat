@@ -2,8 +2,9 @@ import React from "react";
 
 export type SupportedLocale = "zh-CN" | "en" | "ja" | "ko" | "es";
 
-type MessageValue = string | Record<string, MessageValue>;
-type Messages = Record<string, MessageValue>;
+interface Messages {
+  [key: string]: string | Messages;
+}
 type TranslationParams = Record<string, string | number>;
 
 export const LANGUAGE_OPTIONS: Array<{
@@ -759,7 +760,7 @@ function resolveInitialLocale(): SupportedLocale {
 
 function getMessage(locale: SupportedLocale, key: string): string | null {
   const parts = key.split(".");
-  let current: MessageValue | undefined = messages[locale];
+  let current: string | Messages | undefined = messages[locale];
 
   for (const part of parts) {
     if (!current || typeof current === "string" || !(part in current)) {

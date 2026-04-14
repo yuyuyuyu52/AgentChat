@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/components/i18n-provider";
 
 function conversationTitle(
   conversation: OwnedConversationSummary | undefined,
@@ -40,6 +41,7 @@ function conversationTitle(
 }
 
 export default function ChatView() {
+  const { t, formatDate, formatTime } = useI18n();
   const { agentId, convId } = useParams();
   const [accounts, setAccounts] = React.useState<Account[]>([]);
   const [conversation, setConversation] = React.useState<OwnedConversationSummary | undefined>();
@@ -71,7 +73,7 @@ export default function ChatView() {
         setError(null);
       } catch (nextError) {
         if (active) {
-          setError(nextError instanceof Error ? nextError.message : "Failed to load messages");
+          setError(nextError instanceof Error ? nextError.message : t("chatView.loadMessagesFailed"));
         }
       } finally {
         if (active) {
@@ -83,7 +85,7 @@ export default function ChatView() {
     return () => {
       active = false;
     };
-  }, [convId]);
+  }, [convId, t]);
 
   React.useEffect(() => {
     if (scrollRef.current) {
@@ -97,11 +99,11 @@ export default function ChatView() {
   );
 
   if (loading) {
-    return <div className="p-8 text-muted-foreground">Loading conversation...</div>;
+    return <div className="p-8 text-muted-foreground">{t("chatView.loadingConversation")}</div>;
   }
 
   if (error || !conversation || !agentId || !convId) {
-    return <div className="p-8 text-red-300">{error ?? "Conversation not found."}</div>;
+    return <div className="p-8 text-red-300">{error ?? t("chatView.conversationNotFound")}</div>;
   }
 
   return (
@@ -122,7 +124,7 @@ export default function ChatView() {
               <div className="flex items-center gap-2">
                 <span className="text-[10px] text-green-500 flex items-center gap-1">
                   <Eye className="w-3 h-3" />
-                  Read-only
+                  {t("chatView.readOnly")}
                 </span>
                 <span className="font-mono text-[10px] text-muted-foreground">ID: {convId}</span>
               </div>
@@ -131,7 +133,7 @@ export default function ChatView() {
         </div>
         <div className="flex items-center gap-3">
           <Badge variant="outline" className="bg-[linear-gradient(180deg,rgba(37,99,235,0.16),rgba(37,99,235,0.08))] text-[10px] uppercase font-bold tracking-tighter text-blue-500">
-            {conversation.kind}
+            {t(`enums.conversationKind.${conversation.kind}`, undefined, conversation.kind)}
           </Badge>
           <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground">
             <MoreVertical className="w-4 h-4" />
@@ -143,7 +145,7 @@ export default function ChatView() {
         <div className="max-w-3xl mx-auto space-y-6">
           <div className="flex justify-center">
             <div className="surface-chip rounded-full border-transparent px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-              Conversation started on {new Date(conversation.createdAt).toLocaleDateString()}
+              {t("chatView.conversationStartedOn", { date: formatDate(conversation.createdAt) })}
             </div>
           </div>
 
@@ -171,7 +173,7 @@ export default function ChatView() {
                       {message.senderName}
                     </span>
                     <span className="font-mono text-[10px] text-muted-foreground">
-                      {new Date(message.createdAt).toLocaleTimeString()}
+                      {formatTime(message.createdAt)}
                     </span>
                   </div>
                   <div className={cn(
@@ -194,18 +196,18 @@ export default function ChatView() {
           <div className="mb-4 flex items-center gap-2 rounded-2xl border border-yellow-500/10 bg-[linear-gradient(180deg,rgba(234,179,8,0.12),rgba(234,179,8,0.05))] px-3 py-2">
             <Eye className="w-3 h-3 text-yellow-500" />
             <p className="text-[10px] text-yellow-500/80 font-medium">
-              User workspace message view is read-only. Sending messages still goes through agents or admin tools.
+              {t("chatView.readonlyFooter")}
             </p>
           </div>
           <div className="mt-3 flex items-center justify-between px-1">
             <div className="flex items-center gap-4">
               <span className="text-[10px] text-muted-foreground flex items-center gap-1">
                 <Terminal className="w-3 h-3" />
-                API-backed history
+                {t("chatView.apiBackedHistory")}
               </span>
               <span className="text-[10px] text-muted-foreground flex items-center gap-1">
                 <Clock className="w-3 h-3" />
-                Seq #{messages.at(-1)?.seq ?? 0}
+                {t("chatView.sequence", { seq: messages.at(-1)?.seq ?? 0 })}
               </span>
             </div>
           </div>

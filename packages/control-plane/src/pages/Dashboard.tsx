@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { useI18n } from "@/components/i18n-provider";
 import {
   Table,
   TableBody,
@@ -40,6 +41,7 @@ function conversationTitle(
 }
 
 export default function Dashboard() {
+  const { t, formatDateTime, formatTime } = useI18n();
   const [accounts, setAccounts] = React.useState<Account[]>([]);
   const [conversations, setConversations] = React.useState<OwnedConversationSummary[]>([]);
   const [auditLogs, setAuditLogs] = React.useState<Awaited<ReturnType<typeof listWorkspaceAuditLogs>>>([]);
@@ -67,7 +69,7 @@ export default function Dashboard() {
         setError(null);
       } catch (nextError) {
         if (active) {
-          setError(nextError instanceof Error ? nextError.message : "Failed to load dashboard");
+          setError(nextError instanceof Error ? nextError.message : t("common.loading"));
         }
       } finally {
         if (active) {
@@ -79,7 +81,7 @@ export default function Dashboard() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [t]);
 
   const accountsById = React.useMemo(
     () => new Map(accounts.map((account) => [account.id, account])),
@@ -99,45 +101,45 @@ export default function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card className="surface-panel-subtle surface-hover-lift border-transparent">
           <CardHeader className="pb-2">
-            <CardDescription className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">My Agents</CardDescription>
+            <CardDescription className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">{t("dashboard.myAgents")}</CardDescription>
             <CardTitle className="text-3xl font-bold text-foreground">{accounts.length}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-1 text-[10px] text-green-500 font-bold">
-              <Bot className="w-3 h-3" /> Accounts you own
+              <Bot className="w-3 h-3" /> {t("dashboard.accountsYouOwn")}
             </div>
           </CardContent>
         </Card>
         <Card className="surface-panel-subtle surface-hover-lift border-transparent">
           <CardHeader className="pb-2">
-            <CardDescription className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Visible Conversations</CardDescription>
+            <CardDescription className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">{t("dashboard.visibleConversations")}</CardDescription>
             <CardTitle className="text-3xl font-bold text-foreground">{conversations.length}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-1 text-[10px] text-blue-500 font-bold">
-              <MessageSquare className="w-3 h-3" /> Read-only conversation access
+              <MessageSquare className="w-3 h-3" /> {t("dashboard.readonlyConversationAccess")}
             </div>
           </CardContent>
         </Card>
         <Card className="surface-panel-subtle surface-hover-lift border-transparent">
           <CardHeader className="pb-2">
-            <CardDescription className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Audit Events</CardDescription>
+            <CardDescription className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">{t("dashboard.auditEvents")}</CardDescription>
             <CardTitle className="text-3xl font-bold text-foreground">{auditLogs.length}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-1 text-[10px] text-muted-foreground font-bold">
-              <ShieldAlert className="w-3 h-3" /> Latest activity for your agents
+              <ShieldAlert className="w-3 h-3" /> {t("dashboard.latestActivityForAgents")}
             </div>
           </CardContent>
         </Card>
         <Card className="surface-panel-subtle surface-hover-lift border-transparent">
           <CardHeader className="pb-2">
-            <CardDescription className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Scope</CardDescription>
-            <CardTitle className="text-3xl font-bold text-foreground">Owned</CardTitle>
+            <CardDescription className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">{t("dashboard.scope")}</CardDescription>
+            <CardTitle className="text-3xl font-bold text-foreground">{t("dashboard.owned")}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-1 text-[10px] text-yellow-500 font-bold">
-              <Clock className="w-3 h-3" /> Data is filtered by session ownership
+              <Clock className="w-3 h-3" /> {t("dashboard.dataFilteredBySessionOwnership")}
             </div>
           </CardContent>
         </Card>
@@ -145,13 +147,13 @@ export default function Dashboard() {
 
       <div className="flex flex-col md:flex-row items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight text-foreground">Dashboard</h2>
-          <p className="text-sm text-muted-foreground">Overview of the agents tied to your user account.</p>
+          <h2 className="text-2xl font-bold tracking-tight text-foreground">{t("dashboard.title")}</h2>
+          <p className="text-sm text-muted-foreground">{t("dashboard.description")}</p>
         </div>
         <div className="relative flex-1 md:w-64">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="Search agents..."
+            placeholder={t("dashboard.searchAgents")}
             className="pl-10 focus-visible:ring-blue-500"
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
@@ -163,16 +165,16 @@ export default function Dashboard() {
         <Table>
           <TableHeader className="bg-[hsl(var(--surface-2)/0.52)]">
             <TableRow className="hover:bg-transparent">
-              <TableHead className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Agent</TableHead>
-              <TableHead className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Type</TableHead>
-              <TableHead className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Created</TableHead>
-              <TableHead className="text-right text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Actions</TableHead>
+              <TableHead className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">{t("dashboard.tableAgent")}</TableHead>
+              <TableHead className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">{t("dashboard.tableType")}</TableHead>
+              <TableHead className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">{t("dashboard.tableCreated")}</TableHead>
+              <TableHead className="text-right text-[10px] uppercase tracking-widest font-bold text-muted-foreground">{t("dashboard.tableActions")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell className="text-muted-foreground" colSpan={4}>Loading agents...</TableCell>
+                <TableCell className="text-muted-foreground" colSpan={4}>{t("dashboard.loadingAgents")}</TableCell>
               </TableRow>
             ) : error ? (
               <TableRow>
@@ -188,13 +190,13 @@ export default function Dashboard() {
                 </TableCell>
                 <TableCell>
                   <Badge variant="outline" className="text-[10px] uppercase tracking-tighter">
-                    {account.type}
+                    {t(`enums.accountType.${account.type}`, undefined, account.type)}
                   </Badge>
                 </TableCell>
-                <TableCell className="text-xs text-muted-foreground">{new Date(account.createdAt).toLocaleString()}</TableCell>
+                <TableCell className="text-xs text-muted-foreground">{formatDateTime(account.createdAt)}</TableCell>
                 <TableCell className="text-right">
                   <Link to={`/app/agents/${account.id}/conversations`}>
-                    <Button size="sm" variant="ghost" className="text-blue-400 hover:text-blue-300">View</Button>
+                    <Button size="sm" variant="ghost" className="text-blue-400 hover:text-blue-300">{t("common.view")}</Button>
                   </Link>
                 </TableCell>
               </TableRow>
@@ -207,11 +209,11 @@ export default function Dashboard() {
         <Card className="border-transparent">
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
-              <CardTitle className="text-lg font-bold text-foreground">Recent Conversations</CardTitle>
-              <CardDescription className="text-muted-foreground">Threads your agents can see.</CardDescription>
+              <CardTitle className="text-lg font-bold text-foreground">{t("dashboard.recentConversations")}</CardTitle>
+              <CardDescription className="text-muted-foreground">{t("dashboard.threadsYourAgentsCanSee")}</CardDescription>
             </div>
             <Link to="/app/agents">
-              <Button variant="ghost" size="sm" className="text-xs text-blue-400">View All</Button>
+              <Button variant="ghost" size="sm" className="text-xs text-blue-400">{t("dashboard.viewAll")}</Button>
             </Link>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -227,11 +229,11 @@ export default function Dashboard() {
                       <div className="flex items-center justify-between mb-1">
                         <p className="truncate text-sm font-bold text-foreground">{conversationTitle(conversation, accountsById)}</p>
                         <span className="font-mono text-[10px] text-muted-foreground">
-                          {new Date(conversation.lastMessage?.createdAt ?? conversation.createdAt).toLocaleTimeString()}
+                          {formatTime(conversation.lastMessage?.createdAt ?? conversation.createdAt)}
                         </span>
                       </div>
                       <p className="text-xs text-muted-foreground truncate">
-                        {conversation.lastMessage?.body ?? "No messages yet."}
+                        {conversation.lastMessage?.body ?? t("dashboard.noMessagesYet")}
                       </p>
                     </div>
                   </div>
@@ -244,11 +246,11 @@ export default function Dashboard() {
         <Card className="border-transparent">
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
-              <CardTitle className="text-lg font-bold text-foreground">Audit Trail</CardTitle>
-              <CardDescription className="text-muted-foreground">Latest events affecting your agents.</CardDescription>
+              <CardTitle className="text-lg font-bold text-foreground">{t("dashboard.auditTrail")}</CardTitle>
+              <CardDescription className="text-muted-foreground">{t("dashboard.latestEventsAffectingAgents")}</CardDescription>
             </div>
             <Link to="/app/logs">
-              <Button variant="ghost" size="sm" className="text-xs text-blue-400">View Logs</Button>
+              <Button variant="ghost" size="sm" className="text-xs text-blue-400">{t("dashboard.viewLogs")}</Button>
             </Link>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -258,10 +260,10 @@ export default function Dashboard() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between mb-1">
                     <p className="text-xs font-bold uppercase tracking-wider text-foreground">{log.eventType}</p>
-                    <span className="font-mono text-[10px] text-muted-foreground">{new Date(log.createdAt).toLocaleTimeString()}</span>
+                    <span className="font-mono text-[10px] text-muted-foreground">{formatTime(log.createdAt)}</span>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    {log.actorName ?? log.actorAccountId ?? "system"} → {log.subjectType}:{log.subjectId}
+                    {log.actorName ?? log.actorAccountId ?? t("common.system")} → {log.subjectType}:{log.subjectId}
                   </p>
                 </div>
               </div>

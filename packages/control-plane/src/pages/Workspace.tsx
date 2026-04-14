@@ -30,15 +30,17 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { useI18n } from "@/components/i18n-provider";
 
 function maskToken(token: string | undefined): string {
   if (!token) {
-    return "Hidden until issued or reset";
+    return "";
   }
   return token.length <= 12 ? token : `${token.slice(0, 8)}...${token.slice(-4)}`;
 }
 
 export default function Workspace() {
+  const { t, formatDateTime } = useI18n();
   const [accounts, setAccounts] = React.useState<Account[]>([]);
   const [latestTokens, setLatestTokens] = React.useState<Record<string, string>>({});
   const [searchQuery, setSearchQuery] = React.useState("");
@@ -55,11 +57,11 @@ export default function Workspace() {
       setAccounts(nextAccounts);
       setError(null);
     } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "Failed to load accounts");
+      setError(nextError instanceof Error ? nextError.message : t("workspace.loadAccountsFailed"));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   React.useEffect(() => {
     void loadAccounts();
@@ -87,11 +89,11 @@ export default function Workspace() {
       setLatestTokens((current) => ({ ...current, [createdAccount.id]: createdAccount.token }));
       setNewAgentName("");
       setIsCreateModalOpen(false);
-      toast.success("Agent created", {
-        description: "The token is shown once here after creation.",
+      toast.success(t("workspace.agentCreated"), {
+        description: t("workspace.tokenShownOnce"),
       });
     } catch (nextError) {
-      toast.error(nextError instanceof Error ? nextError.message : "Failed to create account");
+      toast.error(nextError instanceof Error ? nextError.message : t("workspace.createAccountFailed"));
     } finally {
       setSubmitting(false);
     }
@@ -101,29 +103,29 @@ export default function Workspace() {
     try {
       const result = await resetWorkspaceAccountToken(accountId);
       setLatestTokens((current) => ({ ...current, [accountId]: result.token }));
-      toast.success("Token rotated");
+      toast.success(t("workspace.tokenRotated"));
     } catch (nextError) {
-      toast.error(nextError instanceof Error ? nextError.message : "Failed to rotate token");
+      toast.error(nextError instanceof Error ? nextError.message : t("workspace.rotateTokenFailed"));
     }
   };
 
   const handleCopy = async (token: string) => {
     await navigator.clipboard.writeText(token);
-    toast.success("Copied to clipboard");
+    toast.success(t("workspace.copiedToClipboard"));
   };
 
   return (
     <div className="p-8 space-y-8 max-w-7xl mx-auto">
       <div className="flex flex-col md:flex-row items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight text-foreground">My Agents</h2>
-          <p className="text-sm text-muted-foreground">Create and manage agent accounts owned by your user session.</p>
+          <h2 className="text-2xl font-bold tracking-tight text-foreground">{t("workspace.title")}</h2>
+          <p className="text-sm text-muted-foreground">{t("workspace.description")}</p>
         </div>
         <div className="flex items-center gap-3 w-full md:w-auto">
           <div className="relative flex-1 md:w-64">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
-              placeholder="Search agents..."
+              placeholder={t("workspace.searchAgents")}
               className="pl-10 focus-visible:ring-blue-500"
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
@@ -133,22 +135,22 @@ export default function Workspace() {
             <DialogTrigger asChild>
               <Button className="bg-blue-600 hover:bg-blue-700 text-white gap-2 rounded-lg">
                 <Plus className="w-4 h-4" />
-                Create Agent
+                {t("workspace.createAgent")}
               </Button>
             </DialogTrigger>
             <DialogContent className="surface-float border-transparent text-foreground">
               <DialogHeader>
-                <DialogTitle>Create New Agent</DialogTitle>
+                <DialogTitle>{t("workspace.createNewAgent")}</DialogTitle>
                 <DialogDescription className="text-muted-foreground">
-                  The workspace creates a new owned agent account and returns its token once.
+                  {t("workspace.createNewAgentDescription")}
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
-                  <Label htmlFor="name">Agent Display Name</Label>
+                  <Label htmlFor="name">{t("workspace.agentDisplayName")}</Label>
                   <Input
                     id="name"
-                    placeholder="e.g. Sales Assistant"
+                    placeholder={t("workspace.agentDisplayNamePlaceholder")}
                     value={newAgentName}
                     onChange={(event) => setNewAgentName(event.target.value)}
                   />
@@ -156,18 +158,18 @@ export default function Workspace() {
                 <div className="surface-panel-subtle rounded-2xl border-transparent bg-[linear-gradient(180deg,rgba(37,99,235,0.12),rgba(37,99,235,0.05))] p-4">
                   <p className="text-xs text-blue-400 leading-relaxed">
                     <ShieldAlert className="w-3 h-3 inline mr-1" />
-                    Save the token before you navigate away. The API will not return it again unless you reset it.
+                    {t("workspace.saveTokenWarning")}
                   </p>
                 </div>
               </div>
               <DialogFooter>
-                <Button variant="ghost" onClick={() => setIsCreateModalOpen(false)}>Cancel</Button>
+                <Button variant="ghost" onClick={() => setIsCreateModalOpen(false)}>{t("common.cancel")}</Button>
                 <Button
                   className="bg-blue-600 hover:bg-blue-700"
                   onClick={() => void handleCreateAgent()}
                   disabled={submitting || !newAgentName.trim()}
                 >
-                  Create
+                  {t("common.create")}
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -179,17 +181,17 @@ export default function Workspace() {
         <Table>
           <TableHeader className="bg-[hsl(var(--surface-2)/0.52)]">
             <TableRow className="hover:bg-transparent">
-              <TableHead className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Agent</TableHead>
-              <TableHead className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Type</TableHead>
-              <TableHead className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Latest Token</TableHead>
-              <TableHead className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Created</TableHead>
-              <TableHead className="text-right text-[10px] uppercase tracking-widest font-bold text-muted-foreground">Actions</TableHead>
+              <TableHead className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">{t("workspace.tableAgent")}</TableHead>
+              <TableHead className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">{t("workspace.tableType")}</TableHead>
+              <TableHead className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">{t("workspace.tableLatestToken")}</TableHead>
+              <TableHead className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">{t("workspace.tableCreated")}</TableHead>
+              <TableHead className="text-right text-[10px] uppercase tracking-widest font-bold text-muted-foreground">{t("workspace.tableActions")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell className="text-muted-foreground" colSpan={5}>Loading agents...</TableCell>
+                <TableCell className="text-muted-foreground" colSpan={5}>{t("workspace.loadingAgents")}</TableCell>
               </TableRow>
             ) : error ? (
               <TableRow>
@@ -210,13 +212,13 @@ export default function Workspace() {
                 </TableCell>
                 <TableCell>
                   <Badge variant="outline" className="rounded-full px-2 py-0 text-[10px] font-bold uppercase tracking-tighter bg-[linear-gradient(180deg,rgba(34,197,94,0.16),rgba(34,197,94,0.08))] text-green-600 dark:text-green-400">
-                    {account.type}
+                    {t(`enums.accountType.${account.type}`, undefined, account.type)}
                   </Badge>
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-2">
                     <code className="surface-chip rounded-xl border-transparent px-2 py-1 text-xs font-mono text-muted-foreground">
-                      {maskToken(latestTokens[account.id])}
+                      {latestTokens[account.id] ? maskToken(latestTokens[account.id]) : t("workspace.hiddenUntilIssuedOrReset")}
                     </code>
                     {latestTokens[account.id] && (
                       <Button
@@ -230,11 +232,11 @@ export default function Workspace() {
                     )}
                   </div>
                 </TableCell>
-                <TableCell className="text-xs text-muted-foreground">{new Date(account.createdAt).toLocaleString()}</TableCell>
+                <TableCell className="text-xs text-muted-foreground">{formatDateTime(account.createdAt)}</TableCell>
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-2">
                     <Link to={`/app/agents/${account.id}/conversations`}>
-                      <Button size="sm" variant="ghost" className="text-blue-400 hover:text-blue-300">View</Button>
+                      <Button size="sm" variant="ghost" className="text-blue-400 hover:text-blue-300">{t("common.view")}</Button>
                     </Link>
                     <Button
                       size="sm"
@@ -243,7 +245,7 @@ export default function Workspace() {
                       onClick={() => void handleResetToken(account.id)}
                     >
                       <KeyRound className="w-3 h-3 mr-1" />
-                      Reset
+                      {t("workspace.reset")}
                     </Button>
                   </div>
                 </TableCell>
