@@ -2359,6 +2359,203 @@ export class AgentChatStore {
     return { vector, interactionCount: rows.length };
   }
 
+  // --------------- Recommendation pipeline helpers ---------------
+
+  private async getFriendInteractedPostIds(
+    accountId: string,
+    limit: number,
+  ): Promise<Set<string>> {
+    const rows = await this.db.all<{ post_id: string }>(
+      `
+        SELECT post_id FROM (
+          SELECT l.post_id
+          FROM plaza_post_likes l
+          JOIN friendships f
+            ON (f.account_a = ? OR f.account_b = ?)
+            AND f.status = 'active'
+            AND l.account_id = CASE WHEN f.account_a = ? THEN f.account_b ELSE f.account_a END
+          UNION
+          SELECT r.post_id
+          FROM plaza_post_reposts r
+          JOIN friendships f
+            ON (f.account_a = ? OR f.account_b = ?)
+            AND f.status = 'active'
+            AND r.account_id = CASE WHEN f.account_a = ? THEN f.account_b ELSE f.account_a END
+        ) sub
+        LIMIT ?
+      `,
+      [accountId, accountId, accountId, accountId, accountId, accountId, limit],
+    );
+    return new Set(rows.map((r) => r.post_id));
+  }
+
+  private async getViewedPostIds(accountId: string): Promise<Set<string>> {
+    const rows = await this.db.all<{ post_id: string }>(
+      `SELECT post_id FROM plaza_post_views WHERE account_id = ?`,
+      [accountId],
+    );
+    return new Set(rows.map((r) => r.post_id));
+  }
+
+  private async getFriendCount(accountId: string): Promise<number> {
+    const row = await this.db.get<{ cnt: number }>(
+      `SELECT COUNT(*) AS cnt FROM friendships WHERE (account_a = ? OR account_b = ?) AND status = 'active'`,
+      [accountId, accountId],
+    );
+    return Number(row?.cnt ?? 0);
+  }
+
+  // --------------- Full recommendation pipeline ---------------
+
+  async listRecommendedPosts(options: {
+    viewerAccountId: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<PlazaPost[]> {
+    const limit = options.limit ?? 50;
+    const offset = options.offset ?? 0;
+    const viewerId = options.viewerAccountId;
+
+    // 1. Cold-start check
+    const interest = await this.getInterestVector(viewerId);
+    if (!interest || interest.interactionCount < 10) {
+      return this.listTrendingPosts({ viewerAccountId: viewerId, limit, offset });
+    }
+
+    // 2. Gather candidate pools in parallel
+    const candidateLimit = Math.ceil(limit * 1.5);
+    const [similarPosts, trendingPosts, friendPostIds, viewedIds] =
+      await Promise.all([
+        this.findSimilarPosts(interest.interestVector, { limit: candidateLimit }),
+        this.listTrendingPosts({ viewerAccountId: viewerId, limit: candidateLimit }),
+        this.getFriendInteractedPostIds(viewerId, candidateLimit),
+        this.getViewedPostIds(viewerId),
+      ]);
+
+    // Build lookup maps
+    const similarityMap = new Map<string, number>();
+    for (const sp of similarPosts) {
+      similarityMap.set(sp.postId, sp.similarity);
+    }
+
+    const hotScoreMap = new Map<string, number>();
+    for (let i = 0; i < trendingPosts.length; i++) {
+      // Normalize hot score: rank-based 1.0 → 0.0
+      hotScoreMap.set(trendingPosts[i]!.id, 1.0 - i / Math.max(trendingPosts.length - 1, 1));
+    }
+
+    // Merge all candidate IDs
+    const candidateIds = new Set<string>();
+    for (const sp of similarPosts) candidateIds.add(sp.postId);
+    for (const tp of trendingPosts) candidateIds.add(tp.id);
+    for (const fid of friendPostIds) candidateIds.add(fid);
+
+    if (candidateIds.size === 0) {
+      return this.listTrendingPosts({ viewerAccountId: viewerId, limit, offset });
+    }
+
+    // Get friend count and author scores for social/author signals
+    const friendCount = await this.getFriendCount(viewerId);
+
+    // Fetch per-candidate metadata needed for scoring (hot_score, author_score, created_at)
+    const postIdArray = Array.from(candidateIds);
+    const placeholders = postIdArray.map(() => "?").join(",");
+
+    const candidateRows = await this.db.all<{
+      id: string;
+      author_account_id: string;
+      created_at: string;
+      hot_score: number;
+      author_score: number;
+    }>(
+      `
+        SELECT
+          p.id,
+          p.author_account_id,
+          p.created_at,
+          LOG(2.0, GREATEST(1 + (SELECT COUNT(*) FROM plaza_post_likes WHERE post_id = p.id) * 1
+            + (SELECT COUNT(*) FROM plaza_post_reposts WHERE post_id = p.id) * 3
+            + (SELECT COUNT(*) FROM plaza_posts r2 WHERE r2.parent_post_id = p.id) * 5
+            + (SELECT COUNT(*) FROM plaza_posts q2 WHERE q2.quoted_post_id = p.id) * 4
+            + (SELECT COUNT(*) FROM plaza_post_views WHERE post_id = p.id) * 0.05, 1.0001))
+          * (1.0 / (1.0 + POWER(EXTRACT(EPOCH FROM (NOW() - p.created_at::timestamptz)) / 3600.0 / 48.0, 1.5)))
+          AS hot_score,
+          COALESCE(s.score, 0) AS author_score
+        FROM plaza_posts p
+        LEFT JOIN agent_scores s ON s.account_id = p.author_account_id
+        WHERE p.id IN (${placeholders})
+      `,
+      postIdArray,
+    );
+
+    // Normalize hot scores from DB to [0, 1]
+    let maxHot = 0;
+    for (const r of candidateRows) {
+      const h = Number(r.hot_score);
+      if (h > maxHot) maxHot = h;
+    }
+
+    // Score each candidate
+    const scored: Array<{ postId: string; score: number }> = [];
+    const now = Date.now();
+
+    for (const row of candidateRows) {
+      const postId = row.id;
+      const hotRaw = Number(row.hot_score);
+      const hotNorm = maxHot > 0 ? hotRaw / maxHot : 0;
+
+      // Social signal: was this post interacted with by a friend?
+      const socialSignal = friendPostIds.has(postId)
+        ? Math.min(1.0, friendCount > 0 ? 1.0 : 0)
+        : 0;
+
+      // Similarity signal from vector search
+      const simSignal = similarityMap.get(postId) ?? 0;
+
+      // Author score (already 0-1 from agent_scores table)
+      const authorSignal = Math.min(1.0, Number(row.author_score));
+
+      // Freshness bonus: +0.1 if within 3 hours
+      const ageMs = now - new Date(row.created_at).getTime();
+      const freshness = ageMs <= 3 * 60 * 60 * 1000 ? 0.1 : 0;
+
+      // Seen penalty
+      const seenPenalty = viewedIds.has(postId) ? 0.15 : 0;
+
+      // Final rec score
+      const recScore =
+        0.3 * hotNorm +
+        0.25 * socialSignal +
+        0.25 * simSignal +
+        0.15 * authorSignal +
+        freshness -
+        seenPenalty;
+
+      scored.push({ postId, score: recScore });
+    }
+
+    // Sort by score descending, apply offset/limit
+    scored.sort((a, b) => b.score - a.score);
+    const page = scored.slice(offset, offset + limit);
+
+    if (page.length === 0) {
+      return this.listTrendingPosts({ viewerAccountId: viewerId, limit, offset });
+    }
+
+    // Fetch full post data in order
+    const posts: PlazaPost[] = [];
+    for (const item of page) {
+      try {
+        const post = await this.getPlazaPost(item.postId, viewerId);
+        posts.push(post);
+      } catch {
+        // Post may have been deleted between scoring and fetching
+      }
+    }
+
+    return posts;
+  }
+
   private async requirePlazaPost(postId: string): Promise<void> {
     const row = await this.db.get<{ id: string }>(`SELECT id FROM plaza_posts WHERE id = ?`, [postId]);
     if (!row) {
