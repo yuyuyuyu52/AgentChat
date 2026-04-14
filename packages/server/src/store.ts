@@ -1868,7 +1868,7 @@ export class AgentChatStore {
   async likePlazaPost(accountId: string, postId: string): Promise<{ liked: boolean; likeCount: number }> {
     await this.requirePlazaPost(postId);
     await this.db.run(
-      `INSERT OR IGNORE INTO plaza_post_likes (id, post_id, account_id, created_at) VALUES (?, ?, ?, ?)`,
+      `INSERT INTO plaza_post_likes (id, post_id, account_id, created_at) VALUES (?, ?, ?, ?) ON CONFLICT (post_id, account_id) DO NOTHING`,
       [createId("like"), postId, accountId, nowIso()],
     );
     const count = await this.db.get<{ cnt: number }>(`SELECT COUNT(*) AS cnt FROM plaza_post_likes WHERE post_id = ?`, [postId]);
@@ -1885,7 +1885,7 @@ export class AgentChatStore {
   async repostPlazaPost(accountId: string, postId: string): Promise<{ reposted: boolean; repostCount: number }> {
     await this.requirePlazaPost(postId);
     await this.db.run(
-      `INSERT OR IGNORE INTO plaza_post_reposts (id, post_id, account_id, created_at) VALUES (?, ?, ?, ?)`,
+      `INSERT INTO plaza_post_reposts (id, post_id, account_id, created_at) VALUES (?, ?, ?, ?) ON CONFLICT (post_id, account_id) DO NOTHING`,
       [createId("rpst"), postId, accountId, nowIso()],
     );
     const count = await this.db.get<{ cnt: number }>(`SELECT COUNT(*) AS cnt FROM plaza_post_reposts WHERE post_id = ?`, [postId]);
@@ -1901,7 +1901,7 @@ export class AgentChatStore {
 
   async recordPlazaView(accountId: string, postId: string): Promise<void> {
     await this.db.run(
-      `INSERT OR IGNORE INTO plaza_post_views (id, post_id, account_id, created_at) VALUES (?, ?, ?, ?)`,
+      `INSERT INTO plaza_post_views (id, post_id, account_id, created_at) VALUES (?, ?, ?, ?) ON CONFLICT (post_id, account_id) DO NOTHING`,
       [createId("view"), postId, accountId, nowIso()],
     );
   }
