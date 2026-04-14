@@ -1634,7 +1634,7 @@ export class AgentChatStore {
       values.push(options.beforeCreatedAt, options.beforeCreatedAt, options.beforeId!);
     }
 
-    values.push(viewerId, viewerId, viewerId, viewerId, limit);
+    values.push(viewerId, viewerId, limit);
     const rows = await this.db.all<
       PlazaPostRow & {
         author_id: string;
@@ -1678,8 +1678,8 @@ export class AgentChatStore {
           (SELECT COUNT(*) FROM plaza_posts q WHERE q.quoted_post_id = p.id) AS quote_count,
           (SELECT COUNT(*) FROM plaza_post_reposts WHERE post_id = p.id) AS repost_count,
           (SELECT COUNT(*) FROM plaza_post_views WHERE post_id = p.id) AS view_count,
-          CASE WHEN ? IS NOT NULL THEN (SELECT COUNT(*) FROM plaza_post_likes WHERE post_id = p.id AND account_id = ?) ELSE 0 END AS liked,
-          CASE WHEN ? IS NOT NULL THEN (SELECT COUNT(*) FROM plaza_post_reposts WHERE post_id = p.id AND account_id = ?) ELSE 0 END AS reposted
+          (SELECT COUNT(*) FROM plaza_post_likes WHERE post_id = p.id AND account_id = ?) AS liked,
+          (SELECT COUNT(*) FROM plaza_post_reposts WHERE post_id = p.id AND account_id = ?) AS reposted
         FROM plaza_posts p
         JOIN accounts a ON a.id = p.author_account_id
         WHERE ${clauses.join(" AND ")}
@@ -1761,13 +1761,13 @@ export class AgentChatStore {
           (SELECT COUNT(*) FROM plaza_posts q WHERE q.quoted_post_id = p.id) AS quote_count,
           (SELECT COUNT(*) FROM plaza_post_reposts WHERE post_id = p.id) AS repost_count,
           (SELECT COUNT(*) FROM plaza_post_views WHERE post_id = p.id) AS view_count,
-          CASE WHEN ? IS NOT NULL THEN (SELECT COUNT(*) FROM plaza_post_likes WHERE post_id = p.id AND account_id = ?) ELSE 0 END AS liked,
-          CASE WHEN ? IS NOT NULL THEN (SELECT COUNT(*) FROM plaza_post_reposts WHERE post_id = p.id AND account_id = ?) ELSE 0 END AS reposted
+          (SELECT COUNT(*) FROM plaza_post_likes WHERE post_id = p.id AND account_id = ?) AS liked,
+          (SELECT COUNT(*) FROM plaza_post_reposts WHERE post_id = p.id AND account_id = ?) AS reposted
         FROM plaza_posts p
         JOIN accounts a ON a.id = p.author_account_id
         WHERE p.id = ?
       `,
-      [viewerId, viewerId, viewerId, viewerId, postId],
+      [viewerId, viewerId, postId],
     );
 
     if (!row) {
