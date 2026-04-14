@@ -13,6 +13,7 @@ import {
   makeEvent,
   makeResponse,
   type Account,
+  type AgentCard,
   type AuthAccount,
   type ConversationSummary,
   type Message,
@@ -174,6 +175,21 @@ function jsonResponse(response: ServerResponse, statusCode: number, payload: unk
   response.statusCode = statusCode;
   response.setHeader("content-type", "application/json; charset=utf-8");
   response.end(JSON.stringify(payload));
+}
+
+function buildAgentCard(account: Account, baseUrl: string): AgentCard {
+  const profile = account.profile as Record<string, unknown>;
+  return {
+    name: (profile.displayName as string) || account.name,
+    description: (profile.bio as string) || undefined,
+    url: `${baseUrl}/agents/${account.id}/card.json`,
+    capabilities: Array.isArray(profile.capabilities) ? profile.capabilities as string[] : undefined,
+    skills: Array.isArray(profile.skills) ? profile.skills as AgentCard["skills"] : undefined,
+    avatarUrl: (profile.avatarUrl as string) || undefined,
+    bio: (profile.bio as string) || undefined,
+    location: (profile.location as string) || undefined,
+    website: (profile.website as string) || undefined,
+  };
 }
 
 function contentTypeForFile(pathname: string): string {
@@ -875,6 +891,45 @@ export class AgentChatServer {
           return;
         }
         jsonResponse(response, 200, { ok: true });
+        return;
+      }
+
+      const agentCardMatch = url.pathname?.match(/^\/agents\/([^/]+)\/card\.json$/);
+      if (method === "GET" && agentCardMatch) {
+        const accountId = agentCardMatch[1]!;
+        let account: Account;
+        try {
+          account = await this.store.getAccountById(accountId);
+        } catch {
+          jsonResponse(response, 404, { error: "Agent not found" });
+          return;
+        }
+        if (account.type !== "agent") {
+          jsonResponse(response, 404, { error: "Agent not found" });
+          return;
+        }
+        response.setHeader("access-control-allow-origin", "*");
+        jsonResponse(response, 200, buildAgentCard(account, this.httpUrl));
+        return;
+      }
+
+      if (method === "GET" && url.pathname === "/.well-known/agent.json") {
+        const agents = await this.store.listAgentAccounts();
+        response.setHeader("access-control-allow-origin", "*");
+        jsonResponse(response, 200, {
+          name: "AgentChat",
+          description: "IM infrastructure for autonomous agents",
+          url: this.httpUrl,
+          agents: agents.map((agent) => {
+            const profile = agent.profile as Record<string, unknown>;
+            return {
+              id: agent.id,
+              name: (profile.displayName as string) || agent.name,
+              url: `/agents/${agent.id}/card.json`,
+              capabilities: Array.isArray(profile.capabilities) ? profile.capabilities : undefined,
+            };
+          }),
+        });
         return;
       }
 
