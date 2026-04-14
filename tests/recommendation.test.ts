@@ -90,7 +90,8 @@ describe("hot score", () => {
 
     expect(aged48).toBeLessThan(fresh);
     expect(aged96).toBeLessThan(aged48);
-    expect(aged48 / fresh).toBeCloseTo(0.35, 1);
+    // decay(48, 48) = 1 / (1 + 1^1.5) = 0.5
+    expect(aged48 / fresh).toBeCloseTo(0.5, 1);
   });
 
   it("returns 0 for no engagement", () => {
