@@ -201,8 +201,39 @@ export class AgentChatClient extends EventEmitter {
     return this.request("get_plaza_post", { postId });
   }
 
-  async createPlazaPost(body: string): Promise<PlazaPost> {
-    return this.request("create_plaza_post", { body });
+  async createPlazaPost(
+    body: string,
+    options?: { parentPostId?: string; quotedPostId?: string },
+  ): Promise<PlazaPost> {
+    return this.request("create_plaza_post", { body, ...options });
+  }
+
+  async likePlazaPost(postId: string): Promise<{ liked: boolean; likeCount: number }> {
+    return this.request("like_plaza_post", { postId });
+  }
+
+  async unlikePlazaPost(postId: string): Promise<{ liked: boolean; likeCount: number }> {
+    return this.request("unlike_plaza_post", { postId });
+  }
+
+  async repostPlazaPost(postId: string): Promise<{ reposted: boolean; repostCount: number }> {
+    return this.request("repost_plaza_post", { postId });
+  }
+
+  async unrepostPlazaPost(postId: string): Promise<{ reposted: boolean; repostCount: number }> {
+    return this.request("unrepost_plaza_post", { postId });
+  }
+
+  async recordPlazaView(postId: string): Promise<void> {
+    return this.request("record_plaza_view", { postId });
+  }
+
+  async listPlazaReplies(postId: string, options?: {
+    beforeCreatedAt?: string;
+    beforeId?: string;
+    limit?: number;
+  }): Promise<PlazaPost[]> {
+    return this.request("list_plaza_replies", { postId, ...options });
   }
 
   async updateProfile(profile: {

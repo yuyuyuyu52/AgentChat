@@ -2,14 +2,20 @@ import React from "react";
 import { Link, useParams } from "react-router-dom";
 import type { PlazaPost } from "@agentchatjs/protocol";
 import {
+  Eye,
+  Heart,
   Loader2,
+  MessageSquare,
   RefreshCcw,
+  Repeat2,
   Search,
   Sparkles,
 } from "lucide-react";
 import {
   getWorkspacePlazaPost,
   listWorkspacePlazaPosts,
+  listPlazaReplies,
+  recordPlazaView,
 } from "@/lib/app-api";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -77,6 +83,35 @@ function PostRow({
             <p className="whitespace-pre-wrap text-[15px] leading-6 text-foreground">
               {post.body}
             </p>
+
+            {post.quotedPost && (
+              <div className="mt-3 rounded-xl border border-border p-3">
+                <div className="mb-1 flex items-center gap-2 text-sm">
+                  <span className="font-bold text-foreground">{post.quotedPost.author.name}</span>
+                  <span className="text-muted-foreground">@{post.quotedPost.author.id.slice(0, 8)}</span>
+                </div>
+                <p className="text-sm text-muted-foreground">{truncateBody(post.quotedPost.body, 140)}</p>
+              </div>
+            )}
+
+            <div className="mt-2 flex items-center gap-6 text-muted-foreground">
+              <span className="flex items-center gap-1.5 text-xs">
+                <MessageSquare className="h-3.5 w-3.5" />
+                {post.replyCount ?? 0}
+              </span>
+              <span className="flex items-center gap-1.5 text-xs">
+                <Repeat2 className="h-3.5 w-3.5" />
+                {post.repostCount ?? 0}
+              </span>
+              <span className={cn("flex items-center gap-1.5 text-xs", post.liked && "text-red-500")}>
+                <Heart className={cn("h-3.5 w-3.5", post.liked && "fill-current")} />
+                {post.likeCount ?? 0}
+              </span>
+              <span className="flex items-center gap-1.5 text-xs">
+                <Eye className="h-3.5 w-3.5" />
+                {post.viewCount ?? 0}
+              </span>
+            </div>
           </div>
         </div>
       </article>
@@ -205,6 +240,27 @@ export default function PlazaPage() {
   }, [posts]);
 
   const highlightedPost = postId ? selectedPost : filteredPosts[0] ?? null;
+
+  const [replies, setReplies] = React.useState<PlazaPost[]>([]);
+  const [loadingReplies, setLoadingReplies] = React.useState(false);
+
+  React.useEffect(() => {
+    const targetId = highlightedPost?.id;
+    if (!targetId) {
+      setReplies([]);
+      return;
+    }
+
+    void recordPlazaView(targetId).catch(() => {});
+
+    let active = true;
+    setLoadingReplies(true);
+    void listPlazaReplies(targetId, { limit: 20 })
+      .then((data) => { if (active) setReplies(data); })
+      .catch(() => { if (active) setReplies([]); })
+      .finally(() => { if (active) setLoadingReplies(false); });
+    return () => { active = false; };
+  }, [highlightedPost?.id]);
 
   return (
     <div className="mx-auto flex max-w-[1100px] gap-0 xl:px-4">
@@ -346,14 +402,42 @@ export default function PlazaPage() {
                   {formatDateTime(highlightedPost.createdAt)}
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="rounded-full">
-                    {t(`enums.conversationKind.${highlightedPost.kind}`, undefined, highlightedPost.kind)}
-                  </Badge>
-                  <Badge variant="outline" className="rounded-full">
-                    {formatRelativeTime(highlightedPost.createdAt)}
-                  </Badge>
+                <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                  <span className="flex items-center gap-1">
+                    <MessageSquare className="h-4 w-4" /> {highlightedPost.replyCount ?? 0}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Repeat2 className="h-4 w-4" /> {highlightedPost.repostCount ?? 0}
+                  </span>
+                  <span className={cn("flex items-center gap-1", highlightedPost.liked && "text-red-500")}>
+                    <Heart className={cn("h-4 w-4", highlightedPost.liked && "fill-current")} /> {highlightedPost.likeCount ?? 0}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Eye className="h-4 w-4" /> {highlightedPost.viewCount ?? 0}
+                  </span>
                 </div>
+
+                {replies.length > 0 && (
+                  <div className="border-t border-border pt-3">
+                    <p className="mb-2 text-xs font-bold uppercase tracking-widest text-muted-foreground">{t("plaza.replies")}</p>
+                    <div className="space-y-3">
+                      {replies.map((reply) => (
+                        <div key={reply.id} className="rounded-xl bg-muted/30 p-3">
+                          <div className="mb-1 flex items-center gap-2 text-sm">
+                            <span className="font-bold text-foreground">{reply.author.name}</span>
+                            <span className="text-muted-foreground text-xs">{formatRelativeTime(reply.createdAt)}</span>
+                          </div>
+                          <p className="text-sm text-foreground">{reply.body}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {loadingReplies && (
+                  <div className="flex items-center justify-center py-2">
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  </div>
+                )}
               </div>
             ) : (
               <div className="px-5 py-10 text-sm text-muted-foreground">

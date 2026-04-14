@@ -44,14 +44,40 @@ export const MessageSchema = z.object({
 });
 export type Message = z.infer<typeof MessageSchema>;
 
-export const PlazaPostSchema = z.object({
+export const PlazaPostSchema: z.ZodType = z.object({
   id: z.string(),
   author: AccountSchema,
   body: z.string(),
   kind: PlazaPostKindSchema,
   createdAt: z.string(),
+  parentPostId: z.string().nullable().optional(),
+  quotedPostId: z.string().nullable().optional(),
+  quotedPost: z.lazy(() => PlazaPostSchema).nullable().optional(),
+  likeCount: z.number().int().nonnegative().optional(),
+  replyCount: z.number().int().nonnegative().optional(),
+  quoteCount: z.number().int().nonnegative().optional(),
+  repostCount: z.number().int().nonnegative().optional(),
+  viewCount: z.number().int().nonnegative().optional(),
+  liked: z.boolean().optional(),
+  reposted: z.boolean().optional(),
 });
-export type PlazaPost = z.infer<typeof PlazaPostSchema>;
+export type PlazaPost = {
+  id: string;
+  author: Account;
+  body: string;
+  kind: PlazaPostKind;
+  createdAt: string;
+  parentPostId?: string | null;
+  quotedPostId?: string | null;
+  quotedPost?: PlazaPost | null;
+  likeCount?: number;
+  replyCount?: number;
+  quoteCount?: number;
+  repostCount?: number;
+  viewCount?: number;
+  liked?: boolean;
+  reposted?: boolean;
+};
 
 export const ConversationSummarySchema = z.object({
   id: z.string(),
@@ -242,6 +268,43 @@ const CreatePlazaPostRequestSchema = RequestEnvelopeSchema.extend({
   type: z.literal("create_plaza_post"),
   payload: z.object({
     body: z.string().min(1),
+    parentPostId: z.string().optional(),
+    quotedPostId: z.string().optional(),
+  }),
+});
+
+const LikePlazaPostRequestSchema = RequestEnvelopeSchema.extend({
+  type: z.literal("like_plaza_post"),
+  payload: z.object({ postId: z.string() }),
+});
+
+const UnlikePlazaPostRequestSchema = RequestEnvelopeSchema.extend({
+  type: z.literal("unlike_plaza_post"),
+  payload: z.object({ postId: z.string() }),
+});
+
+const RepostPlazaPostRequestSchema = RequestEnvelopeSchema.extend({
+  type: z.literal("repost_plaza_post"),
+  payload: z.object({ postId: z.string() }),
+});
+
+const UnrepostPlazaPostRequestSchema = RequestEnvelopeSchema.extend({
+  type: z.literal("unrepost_plaza_post"),
+  payload: z.object({ postId: z.string() }),
+});
+
+const RecordPlazaViewRequestSchema = RequestEnvelopeSchema.extend({
+  type: z.literal("record_plaza_view"),
+  payload: z.object({ postId: z.string() }),
+});
+
+const ListPlazaRepliesRequestSchema = RequestEnvelopeSchema.extend({
+  type: z.literal("list_plaza_replies"),
+  payload: z.object({
+    postId: z.string(),
+    beforeCreatedAt: z.string().optional(),
+    beforeId: z.string().optional(),
+    limit: z.number().int().positive().max(100).optional(),
   }),
 });
 
@@ -283,6 +346,12 @@ export const ClientRequestSchema = z.discriminatedUnion("type", [
   ListPlazaPostsRequestSchema,
   GetPlazaPostRequestSchema,
   CreatePlazaPostRequestSchema,
+  LikePlazaPostRequestSchema,
+  UnlikePlazaPostRequestSchema,
+  RepostPlazaPostRequestSchema,
+  UnrepostPlazaPostRequestSchema,
+  RecordPlazaViewRequestSchema,
+  ListPlazaRepliesRequestSchema,
   UpdateProfileRequestSchema,
   GetProfileRequestSchema,
 ]);

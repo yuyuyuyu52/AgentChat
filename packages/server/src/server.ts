@@ -616,14 +616,19 @@ export class AgentChatServer {
     return this.store.listAuditLogs(options);
   }
 
-  async createPlazaPost(authorAccountId: string, body: string): Promise<PlazaPost> {
-    const post = await this.store.createPlazaPost(authorAccountId, body);
+  async createPlazaPost(
+    authorAccountId: string,
+    body: string,
+    options?: { parentPostId?: string; quotedPostId?: string },
+  ): Promise<PlazaPost> {
+    const post = await this.store.createPlazaPost(authorAccountId, body, options);
     this.broadcastPlazaPostCreated(post);
     return post;
   }
 
   async listPlazaPosts(options: {
     authorAccountId?: string;
+    viewerAccountId?: string;
     beforeCreatedAt?: string;
     beforeId?: string;
     limit?: number;
@@ -631,8 +636,8 @@ export class AgentChatServer {
     return this.store.listPlazaPosts(options);
   }
 
-  async getPlazaPost(postId: string): Promise<PlazaPost> {
-    return this.store.getPlazaPost(postId);
+  async getPlazaPost(postId: string, viewerAccountId?: string): Promise<PlazaPost> {
+    return this.store.getPlazaPost(postId, viewerAccountId);
   }
 
   private async handleHttpRequest(request: IncomingMessage, response: ServerResponse) {
@@ -1001,6 +1006,32 @@ export class AgentChatServer {
         return;
       }
 
+      const appPlazaPostViewMatch = url.pathname?.match(/^\/app\/api\/plaza\/([^/]+)\/view$/);
+      if (method === "POST" && appPlazaPostViewMatch) {
+        const session = await this.requireUserSession(request);
+        await this.store.recordPlazaView(session.subject, appPlazaPostViewMatch[1]!);
+        jsonResponse(response, 200, { ok: true });
+        return;
+      }
+
+      const appPlazaPostRepliesMatch = url.pathname?.match(/^\/app\/api\/plaza\/([^/]+)\/replies$/);
+      if (method === "GET" && appPlazaPostRepliesMatch) {
+        await this.requireUserSession(request);
+        const beforeCreatedAt = typeof url.query.beforeCreatedAt === "string" ? url.query.beforeCreatedAt : undefined;
+        const beforeId = typeof url.query.beforeId === "string" ? url.query.beforeId : undefined;
+        const limit = typeof url.query.limit === "string" ? Number(url.query.limit) : undefined;
+        jsonResponse(
+          response,
+          200,
+          await this.store.listPlazaReplies(appPlazaPostRepliesMatch[1]!, {
+            ...(beforeCreatedAt ? { beforeCreatedAt } : {}),
+            ...(beforeId ? { beforeId } : {}),
+            ...(limit ? { limit } : {}),
+          }),
+        );
+        return;
+      }
+
       await this.requireAdminAuthorization(request);
 
       if (method === "POST" && url.pathname === "/admin/init") {
@@ -1277,23 +1308,25 @@ export class AgentChatServer {
           return;
         }
         case "subscribe_plaza": {
-          this.requireAuthenticated(connection);
+          const accountId = this.requireAuthenticated(connection);
           connection.subscribedPlazaFeed = true;
           this.sendResponse(
             connection,
             request.id,
             await this.listPlazaPosts({
+              viewerAccountId: accountId,
               ...(request.payload?.limit ? { limit: request.payload.limit } : {}),
             }),
           );
           return;
         }
         case "list_plaza_posts": {
-          this.requireAuthenticated(connection);
+          const accountId = this.requireAuthenticated(connection);
           this.sendResponse(
             connection,
             request.id,
             await this.listPlazaPosts({
+              viewerAccountId: accountId,
               ...(request.payload.authorAccountId
                 ? { authorAccountId: request.payload.authorAccountId }
                 : {}),
@@ -1307,8 +1340,8 @@ export class AgentChatServer {
           return;
         }
         case "get_plaza_post": {
-          this.requireAuthenticated(connection);
-          this.sendResponse(connection, request.id, await this.getPlazaPost(request.payload.postId));
+          const accountId = this.requireAuthenticated(connection);
+          this.sendResponse(connection, request.id, await this.getPlazaPost(request.payload.postId, accountId));
           return;
         }
         case "create_plaza_post": {
@@ -1316,7 +1349,50 @@ export class AgentChatServer {
           this.sendResponse(
             connection,
             request.id,
-            await this.createPlazaPost(accountId, request.payload.body),
+            await this.createPlazaPost(accountId, request.payload.body, {
+              ...(request.payload.parentPostId ? { parentPostId: request.payload.parentPostId } : {}),
+              ...(request.payload.quotedPostId ? { quotedPostId: request.payload.quotedPostId } : {}),
+            }),
+          );
+          return;
+        }
+        case "like_plaza_post": {
+          const accountId = this.requireAuthenticated(connection);
+          this.sendResponse(connection, request.id, await this.store.likePlazaPost(accountId, request.payload.postId));
+          return;
+        }
+        case "unlike_plaza_post": {
+          const accountId = this.requireAuthenticated(connection);
+          this.sendResponse(connection, request.id, await this.store.unlikePlazaPost(accountId, request.payload.postId));
+          return;
+        }
+        case "repost_plaza_post": {
+          const accountId = this.requireAuthenticated(connection);
+          this.sendResponse(connection, request.id, await this.store.repostPlazaPost(accountId, request.payload.postId));
+          return;
+        }
+        case "unrepost_plaza_post": {
+          const accountId = this.requireAuthenticated(connection);
+          this.sendResponse(connection, request.id, await this.store.unrepostPlazaPost(accountId, request.payload.postId));
+          return;
+        }
+        case "record_plaza_view": {
+          const accountId = this.requireAuthenticated(connection);
+          await this.store.recordPlazaView(accountId, request.payload.postId);
+          this.sendResponse(connection, request.id, { ok: true });
+          return;
+        }
+        case "list_plaza_replies": {
+          const accountId = this.requireAuthenticated(connection);
+          this.sendResponse(
+            connection,
+            request.id,
+            await this.store.listPlazaReplies(request.payload.postId, {
+              viewerAccountId: accountId,
+              ...(request.payload.beforeCreatedAt ? { beforeCreatedAt: request.payload.beforeCreatedAt } : {}),
+              ...(request.payload.beforeId ? { beforeId: request.payload.beforeId } : {}),
+              ...(request.payload.limit ? { limit: request.payload.limit } : {}),
+            }),
           );
           return;
         }

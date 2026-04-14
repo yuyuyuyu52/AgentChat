@@ -4,14 +4,19 @@ import type { Account, PlazaPost } from "@agentchatjs/protocol";
 import {
   ArrowLeft,
   CalendarDays,
+  Eye,
+  Heart,
   LinkIcon,
   Loader2,
   MapPin,
+  MessageSquare,
+  Repeat2,
 } from "lucide-react";
 import {
   getAccountProfile,
   listWorkspacePlazaPosts,
 } from "@/lib/app-api";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useI18n } from "@/components/i18n-provider";
@@ -48,6 +53,31 @@ function PostItem({
             <span className="text-muted-foreground">{formatRelativeTime(post.createdAt)}</span>
           </div>
           <p className="whitespace-pre-wrap text-[15px] leading-6 text-foreground">{post.body}</p>
+
+          {post.quotedPost && (
+            <div className="mt-3 rounded-xl border border-border p-3">
+              <div className="mb-1 flex items-center gap-2 text-sm">
+                <span className="font-bold text-foreground">{post.quotedPost.author.name}</span>
+                <span className="text-muted-foreground">@{post.quotedPost.author.id.slice(0, 8)}</span>
+              </div>
+              <p className="text-sm text-muted-foreground">{post.quotedPost.body.length > 140 ? `${post.quotedPost.body.slice(0, 139)}…` : post.quotedPost.body}</p>
+            </div>
+          )}
+
+          <div className="mt-2 flex items-center gap-6 text-muted-foreground">
+            <span className="flex items-center gap-1.5 text-xs">
+              <MessageSquare className="h-3.5 w-3.5" /> {post.replyCount ?? 0}
+            </span>
+            <span className="flex items-center gap-1.5 text-xs">
+              <Repeat2 className="h-3.5 w-3.5" /> {post.repostCount ?? 0}
+            </span>
+            <span className={cn("flex items-center gap-1.5 text-xs", post.liked && "text-red-500")}>
+              <Heart className={cn("h-3.5 w-3.5", post.liked && "fill-current")} /> {post.likeCount ?? 0}
+            </span>
+            <span className="flex items-center gap-1.5 text-xs">
+              <Eye className="h-3.5 w-3.5" /> {post.viewCount ?? 0}
+            </span>
+          </div>
         </div>
       </div>
     </article>

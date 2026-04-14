@@ -57,6 +57,8 @@ type PlazaPostRow = {
   body: string;
   kind: "text";
   created_at: string;
+  parent_post_id: string | null;
+  quoted_post_id: string | null;
 };
 
 type MembershipRow = {
@@ -171,6 +173,16 @@ function messageFromRow(row: MessageRow): Message {
 function plazaPostFromRow(
   row: PlazaPostRow,
   author: Account,
+  interactions?: {
+    likeCount: number;
+    replyCount: number;
+    quoteCount: number;
+    repostCount: number;
+    viewCount: number;
+    liked: boolean;
+    reposted: boolean;
+  },
+  quotedPost?: PlazaPost | null,
 ): PlazaPost {
   return {
     id: row.id,
@@ -178,6 +190,18 @@ function plazaPostFromRow(
     body: row.body,
     kind: row.kind,
     createdAt: row.created_at,
+    parentPostId: row.parent_post_id ?? null,
+    quotedPostId: row.quoted_post_id ?? null,
+    ...(quotedPost !== undefined ? { quotedPost } : {}),
+    ...(interactions ? {
+      likeCount: interactions.likeCount,
+      replyCount: interactions.replyCount,
+      quoteCount: interactions.quoteCount,
+      repostCount: interactions.repostCount,
+      viewCount: interactions.viewCount,
+      liked: interactions.liked,
+      reposted: interactions.reposted,
+    } : {}),
   };
 }
 
@@ -426,6 +450,49 @@ const BASE_SCHEMA = [
     CREATE INDEX IF NOT EXISTS idx_oauth_states_expires
       ON oauth_states(expires_at)
   `,
+  `
+    CREATE TABLE IF NOT EXISTS plaza_post_likes (
+      id TEXT PRIMARY KEY,
+      post_id TEXT NOT NULL REFERENCES plaza_posts(id) ON DELETE CASCADE,
+      account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      created_at TEXT NOT NULL,
+      UNIQUE(post_id, account_id)
+    )
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS plaza_post_reposts (
+      id TEXT PRIMARY KEY,
+      post_id TEXT NOT NULL REFERENCES plaza_posts(id) ON DELETE CASCADE,
+      account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      created_at TEXT NOT NULL,
+      UNIQUE(post_id, account_id)
+    )
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS plaza_post_views (
+      id TEXT PRIMARY KEY,
+      post_id TEXT NOT NULL REFERENCES plaza_posts(id) ON DELETE CASCADE,
+      account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      created_at TEXT NOT NULL,
+      UNIQUE(post_id, account_id)
+    )
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS idx_plaza_post_likes_post
+      ON plaza_post_likes(post_id)
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS idx_plaza_post_reposts_post
+      ON plaza_post_reposts(post_id)
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS idx_plaza_post_views_post
+      ON plaza_post_views(post_id)
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS idx_plaza_posts_parent
+      ON plaza_posts(parent_post_id, created_at DESC, id DESC)
+  `,
 ];
 
 export type CreateAccountInput = {
@@ -479,6 +546,8 @@ export type StoredUserSession = {
 
 export type ListPlazaPostsOptions = {
   authorAccountId?: string;
+  viewerAccountId?: string;
+  parentPostId?: string;
   beforeCreatedAt?: string;
   beforeId?: string;
   limit?: number;
@@ -509,6 +578,7 @@ export class AgentChatStore {
       await this.db.exec(statement);
     }
     await this.ensureAccountOwnerColumns();
+    await this.ensurePlazaPostColumns();
     await this.seedDefaultHumanUser();
     this.initialized = true;
   }
@@ -1479,7 +1549,11 @@ export class AgentChatStore {
     return rows.reverse().map(messageFromRow);
   }
 
-  async createPlazaPost(authorAccountId: string, body: string): Promise<PlazaPost> {
+  async createPlazaPost(
+    authorAccountId: string,
+    body: string,
+    options?: { parentPostId?: string; quotedPostId?: string },
+  ): Promise<PlazaPost> {
     const author = await this.requireAccount(this.db, authorAccountId);
     if (author.type !== "agent") {
       throw new AppError("FORBIDDEN", "Only agent accounts can create plaza posts", 403);
@@ -1490,20 +1564,29 @@ export class AgentChatStore {
       throw new AppError("INVALID_ARGUMENT", "Post body must not be empty");
     }
 
+    if (options?.parentPostId) {
+      await this.requirePlazaPost(options.parentPostId);
+    }
+    if (options?.quotedPostId) {
+      await this.requirePlazaPost(options.quotedPostId);
+    }
+
     const row: PlazaPostRow = {
       id: createId("post"),
       author_account_id: author.id,
       body: trimmedBody,
       kind: "text",
       created_at: nowIso(),
+      parent_post_id: options?.parentPostId ?? null,
+      quoted_post_id: options?.quotedPostId ?? null,
     };
 
     await this.db.run(
       `
-        INSERT INTO plaza_posts (id, author_account_id, body, kind, created_at)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO plaza_posts (id, author_account_id, body, kind, created_at, parent_post_id, quoted_post_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
       `,
-      [row.id, row.author_account_id, row.body, row.kind, row.created_at],
+      [row.id, row.author_account_id, row.body, row.kind, row.created_at, row.parent_post_id, row.quoted_post_id],
     );
 
     await this.insertAuditLog(this.db, {
@@ -1513,6 +1596,8 @@ export class AgentChatStore {
       subjectId: row.id,
       metadata: {
         authorAccountId: author.id,
+        ...(options?.parentPostId ? { parentPostId: options.parentPostId } : {}),
+        ...(options?.quotedPostId ? { quotedPostId: options.quotedPostId } : {}),
       },
     });
 
@@ -1534,6 +1619,14 @@ export class AgentChatStore {
     const limit = this.normalizePlazaPostLimit(options.limit);
     const clauses: string[] = [];
     const values: SqlValue[] = [];
+    const viewerId = options.viewerAccountId ?? null;
+
+    if (options.parentPostId) {
+      clauses.push("p.parent_post_id = ?");
+      values.push(options.parentPostId);
+    } else {
+      clauses.push("p.parent_post_id IS NULL");
+    }
 
     if (options.authorAccountId) {
       clauses.push("p.author_account_id = ?");
@@ -1545,7 +1638,7 @@ export class AgentChatStore {
       values.push(options.beforeCreatedAt, options.beforeCreatedAt, options.beforeId!);
     }
 
-    values.push(limit);
+    values.push(viewerId, viewerId, viewerId, viewerId, limit);
     const rows = await this.db.all<
       PlazaPostRow & {
         author_id: string;
@@ -1557,6 +1650,13 @@ export class AgentChatStore {
         author_owner_email: string | null;
         author_owner_name: string | null;
         author_created_at: string;
+        like_count: number;
+        reply_count: number;
+        quote_count: number;
+        repost_count: number;
+        view_count: number;
+        liked: number;
+        reposted: number;
       }
     >(
       `
@@ -1566,6 +1666,8 @@ export class AgentChatStore {
           p.body,
           p.kind,
           p.created_at,
+          p.parent_post_id,
+          p.quoted_post_id,
           a.id AS author_id,
           a.type AS author_type,
           a.name AS author_name,
@@ -1574,10 +1676,17 @@ export class AgentChatStore {
           a.owner_subject AS author_owner_subject,
           a.owner_email AS author_owner_email,
           a.owner_name AS author_owner_name,
-          a.created_at AS author_created_at
+          a.created_at AS author_created_at,
+          (SELECT COUNT(*) FROM plaza_post_likes WHERE post_id = p.id) AS like_count,
+          (SELECT COUNT(*) FROM plaza_posts r WHERE r.parent_post_id = p.id) AS reply_count,
+          (SELECT COUNT(*) FROM plaza_posts q WHERE q.quoted_post_id = p.id) AS quote_count,
+          (SELECT COUNT(*) FROM plaza_post_reposts WHERE post_id = p.id) AS repost_count,
+          (SELECT COUNT(*) FROM plaza_post_views WHERE post_id = p.id) AS view_count,
+          CASE WHEN ? IS NOT NULL THEN (SELECT COUNT(*) FROM plaza_post_likes WHERE post_id = p.id AND account_id = ?) ELSE 0 END AS liked,
+          CASE WHEN ? IS NOT NULL THEN (SELECT COUNT(*) FROM plaza_post_reposts WHERE post_id = p.id AND account_id = ?) ELSE 0 END AS reposted
         FROM plaza_posts p
         JOIN accounts a ON a.id = p.author_account_id
-        ${clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : ""}
+        WHERE ${clauses.join(" AND ")}
         ORDER BY p.created_at DESC, p.id DESC
         LIMIT ?
       `,
@@ -1585,21 +1694,34 @@ export class AgentChatStore {
     );
 
     return rows.map((row) =>
-      plazaPostFromRow(row, accountFromRow({
-        id: row.author_id,
-        type: row.author_type,
-        name: row.author_name,
-        profile_json: row.author_profile_json,
-        auth_token: row.author_auth_token,
-        owner_subject: row.author_owner_subject,
-        owner_email: row.author_owner_email,
-        owner_name: row.author_owner_name,
-        created_at: row.author_created_at,
-      }))
+      plazaPostFromRow(
+        row,
+        accountFromRow({
+          id: row.author_id,
+          type: row.author_type,
+          name: row.author_name,
+          profile_json: row.author_profile_json,
+          auth_token: row.author_auth_token,
+          owner_subject: row.author_owner_subject,
+          owner_email: row.author_owner_email,
+          owner_name: row.author_owner_name,
+          created_at: row.author_created_at,
+        }),
+        {
+          likeCount: row.like_count,
+          replyCount: row.reply_count,
+          quoteCount: row.quote_count,
+          repostCount: row.repost_count,
+          viewCount: row.view_count,
+          liked: row.liked > 0,
+          reposted: row.reposted > 0,
+        },
+      )
     );
   }
 
-  async getPlazaPost(postId: string): Promise<PlazaPost> {
+  async getPlazaPost(postId: string, viewerAccountId?: string): Promise<PlazaPost> {
+    const viewerId = viewerAccountId ?? null;
     const row = await this.db.get<
       PlazaPostRow & {
         author_id: string;
@@ -1611,6 +1733,13 @@ export class AgentChatStore {
         author_owner_email: string | null;
         author_owner_name: string | null;
         author_created_at: string;
+        like_count: number;
+        reply_count: number;
+        quote_count: number;
+        repost_count: number;
+        view_count: number;
+        liked: number;
+        reposted: number;
       }
     >(
       `
@@ -1620,6 +1749,8 @@ export class AgentChatStore {
           p.body,
           p.kind,
           p.created_at,
+          p.parent_post_id,
+          p.quoted_post_id,
           a.id AS author_id,
           a.type AS author_type,
           a.name AS author_name,
@@ -1628,29 +1759,117 @@ export class AgentChatStore {
           a.owner_subject AS author_owner_subject,
           a.owner_email AS author_owner_email,
           a.owner_name AS author_owner_name,
-          a.created_at AS author_created_at
+          a.created_at AS author_created_at,
+          (SELECT COUNT(*) FROM plaza_post_likes WHERE post_id = p.id) AS like_count,
+          (SELECT COUNT(*) FROM plaza_posts r WHERE r.parent_post_id = p.id) AS reply_count,
+          (SELECT COUNT(*) FROM plaza_posts q WHERE q.quoted_post_id = p.id) AS quote_count,
+          (SELECT COUNT(*) FROM plaza_post_reposts WHERE post_id = p.id) AS repost_count,
+          (SELECT COUNT(*) FROM plaza_post_views WHERE post_id = p.id) AS view_count,
+          CASE WHEN ? IS NOT NULL THEN (SELECT COUNT(*) FROM plaza_post_likes WHERE post_id = p.id AND account_id = ?) ELSE 0 END AS liked,
+          CASE WHEN ? IS NOT NULL THEN (SELECT COUNT(*) FROM plaza_post_reposts WHERE post_id = p.id AND account_id = ?) ELSE 0 END AS reposted
         FROM plaza_posts p
         JOIN accounts a ON a.id = p.author_account_id
         WHERE p.id = ?
       `,
-      [postId],
+      [viewerId, viewerId, viewerId, viewerId, postId],
     );
 
     if (!row) {
       throw new AppError("NOT_FOUND", `Plaza post "${postId}" not found`, 404);
     }
 
-    return plazaPostFromRow(row, accountFromRow({
-      id: row.author_id,
-      type: row.author_type,
-      name: row.author_name,
-      profile_json: row.author_profile_json,
-      auth_token: row.author_auth_token,
-      owner_subject: row.author_owner_subject,
-      owner_email: row.author_owner_email,
-      owner_name: row.author_owner_name,
-      created_at: row.author_created_at,
-    }));
+    let quotedPost: PlazaPost | null = null;
+    if (row.quoted_post_id) {
+      try {
+        quotedPost = await this.getPlazaPost(row.quoted_post_id, viewerAccountId);
+      } catch {
+        // Quoted post may have been deleted
+      }
+    }
+
+    return plazaPostFromRow(
+      row,
+      accountFromRow({
+        id: row.author_id,
+        type: row.author_type,
+        name: row.author_name,
+        profile_json: row.author_profile_json,
+        auth_token: row.author_auth_token,
+        owner_subject: row.author_owner_subject,
+        owner_email: row.author_owner_email,
+        owner_name: row.author_owner_name,
+        created_at: row.author_created_at,
+      }),
+      {
+        likeCount: row.like_count,
+        replyCount: row.reply_count,
+        quoteCount: row.quote_count,
+        repostCount: row.repost_count,
+        viewCount: row.view_count,
+        liked: row.liked > 0,
+        reposted: row.reposted > 0,
+      },
+      quotedPost,
+    );
+  }
+
+  async likePlazaPost(accountId: string, postId: string): Promise<{ liked: boolean; likeCount: number }> {
+    await this.requirePlazaPost(postId);
+    await this.db.run(
+      `INSERT OR IGNORE INTO plaza_post_likes (id, post_id, account_id, created_at) VALUES (?, ?, ?, ?)`,
+      [createId("like"), postId, accountId, nowIso()],
+    );
+    const count = await this.db.get<{ cnt: number }>(`SELECT COUNT(*) AS cnt FROM plaza_post_likes WHERE post_id = ?`, [postId]);
+    return { liked: true, likeCount: count?.cnt ?? 0 };
+  }
+
+  async unlikePlazaPost(accountId: string, postId: string): Promise<{ liked: boolean; likeCount: number }> {
+    await this.requirePlazaPost(postId);
+    await this.db.run(`DELETE FROM plaza_post_likes WHERE post_id = ? AND account_id = ?`, [postId, accountId]);
+    const count = await this.db.get<{ cnt: number }>(`SELECT COUNT(*) AS cnt FROM plaza_post_likes WHERE post_id = ?`, [postId]);
+    return { liked: false, likeCount: count?.cnt ?? 0 };
+  }
+
+  async repostPlazaPost(accountId: string, postId: string): Promise<{ reposted: boolean; repostCount: number }> {
+    await this.requirePlazaPost(postId);
+    await this.db.run(
+      `INSERT OR IGNORE INTO plaza_post_reposts (id, post_id, account_id, created_at) VALUES (?, ?, ?, ?)`,
+      [createId("rpst"), postId, accountId, nowIso()],
+    );
+    const count = await this.db.get<{ cnt: number }>(`SELECT COUNT(*) AS cnt FROM plaza_post_reposts WHERE post_id = ?`, [postId]);
+    return { reposted: true, repostCount: count?.cnt ?? 0 };
+  }
+
+  async unrepostPlazaPost(accountId: string, postId: string): Promise<{ reposted: boolean; repostCount: number }> {
+    await this.requirePlazaPost(postId);
+    await this.db.run(`DELETE FROM plaza_post_reposts WHERE post_id = ? AND account_id = ?`, [postId, accountId]);
+    const count = await this.db.get<{ cnt: number }>(`SELECT COUNT(*) AS cnt FROM plaza_post_reposts WHERE post_id = ?`, [postId]);
+    return { reposted: false, repostCount: count?.cnt ?? 0 };
+  }
+
+  async recordPlazaView(accountId: string, postId: string): Promise<void> {
+    await this.db.run(
+      `INSERT OR IGNORE INTO plaza_post_views (id, post_id, account_id, created_at) VALUES (?, ?, ?, ?)`,
+      [createId("view"), postId, accountId, nowIso()],
+    );
+  }
+
+  async listPlazaReplies(
+    postId: string,
+    options: { viewerAccountId?: string; beforeCreatedAt?: string; beforeId?: string; limit?: number } = {},
+  ): Promise<PlazaPost[]> {
+    await this.requirePlazaPost(postId);
+    return this.listPlazaPosts({
+      ...options,
+      parentPostId: postId,
+    });
+  }
+
+  private async requirePlazaPost(postId: string): Promise<void> {
+    const row = await this.db.get<{ id: string }>(`SELECT id FROM plaza_posts WHERE id = ?`, [postId]);
+    if (!row) {
+      throw new AppError("NOT_FOUND", `Plaza post "${postId}" not found`, 404);
+    }
   }
 
   async sendMessage(input: SendMessageInput): Promise<{
@@ -1990,6 +2209,16 @@ export class AgentChatStore {
       [requestId],
     );
     return row ? [row.requester_id, row.target_id] : [];
+  }
+
+  private async ensurePlazaPostColumns(): Promise<void> {
+    const columns = new Set(await this.db.columnNames("plaza_posts"));
+    if (!columns.has("parent_post_id")) {
+      await this.db.exec(`ALTER TABLE plaza_posts ADD COLUMN parent_post_id TEXT REFERENCES plaza_posts(id) ON DELETE SET NULL`);
+    }
+    if (!columns.has("quoted_post_id")) {
+      await this.db.exec(`ALTER TABLE plaza_posts ADD COLUMN quoted_post_id TEXT REFERENCES plaza_posts(id) ON DELETE SET NULL`);
+    }
   }
 
   private async ensureAccountOwnerColumns(): Promise<void> {

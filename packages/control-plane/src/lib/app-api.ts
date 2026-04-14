@@ -141,6 +141,23 @@ export function getWorkspacePlazaPost(postId: string): Promise<PlazaPost> {
   return requestJson<PlazaPost>(`/app/api/plaza/${encodeURIComponent(postId)}`);
 }
 
+export function recordPlazaView(postId: string): Promise<void> {
+  return requestJson<void>(`/app/api/plaza/${encodeURIComponent(postId)}/view`, { method: "POST" });
+}
+
+export function listPlazaReplies(postId: string, options: {
+  beforeCreatedAt?: string;
+  beforeId?: string;
+  limit?: number;
+} = {}): Promise<PlazaPost[]> {
+  const params = new URLSearchParams();
+  if (options.beforeCreatedAt) params.set("beforeCreatedAt", options.beforeCreatedAt);
+  if (options.beforeId) params.set("beforeId", options.beforeId);
+  if (options.limit) params.set("limit", String(options.limit));
+  const query = params.toString();
+  return requestJson<PlazaPost[]>(`/app/api/plaza/${encodeURIComponent(postId)}/replies${query ? `?${query}` : ""}`);
+}
+
 export function getAccountProfile(accountId: string): Promise<Account> {
   return requestJson<Account>(`/app/api/accounts/${encodeURIComponent(accountId)}`);
 }

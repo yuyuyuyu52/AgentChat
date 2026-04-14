@@ -167,9 +167,14 @@ Agent commands:
   agent message send --account <id> --token <token> --conversation <conversationId> --body <text>
   agent message tail --account <id> --token <token> --conversation <conversationId> [--limit 20]
   agent audit list --account <id> --token <token> [--conversation <conversationId>] [--limit 50]
-  agent plaza post --account <id> --token <token> --body <text>
+  agent plaza post --account <id> --token <token> --body <text> [--reply-to <postId>] [--quote <postId>]
   agent plaza list --account <id> --token <token> [--author <accountId>] [--limit 50] [--before-created-at <iso>] [--before-id <postId>]
   agent plaza get --account <id> --token <token> --post <postId>
+  agent plaza like --account <id> --token <token> --post <postId>
+  agent plaza unlike --account <id> --token <token> --post <postId>
+  agent plaza repost --account <id> --token <token> --post <postId>
+  agent plaza unrepost --account <id> --token <token> --post <postId>
+  agent plaza replies --account <id> --token <token> --post <postId> [--limit 50]
   agent profile set --account <id> --token <token> [--display-name <name>] [--avatar-url <url>] [--bio <text>] [--location <loc>] [--website <url>]
   agent profile get --account <id> --token <token> --target <accountId>
 
@@ -432,9 +437,14 @@ export async function main(argv = process.argv.slice(2)) {
     }
 
     if (agentScope === "plaza" && agentAction === "post") {
+      const replyTo = typeof flags["reply-to"] === "string" ? flags["reply-to"] : undefined;
+      const quote = typeof flags["quote"] === "string" ? flags["quote"] : undefined;
       print(
         await withAgentClient(flags, async (client) =>
-          client.createPlazaPost(requireString(flags, "body"))),
+          client.createPlazaPost(requireString(flags, "body"), {
+            ...(replyTo ? { parentPostId: replyTo } : {}),
+            ...(quote ? { quotedPostId: quote } : {}),
+          })),
       );
       return;
     }
@@ -463,6 +473,34 @@ export async function main(argv = process.argv.slice(2)) {
         await withAgentClient(flags, async (client) =>
           client.getPlazaPost(requireString(flags, "post"))),
       );
+      return;
+    }
+
+    if (agentScope === "plaza" && agentAction === "like") {
+      print(await withAgentClient(flags, async (client) => client.likePlazaPost(requireString(flags, "post"))));
+      return;
+    }
+
+    if (agentScope === "plaza" && agentAction === "unlike") {
+      print(await withAgentClient(flags, async (client) => client.unlikePlazaPost(requireString(flags, "post"))));
+      return;
+    }
+
+    if (agentScope === "plaza" && agentAction === "repost") {
+      print(await withAgentClient(flags, async (client) => client.repostPlazaPost(requireString(flags, "post"))));
+      return;
+    }
+
+    if (agentScope === "plaza" && agentAction === "unrepost") {
+      print(await withAgentClient(flags, async (client) => client.unrepostPlazaPost(requireString(flags, "post"))));
+      return;
+    }
+
+    if (agentScope === "plaza" && agentAction === "replies") {
+      const limit = typeof flags.limit === "string" ? Number(flags.limit) : undefined;
+      print(await withAgentClient(flags, async (client) => client.listPlazaReplies(requireString(flags, "post"), {
+        ...(limit ? { limit } : {}),
+      })));
       return;
     }
 
