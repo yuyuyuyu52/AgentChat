@@ -30,6 +30,7 @@ import {
   type SendMessageInput,
   type StoredUserSession,
 } from "./store.js";
+import { createEmbeddingProvider, type EmbeddingProvider } from "./embedding.js";
 
 type ConnectionState = {
   socket: WebSocket;
@@ -297,6 +298,7 @@ export class AgentChatServer {
     "agent authentication",
   );
   private actualPort = 0;
+  private embeddingProvider: EmbeddingProvider;
 
   constructor(options: AgentChatServerOptions) {
     if (process.env.NODE_ENV === "production" && !options.adminPassword) {
@@ -312,6 +314,10 @@ export class AgentChatServer {
     this.store = new AgentChatStore({
       databaseUrl: options.databaseUrl,
     });
+    const openaiKey = process.env.AGENTCHAT_OPENAI_API_KEY;
+    this.embeddingProvider = createEmbeddingProvider(
+      openaiKey ? { apiKey: openaiKey } : {},
+    );
 
     this.httpServer = createServer(this.handleHttpRequest.bind(this));
     this.wsServer = new WebSocketServer({ noServer: true });
@@ -639,7 +645,22 @@ export class AgentChatServer {
   ): Promise<PlazaPost> {
     const post = await this.store.createPlazaPost(authorAccountId, body, options);
     this.broadcastPlazaPostCreated(post);
+
+    // Async: generate embedding for top-level posts (fire-and-forget)
+    if (!options?.parentPostId) {
+      this.generatePostEmbedding(post.id, post.body).catch((err) => {
+        console.error(`Failed to generate embedding for post ${post.id}:`, err);
+      });
+    }
+
     return post;
+  }
+
+  private async generatePostEmbedding(postId: string, body: string): Promise<void> {
+    const results = await this.embeddingProvider.embed([body]);
+    const embedding = results[0];
+    if (!embedding) return;
+    await this.store.upsertPostEmbedding(postId, embedding, this.embeddingProvider.model);
   }
 
   async listPlazaPosts(options: {
@@ -650,6 +671,13 @@ export class AgentChatServer {
     limit?: number;
   } = {}) {
     return this.store.listPlazaPosts(options);
+  }
+
+  async updateInterestVector(accountId: string): Promise<void> {
+    const result = await this.store.buildInterestVector(accountId);
+    if (result) {
+      await this.store.upsertInterestVector(accountId, result.vector, result.interactionCount);
+    }
   }
 
   async getPlazaPost(postId: string, viewerAccountId?: string): Promise<PlazaPost> {
@@ -1119,6 +1147,7 @@ export class AgentChatServer {
         const humanAccount = await this.store.getOrCreateHumanAccount(session);
         await this.store.recordPlazaView(humanAccount.id, appPlazaPostViewMatch[1]!);
         jsonResponse(response, 200, { ok: true });
+        this.updateInterestVector(humanAccount.id).catch(() => {});
         return;
       }
 
@@ -1127,6 +1156,7 @@ export class AgentChatServer {
         const session = await this.requireUserSession(request);
         const humanAccount = await this.store.getOrCreateHumanAccount(session);
         jsonResponse(response, 200, await this.store.likePlazaPost(humanAccount.id, appPlazaPostLikeMatch[1]!));
+        this.updateInterestVector(humanAccount.id).catch(() => {});
         return;
       }
       if (method === "DELETE" && appPlazaPostLikeMatch) {
@@ -1141,6 +1171,7 @@ export class AgentChatServer {
         const session = await this.requireUserSession(request);
         const humanAccount = await this.store.getOrCreateHumanAccount(session);
         jsonResponse(response, 200, await this.store.repostPlazaPost(humanAccount.id, appPlazaPostRepostMatch[1]!));
+        this.updateInterestVector(humanAccount.id).catch(() => {});
         return;
       }
       if (method === "DELETE" && appPlazaPostRepostMatch) {
