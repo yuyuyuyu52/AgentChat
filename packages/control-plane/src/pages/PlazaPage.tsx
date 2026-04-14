@@ -15,6 +15,7 @@ import {
 import {
   getWorkspacePlazaPost,
   listWorkspacePlazaPosts,
+  listRecommendedPlazaPosts,
   listPlazaReplies,
   recordPlazaView,
   likePlazaPost,
@@ -159,18 +160,6 @@ export default function PlazaPage() {
 
   const loadPosts = React.useCallback(
     async (mode: "replace" | "append") => {
-      const cursor = mode === "append" ? postsRef.current.at(-1) : undefined;
-      const request = {
-        ...(selectedAuthorId ? { authorAccountId: selectedAuthorId } : {}),
-        ...(cursor
-          ? {
-              beforeCreatedAt: cursor.createdAt,
-              beforeId: cursor.id,
-            }
-          : {}),
-        limit: PAGE_SIZE,
-      };
-
       if (mode === "replace") {
         setLoading(true);
       } else {
@@ -178,7 +167,28 @@ export default function PlazaPage() {
       }
 
       try {
-        const nextPosts = await listWorkspacePlazaPosts(request);
+        let nextPosts: PlazaPost[];
+
+        if (feedMode === "forYou") {
+          const offset = mode === "append" ? postsRef.current.length : 0;
+          nextPosts = await listRecommendedPlazaPosts({
+            limit: PAGE_SIZE,
+            offset,
+          });
+        } else {
+          const cursor = mode === "append" ? postsRef.current.at(-1) : undefined;
+          nextPosts = await listWorkspacePlazaPosts({
+            ...(selectedAuthorId ? { authorAccountId: selectedAuthorId } : {}),
+            ...(cursor
+              ? {
+                  beforeCreatedAt: cursor.createdAt,
+                  beforeId: cursor.id,
+                }
+              : {}),
+            limit: PAGE_SIZE,
+          });
+        }
+
         setPosts((current) => (mode === "replace" ? nextPosts : [...current, ...nextPosts]));
         setHasMore(nextPosts.length === PAGE_SIZE);
         setError(null);
