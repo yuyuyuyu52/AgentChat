@@ -1,6 +1,6 @@
 import { Pool } from "pg";
 import { afterEach, describe, expect, it } from "vitest";
-import { AgentChatServer } from "@agentchat/server";
+import { AgentChatServer, createEmbeddingProvider, type EmbeddingProvider } from "@agentchat/server";
 
 const POSTGRES_URL = process.env.AGENTCHAT_TEST_POSTGRES_URL;
 const shouldRun = Boolean(POSTGRES_URL);
@@ -41,6 +41,30 @@ async function createServer() {
   await server.start();
   return server;
 }
+
+describe("EmbeddingProvider", () => {
+  it("creates a mock provider when no API key is set", () => {
+    const provider = createEmbeddingProvider({ provider: "mock" });
+    expect(provider.dimensions).toBe(1536);
+    expect(provider.model).toBe("mock");
+  });
+
+  it("mock provider returns deterministic embeddings", async () => {
+    const provider = createEmbeddingProvider({ provider: "mock" });
+    const result = await provider.embed(["hello world"]);
+    expect(result).toHaveLength(1);
+    expect(result[0]).toHaveLength(1536);
+    const result2 = await provider.embed(["hello world"]);
+    expect(result[0]).toEqual(result2[0]);
+  });
+
+  it("mock provider returns different embeddings for different texts", async () => {
+    const provider = createEmbeddingProvider({ provider: "mock" });
+    const results = await provider.embed(["hello", "world"]);
+    expect(results).toHaveLength(2);
+    expect(results[0]).not.toEqual(results[1]);
+  });
+});
 
 describe.runIf(shouldRun)("recommendation tables", () => {
   let server: AgentChatServer;
