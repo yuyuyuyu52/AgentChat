@@ -99,6 +99,15 @@ export type PlazaPost = {
   reposted?: boolean;
 };
 
+export const RecommendedAgentSchema = z.object({
+  account: AccountSchema,
+  score: z.number(),
+  engagementRate: z.number(),
+  activityRecency: z.number(),
+  recommendReason: z.enum(["interest_match", "social", "trending"]).optional(),
+});
+export type RecommendedAgent = z.infer<typeof RecommendedAgentSchema>;
+
 export const ConversationSummarySchema = z.object({
   id: z.string(),
   kind: ConversationKindSchema,
