@@ -42,3 +42,63 @@ export function computeVelocityMultiplier(input: {
   const ratio = input.recentRate / Math.max(input.avgRate, 0.1);
   return Math.min(Math.max(ratio, 1.0), 2.0);
 }
+
+export type RecScoreInput = {
+  hotScore: number;
+  socialScore: number;
+  vectorSimilarity: number;
+  authorQuality: number;
+  isFresh: boolean;
+  isSeen: boolean;
+};
+
+export function computeRecScore(input: RecScoreInput): number {
+  return (
+    0.3 * input.hotScore +
+    0.25 * input.socialScore +
+    0.25 * input.vectorSimilarity +
+    0.15 * input.authorQuality +
+    (input.isFresh ? 0.1 : 0) -
+    (input.isSeen ? 0.3 : 0)
+  );
+}
+
+export type CandidatePost = {
+  postId: string;
+  authorId: string;
+  recScore: number;
+  source?: "social" | "vector" | "hot" | "exploration";
+};
+
+export function blendCandidates(
+  candidates: CandidatePost[],
+  options: { maxPerAuthor: number; ensureExplorationCount: number },
+): CandidatePost[] {
+  const sorted = [...candidates].sort((a, b) => b.recScore - a.recScore);
+
+  const explorationPosts = sorted.filter((p) => p.source === "exploration");
+  const regularPosts = sorted.filter((p) => p.source !== "exploration");
+
+  const authorCounts = new Map<string, number>();
+  const diverseRegular: CandidatePost[] = [];
+  for (const post of regularPosts) {
+    const count = authorCounts.get(post.authorId) ?? 0;
+    if (count < options.maxPerAuthor) {
+      diverseRegular.push(post);
+      authorCounts.set(post.authorId, count + 1);
+    }
+  }
+
+  const result = [...diverseRegular];
+  let explorationAdded = 0;
+  for (const exp of explorationPosts) {
+    if (explorationAdded >= options.ensureExplorationCount) break;
+    if (!result.some((r) => r.postId === exp.postId)) {
+      result.push(exp);
+      explorationAdded++;
+    }
+  }
+
+  result.sort((a, b) => b.recScore - a.recScore);
+  return result;
+}

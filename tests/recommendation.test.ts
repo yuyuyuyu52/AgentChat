@@ -1,6 +1,6 @@
 import { Pool } from "pg";
 import { afterEach, describe, expect, it } from "vitest";
-import { AgentChatServer, createEmbeddingProvider, computeHotScore, computeVelocityMultiplier, type EmbeddingProvider } from "@agentchat/server";
+import { AgentChatServer, createEmbeddingProvider, computeHotScore, computeVelocityMultiplier, computeRecScore, blendCandidates, type EmbeddingProvider } from "@agentchat/server";
 
 const POSTGRES_URL = process.env.AGENTCHAT_TEST_POSTGRES_URL;
 const shouldRun = Boolean(POSTGRES_URL);
@@ -110,6 +110,63 @@ describe("hot score", () => {
 
     const zero = computeVelocityMultiplier({ recentRate: 0, avgRate: 1 });
     expect(zero).toBe(1.0);
+  });
+});
+
+describe("recommendation scoring", () => {
+  it("computes rec score from components", () => {
+    const score = computeRecScore({
+      hotScore: 0.5,
+      socialScore: 0.3,
+      vectorSimilarity: 0.8,
+      authorQuality: 0.6,
+      isFresh: true,
+      isSeen: false,
+    });
+    // 0.30*0.5 + 0.25*0.3 + 0.25*0.8 + 0.15*0.6 + 0.1 - 0
+    // = 0.15 + 0.075 + 0.2 + 0.09 + 0.1 = 0.615
+    expect(score).toBeCloseTo(0.615, 2);
+  });
+
+  it("applies seen penalty", () => {
+    const base = { hotScore: 0.5, socialScore: 0.3, vectorSimilarity: 0.8, authorQuality: 0.6, isFresh: false };
+    const unseen = computeRecScore({ ...base, isSeen: false });
+    const seen = computeRecScore({ ...base, isSeen: true });
+    expect(seen).toBeLessThan(unseen);
+    expect(unseen - seen).toBeCloseTo(0.3, 2);
+  });
+});
+
+describe("candidate blending", () => {
+  it("enforces author diversity — max 3 per author", () => {
+    const posts = Array.from({ length: 10 }, (_, i) => ({
+      postId: `post-${i}`,
+      authorId: "same-author",
+      recScore: 10 - i,
+    }));
+    const blended = blendCandidates(posts, { maxPerAuthor: 3, ensureExplorationCount: 0 });
+    expect(blended.length).toBeLessThanOrEqual(3);
+  });
+
+  it("ensures exploration posts are included", () => {
+    const regular = Array.from({ length: 5 }, (_, i) => ({
+      postId: `reg-${i}`,
+      authorId: `author-${i}`,
+      recScore: 10 - i,
+      source: "hot" as const,
+    }));
+    const exploration = Array.from({ length: 5 }, (_, i) => ({
+      postId: `exp-${i}`,
+      authorId: `exp-author-${i}`,
+      recScore: 0.1,
+      source: "exploration" as const,
+    }));
+    const blended = blendCandidates([...regular, ...exploration], {
+      maxPerAuthor: 3,
+      ensureExplorationCount: 2,
+    });
+    const explorationInResult = blended.filter((p) => p.source === "exploration");
+    expect(explorationInResult.length).toBeGreaterThanOrEqual(2);
   });
 });
 
