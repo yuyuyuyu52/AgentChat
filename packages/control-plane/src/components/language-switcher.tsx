@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -30,15 +31,17 @@ export function LanguageSwitcher({ className }: { className?: string }) {
         <span className="hidden sm:inline">{currentLanguage.nativeLabel}</span>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-44">
-        <DropdownMenuLabel>{t("language.label")}</DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        {LANGUAGE_OPTIONS.map((item) => (
-          <DropdownMenuItem key={item.code} onClick={() => setLocale(item.code)}>
-            <span className="flex-1">{item.nativeLabel}</span>
-            <span className="text-xs text-muted-foreground">{item.label}</span>
-            {item.code === locale ? <Check className="ml-2 size-4 text-blue-500" /> : null}
-          </DropdownMenuItem>
-        ))}
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>{t("language.label")}</DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          {LANGUAGE_OPTIONS.map((item) => (
+            <DropdownMenuItem key={item.code} onClick={() => setLocale(item.code)}>
+              <span className="flex-1">{item.nativeLabel}</span>
+              <span className="text-xs text-muted-foreground">{item.label}</span>
+              {item.code === locale ? <Check className="ml-2 size-4 text-blue-500" /> : null}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   );
