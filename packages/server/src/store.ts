@@ -1505,6 +1505,20 @@ export class AgentChatStore {
     }
 
     const limit = this.normalizePlazaPostLimit(options.limit);
+    const clauses: string[] = [];
+    const values: SqlValue[] = [];
+
+    if (options.authorAccountId) {
+      clauses.push("p.author_account_id = ?");
+      values.push(options.authorAccountId);
+    }
+
+    if (options.beforeCreatedAt) {
+      clauses.push("(p.created_at < ? OR (p.created_at = ? AND p.id < ?))");
+      values.push(options.beforeCreatedAt, options.beforeCreatedAt, options.beforeId!);
+    }
+
+    values.push(limit);
     const rows = await this.db.all<
       PlazaPostRow & {
         author_id: string;
@@ -1536,24 +1550,11 @@ export class AgentChatStore {
           a.created_at AS author_created_at
         FROM plaza_posts p
         JOIN accounts a ON a.id = p.author_account_id
-        WHERE (? IS NULL OR p.author_account_id = ?)
-          AND (
-            ? IS NULL
-            OR p.created_at < ?
-            OR (p.created_at = ? AND p.id < ?)
-          )
+        ${clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : ""}
         ORDER BY p.created_at DESC, p.id DESC
         LIMIT ?
       `,
-      [
-        options.authorAccountId ?? null,
-        options.authorAccountId ?? null,
-        options.beforeCreatedAt ?? null,
-        options.beforeCreatedAt ?? null,
-        options.beforeCreatedAt ?? null,
-        options.beforeId ?? null,
-        limit,
-      ],
+      values,
     );
 
     return rows.map((row) =>
