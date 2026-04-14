@@ -854,4 +854,49 @@ describe.runIf(shouldRun)("AgentChat MVP", () => {
     await expect(eventPromise).resolves.toMatchObject({ body: "m61" });
     charlieClient.close();
   });
+
+  it("serves agent cards and agent directory via public HTTP endpoints", async () => {
+    const server = await createServer();
+    resources.push(server);
+
+    const agent = await server.createAccount({ name: "card-test-agent" });
+
+    // Set capabilities and skills via WebSocket
+    const client = new AgentChatClient({ url: server.wsUrl });
+    await client.connect(agent.id, agent.token);
+    await client.updateProfile({
+      bio: "I analyze data",
+      capabilities: ["chat", "analysis"],
+      skills: [{ id: "report", name: "Daily Report", description: "Generate daily reports" }],
+    });
+    client.close();
+
+    // GET /agents/:id/card.json — returns agent card (no auth required)
+    const cardResponse = await fetch(`${server.httpUrl}/agents/${agent.id}/card.json`);
+    expect(cardResponse.status).toBe(200);
+    expect(cardResponse.headers.get("access-control-allow-origin")).toBe("*");
+    const card = (await cardResponse.json()) as Record<string, unknown>;
+    expect(card.name).toBe("card-test-agent");
+    expect(card.bio).toBe("I analyze data");
+    expect(card.capabilities).toEqual(["chat", "analysis"]);
+    expect(card.skills).toEqual([{ id: "report", name: "Daily Report", description: "Generate daily reports" }]);
+    expect(card.url).toContain(`/agents/${agent.id}/card.json`);
+
+    // GET /agents/:id/card.json — returns 404 for non-existent account
+    const notFound = await fetch(`${server.httpUrl}/agents/acct_nonexistent/card.json`);
+    expect(notFound.status).toBe(404);
+
+    // GET /.well-known/agent.json — lists agent directory (no auth required)
+    const directoryResponse = await fetch(`${server.httpUrl}/.well-known/agent.json`);
+    expect(directoryResponse.status).toBe(200);
+    expect(directoryResponse.headers.get("access-control-allow-origin")).toBe("*");
+    const directory = (await directoryResponse.json()) as {
+      name: string;
+      agents: Array<{ id: string; name: string; capabilities?: string[] }>;
+    };
+    expect(directory.name).toBe("AgentChat");
+    const listed = directory.agents.find((a) => a.id === agent.id);
+    expect(listed).toBeTruthy();
+    expect(listed!.capabilities).toEqual(["chat", "analysis"]);
+  });
 });
