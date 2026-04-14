@@ -16,9 +16,12 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { motion } from "motion/react";
 import { getUserSession, loginHumanUser } from "@/lib/auth-api";
+import { LanguageSwitcher } from "@/components/language-switcher";
+import { useI18n } from "@/components/i18n-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 export default function LoginPage() {
+  const { t } = useI18n();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -47,12 +50,12 @@ export default function LoginPage() {
     try {
       setIsLoading(true);
       await loginHumanUser({ email, password });
-      toast.success("Access Granted", {
-        description: "User session initialized.",
+      toast.success(t("login.accessGranted"), {
+        description: t("login.sessionInitialized"),
       });
       window.location.assign("/app");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Login failed");
+      toast.error(error instanceof Error ? error.message : t("login.loginFailed"));
     } finally {
       setIsLoading(false);
     }
@@ -74,7 +77,10 @@ export default function LoginPage() {
             </div>
             <span className="text-xl font-bold tracking-tight text-foreground">AgentChat</span>
           </div>
-          <ThemeToggle className="border-border bg-background/80 text-muted-foreground hover:bg-muted hover:text-foreground" />
+          <div className="flex items-center gap-2">
+            <LanguageSwitcher className="border-border bg-background/80 text-muted-foreground hover:bg-muted hover:text-foreground" />
+            <ThemeToggle className="border-border bg-background/80 text-muted-foreground hover:bg-muted hover:text-foreground" />
+          </div>
         </div>
 
         <div className="relative z-10 space-y-8">
@@ -84,23 +90,23 @@ export default function LoginPage() {
             className="space-y-4"
           >
             <div className="inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-blue-400">
-              System Status: Operational
+              {t("login.systemOperational")}
             </div>
             <h1 className="text-5xl font-bold leading-[0.9] tracking-tighter text-foreground">
-              The Control Plane <br />
-              <span className="text-muted-foreground">for Autonomous Intelligence.</span>
+              {t("login.heroTitlePrefix")} <br />
+              <span className="text-muted-foreground">{t("login.heroTitleAccent")}</span>
             </h1>
           </motion.div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2 rounded-xl border border-border/70 bg-muted/30 p-4">
               <Activity className="h-4 w-4 text-blue-500" />
-              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Live Throughput</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{t("login.liveThroughput")}</p>
               <p className="text-xl font-mono text-foreground">1.2k msg/s</p>
             </div>
             <div className="space-y-2 rounded-xl border border-border/70 bg-muted/30 p-4">
               <Shield className="h-4 w-4 text-green-500" />
-              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Security Level</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{t("login.securityLevel")}</p>
               <p className="text-xl font-mono text-foreground">L4 Audit</p>
             </div>
           </div>
@@ -113,21 +119,22 @@ export default function LoginPage() {
       </div>
 
       <div className="relative flex flex-col items-center justify-center bg-background p-8 lg:p-24">
-        <div className="absolute right-6 top-6 lg:hidden">
+        <div className="absolute right-6 top-6 flex items-center gap-2 lg:hidden">
+          <LanguageSwitcher className="border-border bg-background/80 text-muted-foreground hover:bg-muted hover:text-foreground" />
           <ThemeToggle className="border-border bg-background/80 text-muted-foreground hover:bg-muted hover:text-foreground" />
         </div>
 
         <div className="w-full max-w-sm space-y-8">
           <div className="space-y-2 text-center lg:text-left">
-            <h2 className="text-3xl font-bold tracking-tight text-foreground">User Login</h2>
-            <p className="text-muted-foreground">Enter your credentials to access your AgentChat workspace.</p>
+            <h2 className="text-3xl font-bold tracking-tight text-foreground">{t("login.title")}</h2>
+            <p className="text-muted-foreground">{t("login.description")}</p>
           </div>
 
           <form onSubmit={(event) => void handleLogin(event)} className="space-y-6">
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                  Email Address
+                  {t("login.emailAddress")}
                 </Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -145,7 +152,7 @@ export default function LoginPage() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="password" className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                    Password
+                    {t("login.password")}
                   </Label>
                 </div>
                 <div className="relative">
@@ -170,11 +177,11 @@ export default function LoginPage() {
               {isLoading ? (
                 <div className="flex items-center gap-2">
                   <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/20 border-t-white" />
-                  Authenticating...
+                  {t("login.authenticating")}
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
-                  Initialize Session
+                  {t("login.initializeSession")}
                   <ArrowRight className="h-4 w-4" />
                 </div>
               )}
@@ -186,7 +193,7 @@ export default function LoginPage() {
               <span className="w-full border-t border-border"></span>
             </div>
             <div className="relative flex justify-center text-[10px] uppercase tracking-widest">
-              <span className="bg-background px-4 font-bold text-muted-foreground">Optional provider entry</span>
+              <span className="bg-background px-4 font-bold text-muted-foreground">{t("login.optionalProviderEntry")}</span>
             </div>
           </div>
 
@@ -205,14 +212,14 @@ export default function LoginPage() {
 
           <div className="rounded-xl border border-border/70 bg-muted/30 px-4 py-3 text-center">
             <p className="text-[11px] text-muted-foreground">
-              Demo user: <span className="font-mono text-foreground">test@example.com</span> / <span className="font-mono text-foreground">test123456</span>
+              {t("login.demoUser")}: <span className="font-mono text-foreground">test@example.com</span> / <span className="font-mono text-foreground">test123456</span>
             </p>
           </div>
 
           <p className="text-center text-sm text-muted-foreground">
-            Need an account?{" "}
+            {t("login.needAccount")}{" "}
             <Link to="/auth/register" className="font-bold text-blue-500 underline underline-offset-4 hover:text-blue-400">
-              Create Account
+              {t("login.createAccount")}
             </Link>
           </p>
         </div>

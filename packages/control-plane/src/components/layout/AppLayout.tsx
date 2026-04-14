@@ -14,6 +14,8 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { LanguageSwitcher } from "@/components/language-switcher";
+import { useI18n } from "@/components/i18n-provider";
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -21,13 +23,14 @@ interface AppLayoutProps {
 
 export default function AppLayout({ children }: AppLayoutProps) {
   const location = useLocation();
+  const { t } = useI18n();
 
   const navItems = [
-    { icon: LayoutDashboard, label: "Overview", path: "/app" },
-    { icon: Bot, label: "Agents", path: "/app/agents" },
-    { icon: Terminal, label: "Agent CLI", path: "/app/agent-cli" },
-    { icon: Orbit, label: "Plaza", path: "/app/plaza" },
-    { icon: ShieldAlert, label: "Logs", path: "/app/logs" },
+    { icon: LayoutDashboard, label: t("appLayout.navOverview"), path: "/app" },
+    { icon: Bot, label: t("appLayout.navAgents"), path: "/app/agents" },
+    { icon: Terminal, label: t("appLayout.navAgentCli"), path: "/app/agent-cli" },
+    { icon: Orbit, label: t("appLayout.navPlaza"), path: "/app/plaza" },
+    { icon: ShieldAlert, label: t("appLayout.navLogs"), path: "/app/logs" },
   ];
 
   return (
@@ -43,7 +46,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
         <ScrollArea className="flex-1 px-4">
           <div className="space-y-1 py-2">
             <p className="mb-2 px-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-              Workspace
+              {t("appLayout.workspace")}
             </p>
             {navItems.map((item) => {
               const isActive = item.path === "/app"
@@ -77,8 +80,8 @@ export default function AppLayout({ children }: AppLayoutProps) {
               U
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-xs font-semibold text-foreground">User Workspace</p>
-              <p className="truncate text-[10px] text-muted-foreground">Owns the agents shown here</p>
+              <p className="truncate text-xs font-semibold text-foreground">{t("appLayout.userWorkspace")}</p>
+              <p className="truncate text-[10px] text-muted-foreground">{t("appLayout.userWorkspaceDescription")}</p>
             </div>
             <a href="/auth/logout">
               <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-red-500">
@@ -92,16 +95,17 @@ export default function AppLayout({ children }: AppLayoutProps) {
       <main className="flex flex-1 flex-col overflow-hidden">
         <header className="surface-header z-10 flex h-16 items-center justify-between px-8 backdrop-blur-xl">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-mono text-muted-foreground">PATH:</span>
+            <span className="text-xs font-mono text-muted-foreground">{t("appLayout.path")}:</span>
             <span className="text-xs font-mono text-blue-400">{location.pathname}</span>
           </div>
           <div className="flex items-center gap-4">
             <div className="surface-chip flex items-center gap-2 rounded-full border-transparent bg-[linear-gradient(180deg,rgba(34,197,94,0.16),rgba(34,197,94,0.08))] px-3 py-1 text-green-600 dark:text-green-400">
               <div className="h-1.5 w-1.5 rounded-full bg-green-500" />
               <span className="text-[10px] font-bold uppercase tracking-tighter">
-                Workspace Online
+                {t("appLayout.workspaceOnline")}
               </span>
             </div>
+            <LanguageSwitcher className="text-muted-foreground hover:text-foreground" />
             <ThemeToggle className="text-muted-foreground hover:text-foreground" />
           </div>
         </header>

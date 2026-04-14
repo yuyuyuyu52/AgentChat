@@ -7,9 +7,12 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { motion } from "motion/react";
 import { getUserSession, registerHumanUser } from "@/lib/auth-api";
+import { LanguageSwitcher } from "@/components/language-switcher";
+import { useI18n } from "@/components/i18n-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 export default function RegisterPage() {
+  const { t } = useI18n();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -39,12 +42,12 @@ export default function RegisterPage() {
     try {
       setIsLoading(true);
       await registerHumanUser({ name, email, password });
-      toast.success("Account Initialized", {
-        description: "Welcome to the AgentChat network.",
+      toast.success(t("register.accountInitialized"), {
+        description: t("register.welcomeNetwork"),
       });
       window.location.assign("/app");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Registration failed");
+      toast.error(error instanceof Error ? error.message : t("register.registrationFailed"));
     } finally {
       setIsLoading(false);
     }
@@ -66,7 +69,10 @@ export default function RegisterPage() {
             </div>
             <span className="text-xl font-bold tracking-tight text-foreground">AgentChat</span>
           </div>
-          <ThemeToggle className="border-border bg-background/80 text-muted-foreground hover:bg-muted hover:text-foreground" />
+          <div className="flex items-center gap-2">
+            <LanguageSwitcher className="border-border bg-background/80 text-muted-foreground hover:bg-muted hover:text-foreground" />
+            <ThemeToggle className="border-border bg-background/80 text-muted-foreground hover:bg-muted hover:text-foreground" />
+          </div>
         </div>
 
         <div className="relative z-10 space-y-12">
@@ -76,14 +82,14 @@ export default function RegisterPage() {
             className="space-y-4"
           >
             <div className="inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/10 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-blue-400">
-              Infrastructure: Ready
+              {t("register.infrastructureReady")}
             </div>
             <h1 className="text-6xl font-bold leading-[0.85] tracking-tighter text-foreground">
-              Build the <br />
-              <span className="text-blue-500">Future of Work.</span>
+              {t("register.heroTitlePrefix")} <br />
+              <span className="text-blue-500">{t("register.heroTitleAccent")}</span>
             </h1>
             <p className="max-w-sm text-lg leading-relaxed text-muted-foreground">
-              Join thousands of operators managing autonomous agent clusters globally.
+              {t("register.heroDescription")}
             </p>
           </motion.div>
 
@@ -93,8 +99,8 @@ export default function RegisterPage() {
                 <Globe className="h-5 w-5 text-blue-400" />
               </div>
               <div>
-                <p className="text-sm font-bold text-foreground">Global Mesh Network</p>
-                <p className="text-xs text-muted-foreground">Deploy agents across 24+ regions instantly.</p>
+                <p className="text-sm font-bold text-foreground">{t("register.globalMeshNetwork")}</p>
+                <p className="text-xs text-muted-foreground">{t("register.globalMeshDescription")}</p>
               </div>
             </div>
             <div className="flex items-start gap-4">
@@ -102,8 +108,8 @@ export default function RegisterPage() {
                 <Cpu className="h-5 w-5 text-purple-400" />
               </div>
               <div>
-                <p className="text-sm font-bold text-foreground">Neural Processing</p>
-                <p className="text-xs text-muted-foreground">Optimized for LLM inference and reasoning.</p>
+                <p className="text-sm font-bold text-foreground">{t("register.neuralProcessing")}</p>
+                <p className="text-xs text-muted-foreground">{t("register.neuralDescription")}</p>
               </div>
             </div>
           </div>
@@ -112,31 +118,32 @@ export default function RegisterPage() {
         <div className="relative z-10 flex items-center gap-6 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
           <div className="flex items-center gap-2">
             <Server className="h-3 w-3" />
-            <span>Node: US-EAST-1</span>
+            <span>{t("register.node")}</span>
           </div>
           <div className="flex items-center gap-2">
             <ShieldCheck className="h-3 w-3" />
-            <span>Encrypted</span>
+            <span>{t("register.encrypted")}</span>
           </div>
         </div>
       </div>
 
       <div className="relative flex flex-col items-center justify-center bg-background p-8 lg:p-24">
-        <div className="absolute right-6 top-6 lg:hidden">
+        <div className="absolute right-6 top-6 flex items-center gap-2 lg:hidden">
+          <LanguageSwitcher className="border-border bg-background/80 text-muted-foreground hover:bg-muted hover:text-foreground" />
           <ThemeToggle className="border-border bg-background/80 text-muted-foreground hover:bg-muted hover:text-foreground" />
         </div>
 
         <div className="w-full max-w-sm space-y-8">
           <div className="space-y-2 text-center lg:text-left">
-            <h2 className="text-3xl font-bold tracking-tight text-foreground">Create Account</h2>
-            <p className="text-muted-foreground">Start your journey as an AgentChat operator.</p>
+            <h2 className="text-3xl font-bold tracking-tight text-foreground">{t("register.title")}</h2>
+            <p className="text-muted-foreground">{t("register.description")}</p>
           </div>
 
           <form onSubmit={(event) => void handleRegister(event)} className="space-y-6">
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="name" className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                  Full Name
+                  {t("register.fullName")}
                 </Label>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -152,7 +159,7 @@ export default function RegisterPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                  Email Address
+                  {t("register.emailAddress")}
                 </Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -169,14 +176,14 @@ export default function RegisterPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password" className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                  Password
+                  {t("register.password")}
                 </Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     id="password"
                     type="password"
-                    placeholder="At least 6 characters"
+                    placeholder={t("register.passwordHint")}
                     className="h-12 border-border bg-muted/30 pl-10 text-foreground transition-all focus-visible:bg-background focus-visible:ring-blue-500"
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
@@ -188,7 +195,7 @@ export default function RegisterPage() {
 
             <div className="rounded-xl border border-blue-500/10 bg-blue-500/5 p-4">
               <p className="text-center text-[10px] leading-relaxed text-muted-foreground">
-                By clicking "Initialize Workspace", you agree to our <span className="text-blue-500">Terms of Service</span> and <span className="text-blue-500">Privacy Policy</span>.
+                {t("register.termsPrefix")} <span className="text-blue-500">{t("register.termsOfService")}</span> and <span className="text-blue-500">{t("register.privacyPolicy")}</span>.
               </p>
             </div>
 
@@ -200,11 +207,11 @@ export default function RegisterPage() {
               {isLoading ? (
                 <div className="flex items-center gap-2">
                   <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/20 border-t-white" />
-                  Initializing...
+                  {t("register.initializing")}
                 </div>
               ) : (
                 <div className="flex items-center gap-2">
-                  Initialize Workspace
+                  {t("register.initializeWorkspace")}
                   <ArrowRight className="h-4 w-4" />
                 </div>
               )}
@@ -212,9 +219,9 @@ export default function RegisterPage() {
           </form>
 
           <p className="text-center text-sm text-muted-foreground">
-            Already have an account?{" "}
+            {t("register.alreadyHaveAccount")}{" "}
             <Link to="/auth/login" className="font-bold text-blue-500 underline underline-offset-4 hover:text-blue-400">
-              Sign In
+              {t("register.signIn")}
             </Link>
           </p>
         </div>
