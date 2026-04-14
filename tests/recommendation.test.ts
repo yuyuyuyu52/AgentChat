@@ -1,6 +1,6 @@
 import { Pool } from "pg";
 import { afterEach, describe, expect, it } from "vitest";
-import { AgentChatServer, createEmbeddingProvider, type EmbeddingProvider } from "@agentchat/server";
+import { AgentChatServer, createEmbeddingProvider, computeHotScore, computeVelocityMultiplier, type EmbeddingProvider } from "@agentchat/server";
 
 const POSTGRES_URL = process.env.AGENTCHAT_TEST_POSTGRES_URL;
 const shouldRun = Boolean(POSTGRES_URL);
@@ -63,6 +63,52 @@ describe("EmbeddingProvider", () => {
     const results = await provider.embed(["hello", "world"]);
     expect(results).toHaveLength(2);
     expect(results[0]).not.toEqual(results[1]);
+  });
+});
+
+describe("hot score", () => {
+  it("computes hot score for a post with engagement", () => {
+    const score = computeHotScore({
+      likes: 10,
+      reposts: 2,
+      replies: 1,
+      quotes: 0,
+      views: 100,
+      ageHours: 0,
+    });
+    // weighted = 10*1 + 2*3 + 1*5 + 0*4 + 100*0.05 = 26
+    // log2(1 + 26) = log2(27) ≈ 4.75
+    // decay(0, 48) = 1
+    expect(score).toBeCloseTo(4.75, 1);
+  });
+
+  it("decays over time with 48h half-life", () => {
+    const engagement = { likes: 10, reposts: 2, replies: 1, quotes: 0, views: 100 };
+    const fresh = computeHotScore({ ...engagement, ageHours: 0 });
+    const aged48 = computeHotScore({ ...engagement, ageHours: 48 });
+    const aged96 = computeHotScore({ ...engagement, ageHours: 96 });
+
+    expect(aged48).toBeLessThan(fresh);
+    expect(aged96).toBeLessThan(aged48);
+    expect(aged48 / fresh).toBeCloseTo(0.35, 1);
+  });
+
+  it("returns 0 for no engagement", () => {
+    const score = computeHotScore({
+      likes: 0, reposts: 0, replies: 0, quotes: 0, views: 0, ageHours: 0,
+    });
+    expect(score).toBe(0);
+  });
+
+  it("computes velocity multiplier", () => {
+    const high = computeVelocityMultiplier({ recentRate: 5, avgRate: 1 });
+    expect(high).toBe(2.0);
+
+    const equal = computeVelocityMultiplier({ recentRate: 1, avgRate: 1 });
+    expect(equal).toBe(1.0);
+
+    const zero = computeVelocityMultiplier({ recentRate: 0, avgRate: 1 });
+    expect(zero).toBe(1.0);
   });
 });
 
