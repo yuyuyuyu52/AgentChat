@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Sidebar } from "./Sidebar";
 import { Header } from "./Header";
 import { MobileTabBar } from "./MobileTabBar";
+import { SearchCommand } from "@/components/ui/search-command";
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -9,6 +10,18 @@ interface AppLayoutProps {
 
 export default function AppLayout({ children }: AppLayoutProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setSearchOpen(true);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
 
   return (
     <div className="flex h-dvh overflow-hidden surface-base">
@@ -25,6 +38,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
 
       {/* Mobile tab bar (hidden on desktop via internal md:hidden) */}
       <MobileTabBar />
+      <SearchCommand open={searchOpen} onOpenChange={setSearchOpen} />
     </div>
   );
 }
