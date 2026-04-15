@@ -1,17 +1,16 @@
 import React from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import type { PlazaPost } from "@agentchatjs/protocol";
-import { usePost, useLikePost, useRepostPost } from "@/lib/queries/use-posts";
+import { usePost } from "@/lib/queries/use-posts";
 import { recordPlazaView } from "@/lib/app-api";
-import { Card } from "@/components/ui/card";
+import { Loader2 } from "lucide-react";
 import { useI18n } from "@/components/i18n-provider";
 import { PlazaFeed, type FeedMode } from "./PlazaFeed";
-import { PlazaPostDetail } from "./PlazaPostDetail";
+import { PlazaPostPage } from "./PlazaPostPage";
 import { PlazaSidebar } from "./PlazaSidebar";
 
 export default function PlazaLayout() {
   const { t } = useI18n();
-  const navigate = useNavigate();
   const { postId } = useParams<{ postId?: string }>();
 
   const [allPosts, setAllPosts] = React.useState<PlazaPost[]>([]);
@@ -21,7 +20,7 @@ export default function PlazaLayout() {
 
   // Load selected post from URL param — try from feed cache first
   const postFromFeed = allPosts.find((p) => p.id === postId) ?? null;
-  const { data: postFromQuery } = usePost(postId && !postFromFeed ? postId : undefined);
+  const { data: postFromQuery, isLoading: postLoading } = usePost(postId && !postFromFeed ? postId : undefined);
   const selectedPost: PlazaPost | null = postFromFeed ?? postFromQuery ?? null;
 
   // Record view when a post becomes selected
@@ -31,21 +30,6 @@ export default function PlazaLayout() {
     }
   }, [selectedPost?.id]);
 
-  const likeMutation = useLikePost();
-  const repostMutation = useRepostPost();
-
-  const handleLike = (postId: string, currentlyLiked: boolean) => {
-    likeMutation.mutate({ postId, liked: currentlyLiked });
-  };
-
-  const handleRepost = (postId: string, currentlyReposted: boolean) => {
-    repostMutation.mutate({ postId, reposted: currentlyReposted });
-  };
-
-  const handleClose = () => {
-    void navigate("/app/plaza");
-  };
-
   const handleAuthorClick = (authorId: string) => {
     setSelectedAuthorId(authorId);
   };
@@ -54,9 +38,41 @@ export default function PlazaLayout() {
     setSelectedAuthorId(null);
   };
 
+  // Post detail page — replaces feed when viewing a single post (like X)
+  if (postId) {
+    return (
+      <div className="mx-auto flex max-w-[1100px] gap-0 xl:px-4">
+        {selectedPost ? (
+          <PlazaPostPage post={selectedPost} />
+        ) : (
+          <section className="flex min-h-[400px] min-w-0 flex-1 items-center justify-center border-x border-border bg-background">
+            {postLoading ? (
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            ) : (
+              <p className="text-sm text-muted-foreground">{t("plaza.loadPostDetailFailed")}</p>
+            )}
+          </section>
+        )}
+
+        {/* Sidebar — desktop only */}
+        <aside className="hidden w-[350px] shrink-0 px-6 py-3 xl:block">
+          <PlazaSidebar
+            posts={allPosts}
+            selectedAuthorId={selectedAuthorId}
+            selectedPost={null}
+            search={search}
+            onSearchChange={setSearch}
+            onAuthorSelect={setSelectedAuthorId}
+            onFeedModeChange={setFeedMode}
+          />
+        </aside>
+      </div>
+    );
+  }
+
+  // Feed view — default
   return (
     <div className="mx-auto flex max-w-[1100px] gap-0 xl:px-4">
-      {/* Feed column — always visible */}
       <PlazaFeed
         activePostId={postId}
         selectedAuthorId={selectedAuthorId}
@@ -70,34 +86,10 @@ export default function PlazaLayout() {
 
       {/* Sidebar — desktop only */}
       <aside className="hidden w-[350px] shrink-0 px-6 py-3 xl:block">
-        {/* Post detail panel */}
-        {selectedPost ? (
-          <Card className="mb-4 overflow-hidden rounded-3xl border-border bg-card">
-            <div className="border-b border-border px-5 py-4">
-              <h2 className="text-xl font-extrabold text-foreground">{t("plaza.post")}</h2>
-            </div>
-            <PlazaPostDetail
-              post={selectedPost}
-              onClose={handleClose}
-              onLike={handleLike}
-              onRepost={handleRepost}
-            />
-          </Card>
-        ) : (
-          <Card className="mb-4 overflow-hidden rounded-3xl border-border bg-card">
-            <div className="border-b border-border px-5 py-4">
-              <h2 className="text-xl font-extrabold text-foreground">{t("plaza.post")}</h2>
-            </div>
-            <div className="px-5 py-10 text-sm text-muted-foreground">
-              {t("plaza.selectPostToInspect")}
-            </div>
-          </Card>
-        )}
-
         <PlazaSidebar
           posts={allPosts}
           selectedAuthorId={selectedAuthorId}
-          selectedPost={selectedPost}
+          selectedPost={null}
           search={search}
           onSearchChange={setSearch}
           onAuthorSelect={setSelectedAuthorId}
