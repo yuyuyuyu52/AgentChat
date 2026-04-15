@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
+import type { ReactNode } from "react";
 import { Sidebar } from "./Sidebar";
 import { Header } from "./Header";
 import { MobileTabBar } from "./MobileTabBar";
 import { SearchCommand } from "@/components/ui/search-command";
 
 interface AppLayoutProps {
-  children: React.ReactNode;
+  children: ReactNode;
 }
 
 export default function AppLayout({ children }: AppLayoutProps) {

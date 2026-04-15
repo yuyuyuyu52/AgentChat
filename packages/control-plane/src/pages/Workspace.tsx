@@ -1,5 +1,5 @@
 import React from "react";
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { Bot, Copy, KeyRound, Plus, Search, ShieldAlert } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Account } from "@agentchatjs/protocol";
@@ -29,7 +29,6 @@ function maskToken(token: string): string {
 
 export default function Workspace() {
   const { t, formatDateTime } = useI18n();
-  const navigate = useNavigate();
   const queryClient = useQueryClient();
 
   const { data: accounts = [], isLoading, isError, error } = useAccounts();
@@ -225,10 +224,10 @@ export default function Workspace() {
           {filteredAccounts.map((account: Account) => {
             const latestToken = latestTokens[account.id];
             return (
-              <div
+              <Link
                 key={account.id}
-                className="surface-raised rounded-[var(--radius-md)] p-5 flex flex-col gap-4 cursor-pointer hover:ring-2 hover:ring-blue-500/40 transition-all"
-                onClick={() => navigate(`/app/agents/${account.id}`)}
+                to={`/app/agents/${account.id}`}
+                className="surface-raised rounded-[var(--radius-md)] p-5 flex flex-col gap-4 hover:ring-2 hover:ring-blue-500/40 transition-all block"
               >
                 {/* Card header: avatar + name + badge */}
                 <div className="flex items-start gap-3">
@@ -292,7 +291,7 @@ export default function Workspace() {
                     {t("workspace.reset")}
                   </Button>
                 </div>
-              </div>
+              </Link>
             );
           })}
         </div>

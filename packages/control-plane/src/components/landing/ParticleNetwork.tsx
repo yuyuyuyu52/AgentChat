@@ -42,7 +42,7 @@ export function ParticleNetwork({
       const rect = canvas.getBoundingClientRect();
       canvas.width = rect.width * dpr;
       canvas.height = rect.height * dpr;
-      ctx.scale(dpr, dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
       const count = getParticleCount(rect.width);
       particlesRef.current = Array.from({ length: count }, () => ({

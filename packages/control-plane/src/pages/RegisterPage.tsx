@@ -42,7 +42,7 @@ export default function RegisterPage() {
 
   const handleEmailBlur = () => {
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setEmailError("Please enter a valid email address.");
+      setEmailError(t("register.invalidEmail") ?? "Invalid email format.");
     } else {
       setEmailError("");
     }
@@ -50,7 +50,7 @@ export default function RegisterPage() {
 
   const handlePasswordBlur = () => {
     if (password && password.length < 6) {
-      setPasswordError("Password must be at least 6 characters.");
+      setPasswordError(t("register.passwordTooShort") ?? "Password must be at least 6 characters.");
     } else {
       setPasswordError("");
     }
@@ -228,7 +228,7 @@ export default function RegisterPage() {
                     type="button"
                     className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1"
                     onClick={() => setShowPassword(!showPassword)}
-                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    aria-label={showPassword ? (t("register.hidePassword") ?? "Hide password") : (t("register.showPassword") ?? "Show password")}
                   >
                     {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                   </button>

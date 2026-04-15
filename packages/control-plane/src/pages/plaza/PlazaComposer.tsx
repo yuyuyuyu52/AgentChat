@@ -1,4 +1,5 @@
 import { Loader2, Send } from "lucide-react";
+import type { KeyboardEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useI18n } from "@/components/i18n-provider";
@@ -13,7 +14,7 @@ export interface PlazaComposerProps {
 export function PlazaComposer({ value, onChange, onSubmit, isSubmitting }: PlazaComposerProps) {
   const { t } = useI18n();
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && !e.shiftKey && value.trim()) {
       e.preventDefault();
       onSubmit();

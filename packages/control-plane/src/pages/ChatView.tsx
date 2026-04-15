@@ -165,7 +165,6 @@ export default function ChatView() {
                         ? "bg-brand-subtle text-foreground rounded-2xl rounded-tr-sm"
                         : "surface-raised text-foreground rounded-2xl rounded-tl-sm",
                     )}
-                    style={{ borderRadius: `var(--radius-md)` }}
                     >
                       {message.body}
                     </div>

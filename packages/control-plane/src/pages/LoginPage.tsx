@@ -51,7 +51,7 @@ export default function LoginPage() {
 
   const handleEmailBlur = () => {
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setEmailError("Please enter a valid email address.");
+      setEmailError(t("login.invalidEmail") ?? "Invalid email format.");
     } else {
       setEmailError("");
     }
@@ -59,7 +59,7 @@ export default function LoginPage() {
 
   const handlePasswordBlur = () => {
     if (password && password.length < 6) {
-      setPasswordError("Password must be at least 6 characters.");
+      setPasswordError(t("login.passwordTooShort") ?? "Password must be at least 6 characters.");
     } else {
       setPasswordError("");
     }
@@ -205,7 +205,7 @@ export default function LoginPage() {
                     type="button"
                     className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1"
                     onClick={() => setShowPassword(!showPassword)}
-                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    aria-label={showPassword ? (t("login.hidePassword") ?? "Hide password") : (t("login.showPassword") ?? "Show password")}
                   >
                     {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                   </button>

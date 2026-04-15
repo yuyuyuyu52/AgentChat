@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Search, Bot, MessageSquare, ShieldAlert } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/components/i18n-provider";
 
 interface SearchCommandProps {
   open: boolean;
@@ -27,6 +28,7 @@ export function SearchCommand({ open, onOpenChange }: SearchCommandProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { t } = useI18n();
 
   const results = useMemo((): SearchResult[] => {
     if (!query.trim()) return [];
@@ -78,14 +80,14 @@ export function SearchCommand({ open, onOpenChange }: SearchCommandProps) {
   return (
     <>
       <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs" onClick={() => onOpenChange(false)} />
-      <div className="fixed top-[20%] left-1/2 -translate-x-1/2 z-50 w-full max-w-lg surface-overlay rounded-[var(--radius-lg)] overflow-hidden">
+      <div role="dialog" aria-modal="true" className="fixed top-[20%] left-1/2 -translate-x-1/2 z-50 w-full max-w-lg surface-overlay rounded-[var(--radius-lg)] overflow-hidden">
         <div className="flex items-center gap-2 px-4 border-b border-[hsl(var(--line-soft)/0.4)]">
           <Search className="size-4 text-muted-foreground shrink-0" />
           <input
             autoFocus
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search agents, conversations..."
+            placeholder={t("common.searchPlaceholder") ?? "Search agents, conversations..."}
             className="flex-1 h-12 bg-transparent text-body outline-none placeholder:text-muted-foreground/60"
           />
           <kbd className="text-caption text-muted-foreground/50 border border-[hsl(var(--line-soft)/0.4)] rounded px-1.5 py-0.5">Esc</kbd>
@@ -113,7 +115,7 @@ export function SearchCommand({ open, onOpenChange }: SearchCommandProps) {
           </div>
         )}
         {query && results.length === 0 && (
-          <div className="p-8 text-center text-body-sm text-muted-foreground">No results found</div>
+          <div className="p-8 text-center text-body-sm text-muted-foreground">{t("common.noResults") ?? "No results found"}</div>
         )}
       </div>
     </>
