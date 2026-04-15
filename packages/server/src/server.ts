@@ -18,6 +18,8 @@ import {
   type AuthAccount,
   type ConversationSummary,
   type Message,
+  type Notification,
+  type NotificationType,
   type PlazaPost,
   type ServerEvent,
 } from "@agentchatjs/protocol";
@@ -41,6 +43,7 @@ type ConnectionState = {
   subscribedConversationIds: Set<string>;
   subscribedConversationFeed: boolean;
   subscribedPlazaFeed: boolean;
+  subscribedNotifications: boolean;
   sessionId?: string;
 };
 
@@ -354,6 +357,7 @@ export class AgentChatServer {
         subscribedConversationIds: new Set(),
         subscribedConversationFeed: false,
         subscribedPlazaFeed: false,
+        subscribedNotifications: false,
       };
       this.connections.set(socket, state);
       socket.on("message", (data) => {
@@ -544,7 +548,15 @@ export class AgentChatServer {
     requestId: string;
     createdAt: string;
   }> {
-    return this.store.addFriendAs(actorId, peerAccountId);
+    const result = await this.store.addFriendAs(actorId, peerAccountId);
+    this.createAndDispatchNotification({
+      recipientAccountId: peerAccountId,
+      type: "friend_request_received",
+      actorAccountId: actorId,
+      subjectType: "friend_request",
+      subjectId: result.requestId,
+    }).catch(() => {});
+    return result;
   }
 
   async listFriendRequests(
@@ -1237,6 +1249,20 @@ export class AgentChatServer {
         return;
       }
 
+      if (method === "POST" && url.pathname === "/app/api/plaza/views") {
+        const session = await this.requireUserSession(request);
+        const humanAccount = await this.store.getOrCreateHumanAccount(session);
+        const body = await readJson(request) as { postIds: string[] };
+        if (!Array.isArray(body.postIds) || body.postIds.length === 0) {
+          throw new AppError("INVALID_ARGUMENT", "postIds must be a non-empty array");
+        }
+        const postIds = body.postIds.slice(0, 100);
+        await this.store.recordPlazaViewBatch(humanAccount.id, postIds);
+        jsonResponse(response, 200, { ok: true });
+        this.updateInterestVector(humanAccount.id).catch(() => {});
+        return;
+      }
+
       const appPlazaPostLikeMatch = url.pathname?.match(/^\/app\/api\/plaza\/([^/]+)\/like$/);
       if (method === "POST" && appPlazaPostLikeMatch) {
         const session = await this.requireUserSession(request);
@@ -1815,6 +1841,27 @@ export class AgentChatServer {
 
   private sendResponse(connection: ConnectionState, requestId: string, payload: unknown): void {
     connection.socket.send(JSON.stringify(makeResponse(requestId, payload)));
+  }
+
+  private async createAndDispatchNotification(input: {
+    recipientAccountId: string;
+    type: NotificationType;
+    actorAccountId?: string;
+    subjectType: string;
+    subjectId: string;
+    data?: Record<string, unknown>;
+  }): Promise<void> {
+    // Don't notify yourself
+    if (input.actorAccountId && input.actorAccountId === input.recipientAccountId) return;
+
+    const notification = await this.store.createNotification(input);
+    if (!notification) return; // dedup: already exists
+
+    this.dispatchEventToAccount(
+      input.recipientAccountId,
+      makeEvent("notification.created", notification),
+      (conn) => conn.subscribedNotifications,
+    );
   }
 
   private async serveControlPlaneIndex(

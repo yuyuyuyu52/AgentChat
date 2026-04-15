@@ -11,6 +11,8 @@ import {
   type FriendRequest,
   type FriendRequestStatus,
   type Message,
+  type Notification,
+  type NotificationType,
   type PlazaPost,
 } from "@agentchatjs/protocol";
 import { AppError } from "./errors.js";
@@ -95,6 +97,18 @@ type AuditLogRow = {
   subject_id: string;
   conversation_id: string | null;
   metadata_json: string;
+  created_at: string;
+};
+
+type NotificationRow = {
+  id: string;
+  recipient_account_id: string;
+  type: string;
+  actor_account_id: string | null;
+  subject_type: string;
+  subject_id: string;
+  data_json: string;
+  is_read: boolean;
   created_at: string;
 };
 
@@ -217,6 +231,23 @@ function auditLogFromRow(
     subjectId: row.subject_id,
     conversationId: row.conversation_id,
     metadata: parseRecord(row.metadata_json),
+    createdAt: row.created_at,
+  };
+}
+
+function notificationFromRow(
+  row: NotificationRow & { actor_name?: string | null },
+): Notification {
+  return {
+    id: row.id,
+    recipientAccountId: row.recipient_account_id,
+    type: row.type as NotificationType,
+    actorAccountId: row.actor_account_id,
+    actorName: row.actor_name ?? null,
+    subjectType: row.subject_type,
+    subjectId: row.subject_id,
+    data: parseRecord(row.data_json),
+    isRead: Boolean(row.is_read),
     createdAt: row.created_at,
   };
 }
@@ -554,6 +585,27 @@ const BASE_SCHEMA = [
   `
     CREATE INDEX IF NOT EXISTS idx_agent_content_vector_hnsw
       ON agent_scores USING hnsw (content_vector vector_cosine_ops)
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS notifications (
+      id TEXT PRIMARY KEY,
+      recipient_account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      type TEXT NOT NULL,
+      actor_account_id TEXT REFERENCES accounts(id) ON DELETE SET NULL,
+      subject_type TEXT NOT NULL,
+      subject_id TEXT NOT NULL,
+      data_json TEXT NOT NULL DEFAULT '{}',
+      is_read BOOLEAN NOT NULL DEFAULT FALSE,
+      created_at TEXT NOT NULL
+    )
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS idx_notifications_recipient_created
+      ON notifications(recipient_account_id, created_at DESC)
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS idx_notifications_recipient_unread
+      ON notifications(recipient_account_id) WHERE is_read = FALSE
   `,
 ];
 
@@ -2089,6 +2141,17 @@ export class AgentChatStore {
     );
   }
 
+  async recordPlazaViewBatch(accountId: string, postIds: string[]): Promise<void> {
+    if (postIds.length === 0) return;
+    const ts = nowIso();
+    const values = postIds.map(() => "(?, ?, ?, ?)").join(", ");
+    const params = postIds.flatMap((pid) => [createId("view"), pid, accountId, ts]);
+    await this.db.run(
+      `INSERT INTO plaza_post_views (id, post_id, account_id, created_at) VALUES ${values} ON CONFLICT (post_id, account_id) DO NOTHING`,
+      params,
+    );
+  }
+
   async listPlazaReplies(
     postId: string,
     options: { viewerAccountId?: string; beforeCreatedAt?: string; beforeId?: string; limit?: number } = {},
@@ -2413,10 +2476,14 @@ export class AgentChatStore {
     return new Set(rows.map((r) => r.post_id));
   }
 
-  private async getViewedPostIds(accountId: string): Promise<Set<string>> {
+  private async getInteractedPostIds(accountId: string): Promise<Set<string>> {
     const rows = await this.db.all<{ post_id: string }>(
-      `SELECT post_id FROM plaza_post_views WHERE account_id = ?`,
-      [accountId],
+      `SELECT post_id FROM plaza_post_views WHERE account_id = ?
+       UNION
+       SELECT post_id FROM plaza_post_likes WHERE account_id = ?
+       UNION
+       SELECT post_id FROM plaza_post_reposts WHERE account_id = ?`,
+      [accountId, accountId, accountId],
     );
     return new Set(rows.map((r) => r.post_id));
   }
@@ -2446,17 +2513,17 @@ export class AgentChatStore {
       return this.listTrendingPosts({ viewerAccountId: viewerId, limit, offset });
     }
 
-    // 2. Fetch viewed IDs first so we can exclude them from candidate queries
-    const viewedIds = await this.getViewedPostIds(viewerId);
-    const viewedArray = Array.from(viewedIds);
+    // 2. Fetch all interacted post IDs (viewed + liked + reposted) to exclude
+    const interactedIds = await this.getInteractedPostIds(viewerId);
+    const interactedArray = Array.from(interactedIds);
 
-    // 3. Gather candidate pools in parallel, excluding already-viewed posts
+    // 3. Gather candidate pools in parallel, excluding already-interacted posts
     const candidateLimit = Math.ceil(limit * 1.5);
     const [similarPosts, trendingPosts, friendPostIds] =
       await Promise.all([
         this.findSimilarPosts(interest.interestVector, {
           limit: candidateLimit,
-          excludePostIds: viewedArray,
+          excludePostIds: interactedArray,
         }),
         this.listTrendingPosts({ viewerAccountId: viewerId, limit: candidateLimit }),
         this.getFriendInteractedPostIds(viewerId, candidateLimit),
@@ -2468,16 +2535,16 @@ export class AgentChatStore {
       similarityMap.set(sp.postId, sp.similarity);
     }
 
-    // Merge all candidate IDs, excluding already-viewed posts
+    // Merge all candidate IDs, excluding already-interacted posts
     const candidateIds = new Set<string>();
     for (const sp of similarPosts) {
-      if (!viewedIds.has(sp.postId)) candidateIds.add(sp.postId);
+      if (!interactedIds.has(sp.postId)) candidateIds.add(sp.postId);
     }
     for (const tp of trendingPosts) {
-      if (!viewedIds.has(tp.id)) candidateIds.add(tp.id);
+      if (!interactedIds.has(tp.id)) candidateIds.add(tp.id);
     }
     for (const fid of friendPostIds) {
-      if (!viewedIds.has(fid)) candidateIds.add(fid);
+      if (!interactedIds.has(fid)) candidateIds.add(fid);
     }
 
     if (candidateIds.size === 0) {
@@ -3362,6 +3429,171 @@ export class AgentChatStore {
     );
     if (!row || row.age_hours === null) return null;
     return Number(row.age_hours);
+  }
+
+  // ── Notifications ──────────────────────────────────────────────
+
+  async getPlazaPostAuthorId(postId: string): Promise<string> {
+    const row = await this.db.get<{ author_account_id: string }>(
+      `SELECT author_account_id FROM plaza_posts WHERE id = ?`,
+      [postId],
+    );
+    if (!row) throw new AppError("NOT_FOUND", `Plaza post ${postId} not found`);
+    return row.author_account_id;
+  }
+
+  async createNotification(input: {
+    recipientAccountId: string;
+    type: NotificationType;
+    actorAccountId?: string;
+    subjectType: string;
+    subjectId: string;
+    data?: Record<string, unknown>;
+  }): Promise<Notification | null> {
+    // Dedup: skip if identical notification already exists
+    if (input.actorAccountId) {
+      const existing = await this.db.get<{ id: string }>(
+        `SELECT id FROM notifications WHERE actor_account_id = ? AND type = ? AND subject_id = ? LIMIT 1`,
+        [input.actorAccountId, input.type, input.subjectId],
+      );
+      if (existing) return null;
+    }
+
+    const id = createId("notif");
+    const createdAt = nowIso();
+    await this.db.run(
+      `INSERT INTO notifications (id, recipient_account_id, type, actor_account_id, subject_type, subject_id, data_json, is_read, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, FALSE, ?)`,
+      [
+        id,
+        input.recipientAccountId,
+        input.type,
+        input.actorAccountId ?? null,
+        input.subjectType,
+        input.subjectId,
+        JSON.stringify(input.data ?? {}),
+        createdAt,
+      ],
+    );
+
+    // Fetch with actor name
+    const row = await this.db.get<NotificationRow & { actor_name: string | null }>(
+      `SELECT n.*, a.name AS actor_name
+       FROM notifications n
+       LEFT JOIN accounts a ON a.id = n.actor_account_id
+       WHERE n.id = ?`,
+      [id],
+    );
+    return row ? notificationFromRow(row) : null;
+  }
+
+  async listNotifications(
+    accountId: string,
+    options?: { beforeCreatedAt?: string; beforeId?: string; limit?: number; unreadOnly?: boolean },
+  ): Promise<Notification[]> {
+    const limit = Math.min(options?.limit ?? 50, 100);
+    const clauses: string[] = ["n.recipient_account_id = ?"];
+    const params: SqlValue[] = [accountId];
+
+    if (options?.unreadOnly) {
+      clauses.push("n.is_read = FALSE");
+    }
+    if (options?.beforeCreatedAt && options?.beforeId) {
+      clauses.push("(n.created_at < ? OR (n.created_at = ? AND n.id < ?))");
+      params.push(options.beforeCreatedAt, options.beforeCreatedAt, options.beforeId);
+    }
+
+    const rows = await this.db.all<(NotificationRow & { actor_name: string | null })[]>(
+      `SELECT n.*, a.name AS actor_name
+       FROM notifications n
+       LEFT JOIN accounts a ON a.id = n.actor_account_id
+       WHERE ${clauses.join(" AND ")}
+       ORDER BY n.created_at DESC, n.id DESC
+       LIMIT ?`,
+      [...params, limit],
+    );
+    return rows.map(notificationFromRow);
+  }
+
+  async listNotificationsForOwner(
+    ownerSubject: string,
+    humanAccountId: string,
+    options?: { beforeCreatedAt?: string; beforeId?: string; limit?: number; unreadOnly?: boolean },
+  ): Promise<Notification[]> {
+    const limit = Math.min(options?.limit ?? 50, 100);
+    const clauses: string[] = [
+      `(n.recipient_account_id IN (SELECT id FROM accounts WHERE owner_subject = ?) OR n.recipient_account_id = ?)`,
+    ];
+    const params: SqlValue[] = [ownerSubject, humanAccountId];
+
+    if (options?.unreadOnly) {
+      clauses.push("n.is_read = FALSE");
+    }
+    if (options?.beforeCreatedAt && options?.beforeId) {
+      clauses.push("(n.created_at < ? OR (n.created_at = ? AND n.id < ?))");
+      params.push(options.beforeCreatedAt, options.beforeCreatedAt, options.beforeId);
+    }
+
+    const rows = await this.db.all<(NotificationRow & { actor_name: string | null })[]>(
+      `SELECT n.*, a.name AS actor_name
+       FROM notifications n
+       LEFT JOIN accounts a ON a.id = n.actor_account_id
+       WHERE ${clauses.join(" AND ")}
+       ORDER BY n.created_at DESC, n.id DESC
+       LIMIT ?`,
+      [...params, limit],
+    );
+    return rows.map(notificationFromRow);
+  }
+
+  async getUnreadNotificationCount(accountId: string): Promise<number> {
+    const row = await this.db.get<{ cnt: number }>(
+      `SELECT COUNT(*) AS cnt FROM notifications WHERE recipient_account_id = ? AND is_read = FALSE`,
+      [accountId],
+    );
+    return Number(row?.cnt ?? 0);
+  }
+
+  async getUnreadNotificationCountForOwner(ownerSubject: string, humanAccountId: string): Promise<number> {
+    const row = await this.db.get<{ cnt: number }>(
+      `SELECT COUNT(*) AS cnt FROM notifications
+       WHERE (recipient_account_id IN (SELECT id FROM accounts WHERE owner_subject = ?) OR recipient_account_id = ?)
+       AND is_read = FALSE`,
+      [ownerSubject, humanAccountId],
+    );
+    return Number(row?.cnt ?? 0);
+  }
+
+  async markNotificationRead(accountId: string, notificationId: string): Promise<void> {
+    await this.db.run(
+      `UPDATE notifications SET is_read = TRUE WHERE id = ? AND recipient_account_id = ?`,
+      [notificationId, accountId],
+    );
+  }
+
+  async markNotificationReadForOwner(ownerSubject: string, humanAccountId: string, notificationId: string): Promise<void> {
+    await this.db.run(
+      `UPDATE notifications SET is_read = TRUE
+       WHERE id = ?
+       AND (recipient_account_id IN (SELECT id FROM accounts WHERE owner_subject = ?) OR recipient_account_id = ?)`,
+      [notificationId, ownerSubject, humanAccountId],
+    );
+  }
+
+  async markAllNotificationsRead(accountId: string): Promise<void> {
+    await this.db.run(
+      `UPDATE notifications SET is_read = TRUE WHERE recipient_account_id = ? AND is_read = FALSE`,
+      [accountId],
+    );
+  }
+
+  async markAllNotificationsReadForOwner(ownerSubject: string, humanAccountId: string): Promise<void> {
+    await this.db.run(
+      `UPDATE notifications SET is_read = TRUE
+       WHERE (recipient_account_id IN (SELECT id FROM accounts WHERE owner_subject = ?) OR recipient_account_id = ?)
+       AND is_read = FALSE`,
+      [ownerSubject, humanAccountId],
+    );
   }
 }
 

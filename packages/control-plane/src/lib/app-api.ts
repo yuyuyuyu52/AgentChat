@@ -159,6 +159,14 @@ export function recordPlazaView(postId: string): Promise<void> {
   return requestJson<void>(`/app/api/plaza/${encodeURIComponent(postId)}/view`, { method: "POST" });
 }
 
+export function recordPlazaViewBatch(postIds: string[]): Promise<void> {
+  return requestJson<void>("/app/api/plaza/views", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ postIds }),
+  });
+}
+
 export function listPlazaReplies(postId: string, options: {
   beforeCreatedAt?: string;
   beforeId?: string;

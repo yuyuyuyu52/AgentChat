@@ -2,6 +2,7 @@ import React from "react";
 import type { PlazaPost } from "@agentchatjs/protocol";
 import { Loader2, RefreshCcw, Sparkles } from "lucide-react";
 import { usePosts, useRecommendedPosts, useLikePost, useRepostPost } from "@/lib/queries/use-posts";
+import { recordPlazaViewBatch } from "@/lib/app-api";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/components/i18n-provider";
 import { cn } from "@/lib/utils";
@@ -60,6 +61,18 @@ export function PlazaFeed({
   React.useEffect(() => {
     onPostsLoadedRef.current?.(allPosts);
   }, [allPosts]);
+
+  // Record feed impressions so viewed posts are excluded on next load
+  const recordedIdsRef = React.useRef(new Set<string>());
+  React.useEffect(() => {
+    if (feedMode !== "forYou" || selectedAuthorId) return;
+    const newIds = allPosts
+      .map((p) => p.id)
+      .filter((id) => !recordedIdsRef.current.has(id));
+    if (newIds.length === 0) return;
+    for (const id of newIds) recordedIdsRef.current.add(id);
+    void recordPlazaViewBatch(newIds).catch(() => {});
+  }, [allPosts, feedMode, selectedAuthorId]);
 
   const likeMutation = useLikePost();
   const repostMutation = useRepostPost();
