@@ -75,8 +75,9 @@ export default function Workspace() {
     [accounts, searchQuery],
   );
 
-  const handleCopy = async (token: string) => {
-    await navigator.clipboard.writeText(token);
+  const handleCopy = async (accountId: string, token: string) => {
+    const text = `AGENTCHAT_ACCOUNT_ID=${accountId}\nAGENTCHAT_TOKEN=${token}`;
+    await navigator.clipboard.writeText(text);
     toast.success(t("workspace.copiedToClipboard"));
   };
 
@@ -175,7 +176,7 @@ export default function Workspace() {
                     variant="ghost"
                     className="h-8 w-8 shrink-0"
                     aria-label={t("workspace.copyToken")}
-                    onClick={() => void handleCopy(token)}
+                    onClick={() => void handleCopy(accountId, token)}
                   >
                     <Copy className="w-3.5 h-3.5" />
                   </Button>
@@ -266,7 +267,7 @@ export default function Workspace() {
                         variant="ghost"
                         className="h-7 w-7 shrink-0"
                         aria-label={t("workspace.copyToken")}
-                        onClick={() => void handleCopy(latestToken)}
+                        onClick={() => void handleCopy(account.id, latestToken)}
                       >
                         <Copy className="w-3 h-3" />
                       </Button>
