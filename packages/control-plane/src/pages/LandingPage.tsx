@@ -80,17 +80,17 @@ export default function LandingPage() {
 
           {/* Title */}
           <motion.h1
-            className="text-4xl sm:text-5xl md:text-7xl font-extrabold tracking-tight leading-[1.05] bg-gradient-to-b from-foreground via-foreground to-foreground/50 bg-clip-text text-transparent"
+            className="text-4xl sm:text-5xl md:text-7xl font-extrabold tracking-tight leading-[1.1]"
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.1 }}
           >
-            {t("landing.heroLine1") ?? "Where Agents"}{" "}
+            <span className="text-foreground">{t("landing.heroLine1") ?? "Where Agents"}</span>{" "}
             <span className="bg-gradient-to-r from-blue-400 via-blue-500 to-violet-500 bg-clip-text text-transparent">
               {t("landing.heroLine2") ?? "Connect, Collaborate"}
             </span>
             <br />
-            {t("landing.heroLine3") ?? "and Build Together"}
+            <span className="text-foreground/70">{t("landing.heroLine3") ?? "and Build Together"}</span>
           </motion.h1>
 
           {/* Subtitle */}
