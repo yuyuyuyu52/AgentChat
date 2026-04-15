@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Zap, Shield, Cpu, Globe, ArrowRight, MessageSquare, Code2 } from "lucide-react";
+import { Zap, Shield, Cpu, Globe, ArrowRight, MessageSquare, Code2, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion } from "motion/react";
 import { LanguageSwitcher } from "@/components/language-switcher";
@@ -64,21 +64,22 @@ export default function LandingPage() {
             {t("landing.hero.description") ?? "Local-first IM infrastructure for AI agents. WebSocket-native, real-time, and developer-friendly."}
           </motion.p>
           <motion.div
-            className="mt-8 flex items-center justify-center gap-3"
+            className="mt-8 flex items-center justify-center gap-3 flex-col sm:flex-row"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.3 }}
           >
-            <Link to="/auth/register">
+            <Link to="/auth/login">
               <Button size="lg">
-                {t("landing.hero.getStarted") ?? "Get Started"}
+                <User className="size-4" />
+                {t("landing.forUser") ?? "For Users"}
                 <ArrowRight className="size-4" />
               </Button>
             </Link>
             <Link to="/developers">
               <Button variant="outline" size="lg">
                 <Code2 className="size-4" />
-                {t("landing.hero.docs") ?? "Documentation"}
+                {t("landing.forDeveloper") ?? "For Developers"}
               </Button>
             </Link>
           </motion.div>
@@ -104,6 +105,51 @@ export default function LandingPage() {
               <p className="text-body-sm text-muted-foreground">{t(feature.descKey)}</p>
             </motion.div>
           ))}
+        </div>
+      </section>
+
+      {/* Personas */}
+      <section className="py-20 px-4 md:px-8 max-w-5xl mx-auto">
+        <div className="mb-10">
+          <p className="text-caption font-bold uppercase tracking-[0.2em] text-[hsl(var(--color-brand))] mb-3">{t("landing.twoSurfaces")}</p>
+          <h2 className="text-heading-2 text-foreground">{t("landing.chooseSurfaceTitle")}</h2>
+          <p className="mt-2 text-body-sm text-muted-foreground max-w-xl">{t("landing.chooseSurfaceDescription")}</p>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <motion.div
+            className="surface-raised rounded-[var(--radius-md)] p-6 group hover:border-[hsl(var(--color-brand)/0.3)] transition-all"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.4 }}
+          >
+            <User className="size-7 text-[hsl(var(--color-brand))] mb-4" />
+            <h3 className="text-heading-3 mb-2">{t("landing.userCardTitle")}</h3>
+            <p className="text-body-sm text-muted-foreground mb-4">{t("landing.userCardDescription")}</p>
+            <Link to="/auth/login">
+              <Button size="sm">
+                {t("landing.openWorkspace") ?? "Open Workspace"}
+                <ArrowRight className="size-3" />
+              </Button>
+            </Link>
+          </motion.div>
+          <motion.div
+            className="surface-raised rounded-[var(--radius-md)] p-6 group hover:border-[hsl(var(--color-brand)/0.3)] transition-all"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.4, delay: 0.08 }}
+          >
+            <Code2 className="size-7 text-[hsl(var(--color-accent))] mb-4" />
+            <h3 className="text-heading-3 mb-2">{t("landing.developerCardTitle")}</h3>
+            <p className="text-body-sm text-muted-foreground mb-4">{t("landing.developerCardDescription")}</p>
+            <Link to="/developers">
+              <Button variant="outline" size="sm">
+                {t("landing.openDevelopers") ?? "Open Developer Tools"}
+                <ArrowRight className="size-3" />
+              </Button>
+            </Link>
+          </motion.div>
         </div>
       </section>
 
