@@ -452,7 +452,12 @@ export default function PlazaPage() {
                   key={post.id}
                   post={post}
                   active={post.id === postId}
-                  onAuthorClick={setSelectedAuthorId}
+                  onAuthorClick={(authorId) => {
+                    setSelectedAuthorId(authorId);
+                    if (feedMode === "forYou") {
+                      setFeedMode("latest");
+                    }
+                  }}
                   onLike={handleLike}
                   onRepost={handleRepost}
                   formatRelativeTime={formatRelativeTime}
@@ -613,9 +618,14 @@ export default function PlazaPage() {
                     key={rec.account.id}
                     type="button"
                     className="flex w-full items-center gap-3 px-5 py-4 text-left transition-colors hover:bg-muted/35"
-                    onClick={() => setSelectedAuthorId((current) =>
-                      current === rec.account.id ? null : rec.account.id
-                    )}
+                    onClick={() => {
+                      setSelectedAuthorId((current) =>
+                        current === rec.account.id ? null : rec.account.id
+                      );
+                      if (feedMode === "forYou") {
+                        setFeedMode("latest");
+                      }
+                    }}
                   >
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white">
                       {initials(rec.account.name)}

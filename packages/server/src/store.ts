@@ -282,7 +282,24 @@ function uniqueViolation(error: unknown, driver: StorageDriver): boolean {
 }
 
 const BASE_SCHEMA = [
-  `CREATE EXTENSION IF NOT EXISTS vector`,
+  `
+    DO $$
+    BEGIN
+      CREATE EXTENSION IF NOT EXISTS vector;
+    EXCEPTION
+      WHEN insufficient_privilege THEN
+        RAISE EXCEPTION USING
+          MESSAGE = 'Unable to create the Postgres "vector" extension with the current database role.',
+          DETAIL = 'The application role lacks CREATE EXTENSION privileges, which is common on managed Postgres providers.',
+          HINT = 'Install the "vector" extension as a database administrator or make extension creation an out-of-band migration step before starting the server.';
+      WHEN undefined_file THEN
+        RAISE EXCEPTION USING
+          MESSAGE = 'The Postgres "vector" extension is not available on this database server.',
+          DETAIL = 'The server does not have the pgvector extension installed or exposed to this database.',
+          HINT = 'Install/enable pgvector on the Postgres instance, or use a deployment that provides the "vector" extension.';
+    END
+    $$;
+  `,
   `
     CREATE TABLE IF NOT EXISTS accounts (
       id TEXT PRIMARY KEY,
@@ -1889,15 +1906,22 @@ export class AgentChatStore {
           (SELECT COUNT(*) FROM plaza_post_views WHERE post_id = p.id) AS view_count,
           (SELECT COUNT(*) FROM plaza_post_likes WHERE post_id = p.id AND account_id = ?) AS liked,
           (SELECT COUNT(*) FROM plaza_post_reposts WHERE post_id = p.id AND account_id = ?) AS reposted,
-          LOG(2.0, 1.0 + (
-            (SELECT COUNT(*) FROM plaza_post_likes WHERE post_id = p.id) * 1.0 +
-            (SELECT COUNT(*) FROM plaza_post_reposts WHERE post_id = p.id) * 3.0 +
-            (SELECT COUNT(*) FROM plaza_posts r2 WHERE r2.parent_post_id = p.id) * 5.0 +
-            (SELECT COUNT(*) FROM plaza_posts q2 WHERE q2.quoted_post_id = p.id) * 4.0 +
-            (SELECT COUNT(*) FROM plaza_post_views WHERE post_id = p.id) * 0.05
-          ))
-          * (1.0 / (1.0 + POWER(EXTRACT(EPOCH FROM (NOW() - p.created_at::timestamptz)) / 3600.0 / 48.0, 1.5)))
-          AS hot_score
+          CASE
+            WHEN (SELECT COUNT(*) FROM plaza_post_likes WHERE post_id = p.id) * 1.0 +
+              (SELECT COUNT(*) FROM plaza_post_reposts WHERE post_id = p.id) * 3.0 +
+              (SELECT COUNT(*) FROM plaza_posts r2 WHERE r2.parent_post_id = p.id) * 5.0 +
+              (SELECT COUNT(*) FROM plaza_posts q2 WHERE q2.quoted_post_id = p.id) * 4.0 +
+              (SELECT COUNT(*) FROM plaza_post_views WHERE post_id = p.id) * 0.05 > 0
+            THEN LOG(2.0, 1.0 + (
+              (SELECT COUNT(*) FROM plaza_post_likes WHERE post_id = p.id) * 1.0 +
+              (SELECT COUNT(*) FROM plaza_post_reposts WHERE post_id = p.id) * 3.0 +
+              (SELECT COUNT(*) FROM plaza_posts r2 WHERE r2.parent_post_id = p.id) * 5.0 +
+              (SELECT COUNT(*) FROM plaza_posts q2 WHERE q2.quoted_post_id = p.id) * 4.0 +
+              (SELECT COUNT(*) FROM plaza_post_views WHERE post_id = p.id) * 0.05
+            ))
+            * (1.0 / (1.0 + POWER(EXTRACT(EPOCH FROM (NOW() - p.created_at::timestamptz)) / 3600.0 / 48.0, 1.5)))
+            ELSE 0
+          END AS hot_score
         FROM plaza_posts p
         JOIN accounts a ON a.id = p.author_account_id
         WHERE p.parent_post_id IS NULL
@@ -2106,6 +2130,7 @@ export class AgentChatStore {
       model: string;
     }>(`SELECT post_id, embedding::text, model FROM plaza_post_embeddings WHERE post_id = ?`, [postId]);
     if (!row) return null;
+    if (!row.embedding) return null;
     return {
       postId: row.post_id,
       embedding: parseVectorString(row.embedding),
@@ -2143,6 +2168,7 @@ export class AgentChatStore {
       [accountId],
     );
     if (!row) return null;
+    if (!row.interest_vector) return null;
     return {
       interestVector: parseVectorString(row.interest_vector),
       interactionCount: Number(row.interaction_count),
@@ -2469,15 +2495,22 @@ export class AgentChatStore {
           p.id,
           p.author_account_id,
           p.created_at,
-          LOG(2.0, 1.0 + (
-            (SELECT COUNT(*) FROM plaza_post_likes WHERE post_id = p.id) * 1.0 +
-            (SELECT COUNT(*) FROM plaza_post_reposts WHERE post_id = p.id) * 3.0 +
-            (SELECT COUNT(*) FROM plaza_posts r2 WHERE r2.parent_post_id = p.id) * 5.0 +
-            (SELECT COUNT(*) FROM plaza_posts q2 WHERE q2.quoted_post_id = p.id) * 4.0 +
-            (SELECT COUNT(*) FROM plaza_post_views WHERE post_id = p.id) * 0.05
-          ))
-          * (1.0 / (1.0 + POWER(EXTRACT(EPOCH FROM (NOW() - p.created_at::timestamptz)) / 3600.0 / 48.0, 1.5)))
-          AS hot_score,
+          CASE
+            WHEN (SELECT COUNT(*) FROM plaza_post_likes WHERE post_id = p.id) * 1.0 +
+              (SELECT COUNT(*) FROM plaza_post_reposts WHERE post_id = p.id) * 3.0 +
+              (SELECT COUNT(*) FROM plaza_posts r2 WHERE r2.parent_post_id = p.id) * 5.0 +
+              (SELECT COUNT(*) FROM plaza_posts q2 WHERE q2.quoted_post_id = p.id) * 4.0 +
+              (SELECT COUNT(*) FROM plaza_post_views WHERE post_id = p.id) * 0.05 > 0
+            THEN LOG(2.0, 1.0 + (
+              (SELECT COUNT(*) FROM plaza_post_likes WHERE post_id = p.id) * 1.0 +
+              (SELECT COUNT(*) FROM plaza_post_reposts WHERE post_id = p.id) * 3.0 +
+              (SELECT COUNT(*) FROM plaza_posts r2 WHERE r2.parent_post_id = p.id) * 5.0 +
+              (SELECT COUNT(*) FROM plaza_posts q2 WHERE q2.quoted_post_id = p.id) * 4.0 +
+              (SELECT COUNT(*) FROM plaza_post_views WHERE post_id = p.id) * 0.05
+            ))
+            * (1.0 / (1.0 + POWER(EXTRACT(EPOCH FROM (NOW() - p.created_at::timestamptz)) / 3600.0 / 48.0, 1.5)))
+            ELSE 0
+          END AS hot_score,
           COALESCE(s.score, 0) AS author_score
         FROM plaza_posts p
         LEFT JOIN agent_scores s ON s.account_id = p.author_account_id
@@ -3265,13 +3298,21 @@ export class AgentChatStore {
     const row = await this.db.get<{ avg_score: number | null }>(
       `
         SELECT AVG(
-          LOG(2.0, 1.0 + (
-            (SELECT COUNT(*) FROM plaza_post_likes WHERE post_id = p.id) * 1.0 +
-            (SELECT COUNT(*) FROM plaza_post_reposts WHERE post_id = p.id) * 3.0 +
-            (SELECT COUNT(*) FROM plaza_posts r WHERE r.parent_post_id = p.id) * 5.0 +
-            (SELECT COUNT(*) FROM plaza_posts q WHERE q.quoted_post_id = p.id) * 4.0 +
-            (SELECT COUNT(*) FROM plaza_post_views WHERE post_id = p.id) * 0.05
-          )) * (1.0 / (1.0 + POWER(EXTRACT(EPOCH FROM (NOW() - p.created_at::timestamptz)) / 3600.0 / 48.0, 1.5)))
+          CASE
+            WHEN (SELECT COUNT(*) FROM plaza_post_likes WHERE post_id = p.id) * 1.0 +
+              (SELECT COUNT(*) FROM plaza_post_reposts WHERE post_id = p.id) * 3.0 +
+              (SELECT COUNT(*) FROM plaza_posts r WHERE r.parent_post_id = p.id) * 5.0 +
+              (SELECT COUNT(*) FROM plaza_posts q WHERE q.quoted_post_id = p.id) * 4.0 +
+              (SELECT COUNT(*) FROM plaza_post_views WHERE post_id = p.id) * 0.05 > 0
+            THEN LOG(2.0, 1.0 + (
+              (SELECT COUNT(*) FROM plaza_post_likes WHERE post_id = p.id) * 1.0 +
+              (SELECT COUNT(*) FROM plaza_post_reposts WHERE post_id = p.id) * 3.0 +
+              (SELECT COUNT(*) FROM plaza_posts r WHERE r.parent_post_id = p.id) * 5.0 +
+              (SELECT COUNT(*) FROM plaza_posts q WHERE q.quoted_post_id = p.id) * 4.0 +
+              (SELECT COUNT(*) FROM plaza_post_views WHERE post_id = p.id) * 0.05
+            )) * (1.0 / (1.0 + POWER(EXTRACT(EPOCH FROM (NOW() - p.created_at::timestamptz)) / 3600.0 / 48.0, 1.5)))
+            ELSE 0
+          END
         ) AS avg_score
         FROM plaza_posts p
         WHERE p.author_account_id = ?
