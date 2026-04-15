@@ -67,7 +67,7 @@
     --card-foreground: 224 39% 11%;
     --popover: 0 0% 100%;
     --popover-foreground: 224 39% 11%;
-    --primary: 217 91% 60%;
+    --primary: 221 83% 53%;
     --primary-foreground: 0 0% 100%;
     --secondary: 214 32% 91%;
     --secondary-foreground: 224 39% 11%;
@@ -79,7 +79,7 @@
     --destructive-foreground: 0 0% 100%;
     --border: 214 32% 88%;
     --input: 214 32% 88%;
-    --ring: 217 91% 60%;
+    --ring: 221 83% 53%;
     --radius: 0.75rem;
     --surface-1: 0 0% 100%;
     --surface-2: 210 36% 96%;
@@ -88,19 +88,21 @@
     --line-strong: 214 24% 82%;
     --shadow-soft: 0 18px 40px rgba(15, 23, 42, 0.08);
     --shadow-float: 0 26px 54px rgba(15, 23, 42, 0.12);
-    --glow-brand: 0 18px 42px rgba(37, 99, 235, 0.16);
+    --glow-brand: 0 18px 42px rgba(59, 91, 219, 0.18);
     --panel-tint: linear-gradient(
       180deg,
       hsl(var(--surface-3) / 0.94) 0%,
       hsl(var(--surface-1) / 0.98) 100%
     );
     /* Semantic colors - light theme */
-    --color-brand: 217 91% 60%;
-    --color-brand-subtle: 217 91% 95%;
-    --color-brand-emphasis: 217 91% 50%;
-    --color-accent: 260 60% 55%;
-    --color-accent-subtle: 260 60% 94%;
-    --color-accent-emphasis: 260 60% 45%;
+    --color-brand: 221 83% 53%;
+    --color-brand-subtle: 221 60% 95%;
+    --color-brand-emphasis: 221 83% 43%;
+    --color-brand-from: 221 83% 53%;
+    --color-brand-to: 255 70% 55%;
+    --color-accent: 258 65% 58%;
+    --color-accent-subtle: 258 55% 94%;
+    --color-accent-emphasis: 258 65% 48%;
     --color-success: 142 71% 45%;
     --color-success-subtle: 142 71% 93%;
     --color-success-emphasis: 142 71% 35%;
@@ -113,48 +115,63 @@
     --color-info: 190 80% 45%;
     --color-info-subtle: 190 80% 93%;
     --color-info-emphasis: 190 80% 35%;
+    /* Avatar gradient palette (6 hues) */
+    --avatar-gradient-0-from: 221 83% 53%;
+    --avatar-gradient-0-to: 255 70% 55%;
+    --avatar-gradient-1-from: 258 65% 58%;
+    --avatar-gradient-1-to: 290 55% 50%;
+    --avatar-gradient-2-from: 173 72% 44%;
+    --avatar-gradient-2-to: 195 80% 50%;
+    --avatar-gradient-3-from: 340 75% 55%;
+    --avatar-gradient-3-to: 10 80% 55%;
+    --avatar-gradient-4-from: 38 92% 50%;
+    --avatar-gradient-4-to: 25 85% 55%;
+    --avatar-gradient-5-from: 155 65% 42%;
+    --avatar-gradient-5-to: 180 70% 45%;
   }
 
   .dark {
-    --background: 222 30% 8%;
+    --background: 225 28% 7%;
     --foreground: 0 0% 98%;
-    --card: 223 24% 11%;
+    --card: 226 22% 10%;
     --card-foreground: 0 0% 98%;
-    --popover: 223 24% 11%;
+    --popover: 226 22% 10%;
     --popover-foreground: 0 0% 98%;
-    --primary: 217 91% 60%;
+    --primary: 221 83% 62%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 223 17% 18%;
+    --secondary: 225 17% 18%;
     --secondary-foreground: 0 0% 98%;
-    --muted: 223 18% 16%;
+    --muted: 225 18% 16%;
     --muted-foreground: 220 9% 66%;
-    --accent: 223 18% 16%;
+    --accent: 225 18% 16%;
     --accent-foreground: 0 0% 98%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
-    --border: 223 18% 18%;
-    --input: 223 18% 18%;
-    --ring: 240 4.9% 83.9%;
-    --surface-1: 223 24% 11%;
-    --surface-2: 223 21% 14%;
-    --surface-3: 223 19% 18%;
-    --line-soft: 223 16% 23%;
-    --line-strong: 223 14% 31%;
+    --border: 225 18% 18%;
+    --input: 225 18% 18%;
+    --ring: 221 83% 62%;
+    --surface-1: 226 22% 10%;
+    --surface-2: 228 20% 13%;
+    --surface-3: 230 18% 17%;
+    --line-soft: 228 16% 23%;
+    --line-strong: 228 14% 31%;
     --shadow-soft: 0 22px 48px rgba(0, 0, 0, 0.28);
     --shadow-float: 0 34px 72px rgba(0, 0, 0, 0.4);
-    --glow-brand: 0 20px 48px rgba(59, 130, 246, 0.18);
+    --glow-brand: 0 20px 48px rgba(99, 102, 241, 0.14);
     --panel-tint: linear-gradient(
       180deg,
       hsl(var(--surface-3) / 0.82) 0%,
-      hsl(var(--surface-1) / 0.94) 100%
+      hsl(230 20% 9% / 0.94) 100%
     );
     /* Semantic colors - dark theme */
-    --color-brand: 217 91% 60%;
-    --color-brand-subtle: 217 40% 15%;
-    --color-brand-emphasis: 217 91% 65%;
-    --color-accent: 260 60% 65%;
-    --color-accent-subtle: 260 30% 15%;
-    --color-accent-emphasis: 260 60% 70%;
+    --color-brand: 221 83% 62%;
+    --color-brand-subtle: 225 35% 14%;
+    --color-brand-emphasis: 221 83% 68%;
+    --color-brand-from: 221 83% 62%;
+    --color-brand-to: 255 70% 63%;
+    --color-accent: 258 65% 68%;
+    --color-accent-subtle: 260 25% 14%;
+    --color-accent-emphasis: 258 65% 73%;
     --color-success: 142 71% 50%;
     --color-success-subtle: 142 30% 14%;
     --color-success-emphasis: 142 71% 55%;
@@ -223,6 +240,14 @@
     --color-surface-3: var(--surface-3);
     --color-line-soft: var(--line-soft);
     --color-line-strong: var(--line-strong);
+    --color-brand: var(--color-brand);
+    --color-brand-from: var(--color-brand-from);
+    --color-brand-to: var(--color-brand-to);
+    --color-brand-emphasis: var(--color-brand-emphasis);
+    --color-success: var(--color-success);
+    --color-danger: var(--color-danger);
+    --color-warning: var(--color-warning);
+    --color-info: var(--color-info);
 }
 
 @layer base {
@@ -237,7 +262,8 @@
     @apply bg-background text-foreground antialiased;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     background-image:
-      radial-gradient(circle at top, hsl(var(--primary) / 0.08), transparent 28%),
+      radial-gradient(circle at 20% 0%, hsl(var(--color-brand-from) / 0.06), transparent 40%),
+      radial-gradient(circle at 80% 0%, hsl(var(--color-brand-to) / 0.04), transparent 35%),
       linear-gradient(180deg, hsl(var(--background)) 0%, hsl(var(--surface-2) / 0.45) 100%);
     background-attachment: fixed;
   }
@@ -378,6 +404,27 @@
 
   .border-brand { border-color: hsl(var(--color-brand)); }
   .border-brand-subtle { border-color: hsl(var(--color-brand) / 0.3); }
+
+  /* === Brand gradient utilities === */
+  .bg-brand-gradient {
+    background: linear-gradient(135deg, hsl(var(--color-brand-from)), hsl(var(--color-brand-to)));
+  }
+
+  .bg-brand-gradient-subtle {
+    background: linear-gradient(135deg, hsl(var(--color-brand-from) / 0.12) 0%, hsl(var(--color-brand-to) / 0.06) 100%);
+  }
+
+  .bg-brand-icon {
+    background: linear-gradient(180deg, hsl(var(--color-brand) / 0.16) 0%, hsl(var(--color-brand) / 0.06) 100%);
+  }
+
+  /* === Avatar gradient palette (6 hues) === */
+  .avatar-gradient-0 { background: linear-gradient(135deg, hsl(var(--avatar-gradient-0-from)), hsl(var(--avatar-gradient-0-to))); }
+  .avatar-gradient-1 { background: linear-gradient(135deg, hsl(var(--avatar-gradient-1-from)), hsl(var(--avatar-gradient-1-to))); }
+  .avatar-gradient-2 { background: linear-gradient(135deg, hsl(var(--avatar-gradient-2-from)), hsl(var(--avatar-gradient-2-to))); }
+  .avatar-gradient-3 { background: linear-gradient(135deg, hsl(var(--avatar-gradient-3-from)), hsl(var(--avatar-gradient-3-to))); }
+  .avatar-gradient-4 { background: linear-gradient(135deg, hsl(var(--avatar-gradient-4-from)), hsl(var(--avatar-gradient-4-to))); }
+  .avatar-gradient-5 { background: linear-gradient(135deg, hsl(var(--avatar-gradient-5-from)), hsl(var(--avatar-gradient-5-to))); }
 
   /* === Skeleton shimmer === */
   @keyframes shimmer {

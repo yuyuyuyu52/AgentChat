@@ -78,7 +78,7 @@ export default function LoginPage() {
         {/* Top: Logo */}
         <div className="relative z-10 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2.5">
-            <div className="size-9 rounded-[var(--radius-sm)] bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-[0_0_20px_rgba(59,130,246,0.4)]">
+            <div className="size-9 rounded-[var(--radius-sm)] bg-brand-gradient flex items-center justify-center shadow-[0_0_20px_rgba(59,130,246,0.4)]">
               <Zap className="size-4.5 text-white fill-white" />
             </div>
             <span className="text-lg font-bold tracking-tight">AgentChat</span>
@@ -96,12 +96,12 @@ export default function LoginPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
         >
-          <div className="inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/10 px-3 py-1.5 mb-6">
+          <div className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--color-brand)/0.2)] bg-[hsl(var(--color-brand)/0.1)] px-3 py-1.5 mb-6">
             <span className="relative flex h-2 w-2">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
               <span className="relative inline-flex h-2 w-2 rounded-full bg-green-500" />
             </span>
-            <span className="text-xs font-semibold uppercase tracking-widest text-blue-400">{t("login.systemOperational")}</span>
+            <span className="text-xs font-semibold uppercase tracking-widest text-brand">{t("login.systemOperational")}</span>
           </div>
           <h1 className="text-4xl xl:text-5xl font-extrabold tracking-tight leading-[1.1] mb-5">
             <span className="text-foreground">{t("login.heroTitlePrefix")}</span>{" "}
@@ -113,12 +113,12 @@ export default function LoginPage() {
 
           <div className="mt-10 grid grid-cols-3 gap-4">
             <div className="surface-raised rounded-[var(--radius-md)] p-4 text-center">
-              <Network className="size-5 text-blue-500 mx-auto mb-2" />
+              <Network className="size-5 text-brand mx-auto mb-2" />
               <p className="text-lg font-bold text-foreground">1.2k</p>
               <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{t("login.liveThroughput")}</p>
             </div>
             <div className="surface-raised rounded-[var(--radius-md)] p-4 text-center">
-              <Shield className="size-5 text-green-500 mx-auto mb-2" />
+              <Shield className="size-5 text-success mx-auto mb-2" />
               <p className="text-lg font-bold text-foreground">L4</p>
               <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{t("login.securityLevel")}</p>
             </div>
@@ -145,7 +145,7 @@ export default function LoginPage() {
         </div>
         <div className="mb-8 flex flex-col items-center gap-3 lg:hidden">
           <Link to="/" className="flex items-center gap-2">
-            <div className="size-9 rounded-[var(--radius-sm)] bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-[0_0_20px_rgba(59,130,246,0.4)]">
+            <div className="size-9 rounded-[var(--radius-sm)] bg-brand-gradient flex items-center justify-center shadow-[0_0_20px_rgba(59,130,246,0.4)]">
               <Zap className="size-4.5 text-white fill-white" />
             </div>
             <span className="text-lg font-bold tracking-tight">AgentChat</span>
@@ -174,7 +174,7 @@ export default function LoginPage() {
                   <Mail className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground/60" />
                   <Input
                     id="email" type="email" placeholder="test@example.com"
-                    className="h-11 pl-10 transition-all focus-visible:ring-blue-500/40"
+                    className="h-11 pl-10 transition-all focus-visible:ring-[hsl(var(--color-brand)/0.4)]"
                     value={email} onChange={(e) => setEmail(e.target.value)} onBlur={handleEmailBlur} required
                   />
                 </div>
@@ -188,7 +188,7 @@ export default function LoginPage() {
                   <Lock className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground/60" />
                   <Input
                     id="password" type={showPassword ? "text" : "password"}
-                    className="h-11 pl-10 pr-10 transition-all focus-visible:ring-blue-500/40"
+                    className="h-11 pl-10 pr-10 transition-all focus-visible:ring-[hsl(var(--color-brand)/0.4)]"
                     value={password} onChange={(e) => setPassword(e.target.value)} onBlur={handlePasswordBlur} required
                   />
                   <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/60 hover:text-foreground"
@@ -203,7 +203,7 @@ export default function LoginPage() {
             </div>
 
             <Button type="submit" disabled={isLoading}
-              className="h-11 w-full rounded-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 font-semibold text-white shadow-[0_0_20px_rgba(59,130,246,0.3)]"
+              className="h-11 w-full rounded-full bg-brand-gradient hover:opacity-90 font-semibold text-white shadow-[0_0_20px_rgba(59,130,246,0.3)]"
             >
               {isLoading ? (
                 <><div className="size-4 animate-spin rounded-full border-2 border-white/20 border-t-white" /> {t("login.authenticating")}</>
@@ -234,7 +234,7 @@ export default function LoginPage() {
 
           <p className="text-center text-sm text-muted-foreground">
             {t("login.needAccount")}{" "}
-            <Link to="/auth/register" className="font-semibold text-blue-500 hover:text-blue-400 underline underline-offset-4">
+            <Link to="/auth/register" className="font-semibold text-brand hover:text-brand underline underline-offset-4">
               {t("login.createAccount")}
             </Link>
           </p>

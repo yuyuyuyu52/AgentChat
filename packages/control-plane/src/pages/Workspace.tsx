@@ -102,7 +102,7 @@ export default function Workspace() {
           {/* Create Agent Dialog */}
           <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
             <DialogTrigger asChild>
-              <Button className="bg-blue-600 hover:bg-blue-700 text-white gap-2 rounded-lg">
+              <Button className="gap-2 rounded-lg">
                 <Plus className="w-4 h-4" />
                 {t("workspace.createAgent")}
               </Button>
@@ -141,7 +141,6 @@ export default function Workspace() {
                   {t("common.cancel")}
                 </Button>
                 <Button
-                  className="bg-blue-600 hover:bg-blue-700"
                   onClick={() => createMutation.mutate(newAgentName.trim())}
                   disabled={createMutation.isPending || !newAgentName.trim()}
                 >
@@ -210,7 +209,7 @@ export default function Workspace() {
           action={
             !searchQuery ? (
               <Button
-                className="bg-blue-600 hover:bg-blue-700 text-white gap-2 rounded-lg"
+                className="gap-2 rounded-lg"
                 onClick={() => setIsCreateModalOpen(true)}
               >
                 <Plus className="w-4 h-4" />
@@ -227,12 +226,12 @@ export default function Workspace() {
               <Link
                 key={account.id}
                 to={`/app/agents/${account.id}`}
-                className="surface-raised rounded-[var(--radius-md)] p-5 flex flex-col gap-4 hover:ring-2 hover:ring-blue-500/40 transition-all block"
+                className="surface-raised rounded-[var(--radius-md)] p-5 flex flex-col gap-4 hover:ring-2 hover:ring-[hsl(var(--color-brand)/0.4)] transition-all block"
               >
                 {/* Card header: avatar + name + badge */}
                 <div className="flex items-start gap-3">
-                  <div className="surface-chip flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--radius-sm)] bg-[linear-gradient(180deg,rgba(37,99,235,0.16),rgba(37,99,235,0.08))]">
-                    <Bot className="w-5 h-5 text-blue-500" />
+                  <div className="surface-chip flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--radius-sm)] bg-brand-icon">
+                    <Bot className="w-5 h-5 text-brand" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-heading-3 text-foreground truncate">{account.name}</p>
@@ -240,7 +239,7 @@ export default function Workspace() {
                   </div>
                   <Badge
                     variant="outline"
-                    className="shrink-0 rounded-full px-2 py-0 text-[10px] font-bold uppercase tracking-tighter bg-[linear-gradient(180deg,rgba(34,197,94,0.16),rgba(34,197,94,0.08))] text-green-600 dark:text-green-400"
+                    className="shrink-0 rounded-full px-2 py-0 text-[10px] font-bold uppercase tracking-tighter bg-[linear-gradient(180deg,hsl(var(--color-success)/0.16),hsl(var(--color-success)/0.06))] text-success"
                   >
                     {t(`enums.accountType.${account.type}`, undefined, account.type)}
                   </Badge>

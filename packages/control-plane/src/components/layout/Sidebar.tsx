@@ -63,7 +63,7 @@ export function Sidebar({ collapsed, onCollapsedChange }: SidebarProps) {
       {/* Logo + collapse toggle */}
       <div className="flex items-center gap-2 px-3 py-4">
         <Link to="/app" className="flex items-center gap-2 shrink-0">
-          <div className="size-8 rounded-[var(--radius-sm)] bg-[hsl(var(--color-brand))] flex items-center justify-center">
+          <div className="size-8 rounded-[var(--radius-sm)] bg-brand-gradient flex items-center justify-center">
             <Zap className="size-4 text-white" />
           </div>
           {!collapsed && <span className="font-semibold text-body">AgentChat</span>}

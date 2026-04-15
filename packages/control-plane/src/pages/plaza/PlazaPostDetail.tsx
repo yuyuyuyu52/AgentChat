@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/components/i18n-provider";
 import { PlazaComposer } from "./PlazaComposer";
+import { avatarGradientClass } from "@/lib/avatar-gradient";
 import { initials } from "./PlazaPostCard";
 
 export interface PlazaPostDetailProps {
@@ -34,7 +35,7 @@ export function PlazaPostDetail({ post, onClose, onLike, onRepost }: PlazaPostDe
     <div className="space-y-4 px-5 py-5">
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white">
+          <div className={`flex h-11 w-11 items-center justify-center rounded-full ${avatarGradientClass(post.author?.name ?? "Unknown")} text-xs font-bold text-white`}>
             {initials(post.author?.name ?? "Unknown")}
           </div>
           <div className="min-w-0">

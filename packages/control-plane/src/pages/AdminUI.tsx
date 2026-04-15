@@ -37,10 +37,10 @@ export default function AdminUI() {
             </Button>
           </Link>
           <div className="flex items-center gap-2">
-            <Settings className="w-5 h-5 text-blue-500" />
+            <Settings className="w-5 h-5 text-brand" />
             <h1 className="text-lg font-bold tracking-tight text-foreground">{t("admin.title")}</h1>
           </div>
-          <Badge variant="outline" className="bg-blue-500/10 text-blue-400 border-blue-500/20 rounded-full text-[10px] px-2">
+          <Badge variant="outline" className="bg-[hsl(var(--color-brand)/0.1)] text-brand border-[hsl(var(--color-brand)/0.2)] rounded-full text-[10px] px-2">
             {t("admin.globalAdmin")}
           </Badge>
         </div>
@@ -63,7 +63,7 @@ export default function AdminUI() {
         <div className="lg:col-span-3 space-y-1">
           <p className="mb-2 px-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{t("admin.systemOverview")}</p>
           <Button variant="ghost" className="w-full justify-start gap-3 border border-border bg-muted/40 text-foreground">
-            <Activity className="w-4 h-4 text-blue-500" />
+            <Activity className="w-4 h-4 text-brand" />
             <span className="text-sm font-medium">{t("admin.healthMetrics")}</span>
           </Button>
         </div>
@@ -117,7 +117,7 @@ export default function AdminUI() {
           </div>
 
           {isError && (
-            <div className="rounded-[var(--radius-md)] border border-red-500/20 bg-red-500/5 px-4 py-3 text-body-sm text-red-300">
+            <div className="rounded-[var(--radius-md)] border border-[hsl(var(--color-danger)/0.2)] bg-[hsl(var(--color-danger)/0.05)] px-4 py-3 text-body-sm text-danger">
               {error instanceof Error ? error.message : t("admin.loadInstanceDetailsFailed")}
             </div>
           )}

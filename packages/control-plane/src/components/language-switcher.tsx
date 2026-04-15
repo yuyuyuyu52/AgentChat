@@ -38,7 +38,7 @@ export function LanguageSwitcher({ className }: { className?: string }) {
             <DropdownMenuItem key={item.code} onClick={() => setLocale(item.code)}>
               <span className="flex-1">{item.nativeLabel}</span>
               <span className="text-xs text-muted-foreground">{item.label}</span>
-              {item.code === locale ? <Check className="ml-2 size-4 text-blue-500" /> : null}
+              {item.code === locale ? <Check className="ml-2 size-4 text-brand" /> : null}
             </DropdownMenuItem>
           ))}
         </DropdownMenuGroup>

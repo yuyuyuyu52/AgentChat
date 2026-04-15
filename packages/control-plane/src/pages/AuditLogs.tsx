@@ -112,7 +112,7 @@ export default function AuditLogs() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
                 placeholder={t("auditLogs.searchLogs", undefined, "Search by actor, event, or target...")}
-                className="border-border bg-muted/40 pl-10 text-foreground placeholder:text-muted-foreground focus-visible:ring-blue-500"
+                className="border-border bg-muted/40 pl-10 text-foreground placeholder:text-muted-foreground focus-visible:ring-[hsl(var(--color-brand))]"
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
               />
@@ -168,7 +168,7 @@ export default function AuditLogs() {
                 ))
               ) : isError ? (
                 <TableRow className="border-border">
-                  <TableCell className="text-red-400" colSpan={6}>
+                  <TableCell className="text-danger" colSpan={6}>
                     {error instanceof Error ? error.message : t("auditLogs.loadAuditFailed")}
                   </TableCell>
                 </TableRow>
@@ -190,17 +190,17 @@ export default function AuditLogs() {
                         "hover:bg-[hsl(var(--surface-2)/0.4)]",
                         "border-l-2",
                         isSuccess
-                          ? "border-l-transparent hover:border-l-green-500"
-                          : "border-l-transparent hover:border-l-red-500",
+                          ? "border-l-transparent hover:border-l-[hsl(var(--color-success))]"
+                          : "border-l-transparent hover:border-l-[hsl(var(--color-danger))]",
                       )}
                     >
                       <TableCell className="text-xs font-mono text-muted-foreground">{formatDateTime(log.createdAt)}</TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           {log.actorAccountId ? (
-                            <Bot className="w-3 h-3 text-purple-400" />
+                            <Bot className="w-3 h-3 text-accent" />
                           ) : (
-                            <User className="w-3 h-3 text-blue-400" />
+                            <User className="w-3 h-3 text-brand" />
                           )}
                           <span className="text-xs font-mono text-foreground/80">
                             {log.actorName ?? log.actorAccountId ?? t("common.system")}
@@ -217,14 +217,14 @@ export default function AuditLogs() {
                         <div className="flex items-center gap-1.5">
                           {isSuccess ? (
                             <span title={t("enums.auditStatus.success", undefined, "Event completed successfully")}>
-                              <CheckCircle2 className="w-3 h-3 text-green-500" />
+                              <CheckCircle2 className="w-3 h-3 text-success" />
                             </span>
                           ) : (
                             <span title={t("enums.auditStatus.failure", undefined, "Event failed or was rejected")}>
-                              <AlertCircle className="w-3 h-3 text-red-500" />
+                              <AlertCircle className="w-3 h-3 text-danger" />
                             </span>
                           )}
-                          <span className={cn("text-[10px] font-bold uppercase tracking-tighter", isSuccess ? "text-green-500" : "text-red-500")}>
+                          <span className={cn("text-[10px] font-bold uppercase tracking-tighter", isSuccess ? "text-success" : "text-danger")}>
                             {t(`enums.auditStatus.${status}`, undefined, status)}
                           </span>
                         </div>

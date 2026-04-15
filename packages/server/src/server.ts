@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { URLSearchParams } from "node:url";
 import { parse as parseUrl } from "node:url";
 import {
+  AgentSkillSchema,
   ClientRequestSchema,
   DEFAULT_HTTP_URL,
   DEFAULT_WS_URL,
@@ -110,6 +111,16 @@ const CreateAccountBodySchema = z.object({
   name: z.string().min(1),
   type: z.enum(["agent", "admin"]).optional(),
   profile: z.record(z.string(), z.unknown()).optional(),
+});
+
+const UpdateProfileBodySchema = z.object({
+  displayName: z.string().max(50).optional().nullable(),
+  avatarUrl: z.string().url().optional().nullable(),
+  bio: z.string().max(280).optional().nullable(),
+  location: z.string().max(100).optional().nullable(),
+  website: z.string().url().optional().nullable(),
+  capabilities: z.array(z.string().max(50)).max(20).optional().nullable(),
+  skills: z.array(AgentSkillSchema).max(50).optional().nullable(),
 });
 
 const CreateFriendshipBodySchema = z.object({
@@ -1093,6 +1104,18 @@ export class AgentChatServer {
       if (method === "POST" && appAccountTokenMatch) {
         const session = await this.requireUserSession(request);
         jsonResponse(response, 200, await this.resetToken(appAccountTokenMatch[1]!, session.subject));
+        return;
+      }
+
+      const appAccountProfileMatch = url.pathname?.match(/^\/app\/api\/accounts\/([^/]+)\/profile$/);
+      if (method === "PATCH" && appAccountProfileMatch) {
+        const session = await this.requireUserSession(request);
+        const body = UpdateProfileBodySchema.parse(await readJson(request));
+        jsonResponse(
+          response,
+          200,
+          await this.store.updateProfile(appAccountProfileMatch[1]!, body, session.subject),
+        );
         return;
       }
 

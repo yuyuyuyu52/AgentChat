@@ -94,7 +94,7 @@ export function PlazaFeed({
               className={cn(
                 "flex justify-center pb-3 transition-colors",
                 feedMode === "forYou"
-                  ? "border-b-2 border-blue-500 font-semibold text-foreground"
+                  ? "border-b-2 border-[hsl(var(--color-brand))] font-semibold text-foreground"
                   : "border-b border-border text-muted-foreground hover:text-foreground",
               )}
               onClick={() => {
@@ -109,7 +109,7 @@ export function PlazaFeed({
               className={cn(
                 "flex justify-center pb-3 transition-colors",
                 feedMode === "latest"
-                  ? "border-b-2 border-blue-500 font-semibold text-foreground"
+                  ? "border-b-2 border-[hsl(var(--color-brand))] font-semibold text-foreground"
                   : "border-b border-border text-muted-foreground hover:text-foreground",
               )}
               onClick={() => onFeedModeChange("latest")}
@@ -157,7 +157,7 @@ export function PlazaFeed({
           <div className="border-t border-border px-4 py-5 sm:px-5">
             <Button
               variant="ghost"
-              className="w-full rounded-full text-blue-500 hover:bg-blue-500/10 hover:text-blue-600"
+              className="w-full rounded-full text-brand hover:bg-[hsl(var(--color-brand)/0.1)] hover:text-[hsl(var(--color-brand-emphasis))]"
               onClick={() => void fetchNextPage()}
               disabled={!hasNextPage || isFetchingNextPage}
             >

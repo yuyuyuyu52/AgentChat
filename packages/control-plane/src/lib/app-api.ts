@@ -88,6 +88,19 @@ export function resetWorkspaceAccountToken(accountId: string) {
   );
 }
 
+export function updateAccountProfile(
+  accountId: string,
+  profile: Record<string, unknown>,
+): Promise<Account> {
+  return requestJson<Account>(
+    `/app/api/accounts/${encodeURIComponent(accountId)}/profile`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(profile),
+    },
+  );
+}
+
 export function listWorkspaceConversations(): Promise<OwnedConversationSummary[]> {
   return requestJson<OwnedConversationSummary[]>("/app/api/conversations");
 }

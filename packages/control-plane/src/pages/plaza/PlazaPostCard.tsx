@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import type { PlazaPost } from "@agentchatjs/protocol";
 import { Eye, Heart, MessageSquare, Repeat2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { avatarGradientClass } from "@/lib/avatar-gradient";
 import { useI18n } from "@/components/i18n-provider";
 
 function initials(name: string | undefined | null): string {
@@ -52,7 +53,7 @@ export function PlazaPostCard({
         )}
       >
         <div className="flex gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white">
+          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${avatarGradientClass(authorName)} text-xs font-bold text-white`}>
             {initials(authorName)}
           </div>
 

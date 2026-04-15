@@ -62,7 +62,7 @@ export default function AgentPrompt() {
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-8 p-8">
       <div className="space-y-2">
-        <div className="inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-blue-500">
+        <div className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--color-brand)/0.2)] bg-[hsl(var(--color-brand)/0.1)] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-brand">
           {t("agentPrompt.productionAgentAccess")}
         </div>
         <h1 className="text-3xl font-bold tracking-tight text-foreground">{t("agentPrompt.title")}</h1>
@@ -74,8 +74,8 @@ export default function AgentPrompt() {
       <Card className="border-border bg-card">
         <CardHeader className="space-y-3">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-blue-500/20 bg-blue-500/10">
-              <Terminal className="h-5 w-5 text-blue-500" />
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-brand-icon">
+              <Terminal className="h-5 w-5 text-brand" />
             </div>
             <div>
               <CardTitle className="text-xl font-bold text-foreground">{t("agentPrompt.promptCardTitle")}</CardTitle>
@@ -114,11 +114,11 @@ export default function AgentPrompt() {
         {installCommands.map((item, index) => (
           <Card key={item.title} className="border-border bg-card">
             <CardHeader className="space-y-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-blue-500/20 bg-blue-500/10">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-icon">
                 {index === 2 ? (
-                  <Download className="h-5 w-5 text-blue-500" />
+                  <Download className="h-5 w-5 text-brand" />
                 ) : (
-                  <Terminal className="h-5 w-5 text-blue-500" />
+                  <Terminal className="h-5 w-5 text-brand" />
                 )}
               </div>
               <div>
@@ -139,7 +139,7 @@ export default function AgentPrompt() {
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
-              <pre className="overflow-x-auto rounded-xl border border-border bg-muted/40 p-4 text-xs leading-6 text-blue-500">
+              <pre className="overflow-x-auto rounded-xl border border-border bg-muted/40 p-4 text-xs leading-6 text-brand">
                 <code>{item.command}</code>
               </pre>
               <Button variant="outline" className="w-full" onClick={() => handleCopy(item.command, item.title)}>
@@ -158,7 +158,7 @@ export default function AgentPrompt() {
               <CardTitle className="text-base">{t("agentPrompt.publishedCliCardTitle")}</CardTitle>
               <CardDescription>{t("agentPrompt.publishedCliCardDescription")}</CardDescription>
               </CardHeader>
-              <CardContent className="text-xs text-blue-500 break-all">{CLI_PACKAGE_URL}</CardContent>
+              <CardContent className="text-xs text-brand break-all">{CLI_PACKAGE_URL}</CardContent>
             </Card>
         </a>
         <a href={SKILL_RAW_URL} target="_blank" rel="noreferrer" className="group">
@@ -167,7 +167,7 @@ export default function AgentPrompt() {
               <CardTitle className="text-base">{t("agentPrompt.rawSkillDocTitle")}</CardTitle>
               <CardDescription>{t("agentPrompt.rawSkillDocDescription")}</CardDescription>
               </CardHeader>
-              <CardContent className="text-xs text-blue-500 break-all">{SKILL_RAW_URL}</CardContent>
+              <CardContent className="text-xs text-brand break-all">{SKILL_RAW_URL}</CardContent>
             </Card>
         </a>
         <a href={SKILL_TREE_URL} target="_blank" rel="noreferrer" className="group">
@@ -176,7 +176,7 @@ export default function AgentPrompt() {
               <CardTitle className="text-base">{t("agentPrompt.skillFolderTitle")}</CardTitle>
               <CardDescription>{t("agentPrompt.skillFolderDescription")}</CardDescription>
               </CardHeader>
-              <CardContent className="text-xs text-blue-500 break-all">{SKILL_TREE_URL}</CardContent>
+              <CardContent className="text-xs text-brand break-all">{SKILL_TREE_URL}</CardContent>
             </Card>
         </a>
       </div>
@@ -187,7 +187,7 @@ export default function AgentPrompt() {
             <CardTitle className="text-base">{t("agentPrompt.hostedTargetTitle")}</CardTitle>
             <CardDescription>{t("agentPrompt.hostedTargetDescription")}</CardDescription>
           </CardHeader>
-          <CardContent className="text-xs text-blue-500 break-all">
+          <CardContent className="text-xs text-brand break-all">
             https://agentchatserver-production.up.railway.app
           </CardContent>
         </Card>

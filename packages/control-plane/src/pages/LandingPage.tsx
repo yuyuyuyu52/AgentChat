@@ -34,7 +34,7 @@ export default function LandingPage() {
       {/* Nav */}
       <nav className="fixed top-0 inset-x-0 z-50 h-16 flex items-center justify-between px-6 md:px-10 bg-[hsl(var(--background)/0.8)] backdrop-blur-xl border-b border-[hsl(var(--line-soft)/0.3)]">
         <Link to="/" className="flex items-center gap-2.5">
-          <div className="size-9 rounded-[var(--radius-sm)] bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-[0_0_20px_rgba(59,130,246,0.4)]">
+          <div className="size-9 rounded-[var(--radius-sm)] bg-brand-gradient flex items-center justify-center shadow-[0_0_20px_rgba(59,130,246,0.4)]">
             <Zap className="size-4.5 text-white fill-white" />
           </div>
           <span className="text-lg font-bold tracking-tight">AgentChat</span>
@@ -64,7 +64,7 @@ export default function LandingPage() {
         <div className="relative z-10 text-center px-6 max-w-4xl mx-auto">
           {/* Badge */}
           <motion.div
-            className="inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/10 px-4 py-1.5 mb-8"
+            className="inline-flex items-center gap-2 rounded-full border border-[hsl(var(--color-brand)/0.2)] bg-[hsl(var(--color-brand)/0.1)] px-4 py-1.5 mb-8"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
@@ -73,7 +73,7 @@ export default function LandingPage() {
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-400 opacity-75" />
               <span className="relative inline-flex h-2 w-2 rounded-full bg-blue-500" />
             </span>
-            <span className="text-xs font-semibold uppercase tracking-widest text-blue-400">
+            <span className="text-xs font-semibold uppercase tracking-widest text-brand">
               {t("landing.heroBadge") ?? "The Future of Agent Communication"}
             </span>
           </motion.div>
@@ -111,7 +111,7 @@ export default function LandingPage() {
             transition={{ duration: 0.6, delay: 0.4 }}
           >
             <Link to="/auth/login">
-              <Button size="lg" className="h-13 rounded-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 px-8 text-base font-semibold text-white shadow-[0_0_24px_rgba(59,130,246,0.35)] hover:shadow-[0_0_32px_rgba(59,130,246,0.5)] transition-all">
+              <Button size="lg" className="h-13 rounded-full bg-brand-gradient hover:opacity-90 px-8 text-base font-semibold text-white shadow-[0_0_24px_rgba(59,130,246,0.35)] hover:shadow-[0_0_32px_rgba(59,130,246,0.5)] transition-all">
                 <User className="size-4" />
                 {t("landing.forUser") ?? "For Users"}
                 <ArrowRight className="size-4" />
@@ -147,7 +147,7 @@ export default function LandingPage() {
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_60%_40%_at_50%_50%,rgba(59,130,246,0.06),transparent)]" />
         <div className="max-w-4xl mx-auto text-center relative z-10">
           <motion.p
-            className="text-xs font-bold uppercase tracking-[0.25em] text-blue-500 mb-4"
+            className="text-xs font-bold uppercase tracking-[0.25em] text-brand mb-4"
             initial={{ opacity: 0 }}
             whileInView={{ opacity: 1 }}
             viewport={{ once: true }}
@@ -177,7 +177,7 @@ export default function LandingPage() {
       {/* Capabilities grid */}
       <section className="py-20 px-6 md:px-10 max-w-6xl mx-auto">
         <div className="text-center mb-16">
-          <p className="text-xs font-bold uppercase tracking-[0.25em] text-blue-500 mb-4">{t("landing.capLabel") ?? "Capabilities"}</p>
+          <p className="text-xs font-bold uppercase tracking-[0.25em] text-brand mb-4">{t("landing.capLabel") ?? "Capabilities"}</p>
           <h2 className="text-3xl md:text-4xl font-bold tracking-tight">{t("landing.capTitle") ?? "Everything Agents Need to Thrive"}</h2>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -209,26 +209,26 @@ export default function LandingPage() {
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_50%_30%_at_50%_100%,rgba(139,92,246,0.06),transparent)]" />
         <div className="max-w-5xl mx-auto relative z-10">
           <div className="text-center mb-16">
-            <p className="text-xs font-bold uppercase tracking-[0.25em] text-blue-500 mb-4">{t("landing.twoSurfaces")}</p>
+            <p className="text-xs font-bold uppercase tracking-[0.25em] text-brand mb-4">{t("landing.twoSurfaces")}</p>
             <h2 className="text-3xl md:text-4xl font-bold tracking-tight">{t("landing.chooseSurfaceTitle")}</h2>
             <p className="mt-3 text-muted-foreground max-w-xl mx-auto">{t("landing.chooseSurfaceDescription")}</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <motion.div
-              className="group relative surface-raised rounded-[var(--radius-md)] p-8 hover:border-blue-500/30 transition-all overflow-hidden"
+              className="group relative surface-raised rounded-[var(--radius-md)] p-8 hover:border-[hsl(var(--color-brand)/0.3)] transition-all overflow-hidden"
               initial={{ opacity: 0, x: -20 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
             >
               <div className="absolute -top-16 -left-16 size-32 rounded-full bg-blue-500 opacity-0 group-hover:opacity-[0.07] blur-3xl transition-opacity duration-500" />
               <div className="relative z-10">
-                <div className="size-12 rounded-[var(--radius-sm)] bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center mb-5 shadow-lg">
+                <div className="size-12 rounded-[var(--radius-sm)] bg-brand-gradient flex items-center justify-center mb-5 shadow-lg">
                   <User className="size-6 text-white" />
                 </div>
                 <h3 className="text-xl font-bold mb-3">{t("landing.userCardTitle")}</h3>
                 <p className="text-muted-foreground leading-relaxed mb-6">{t("landing.userCardDescription")}</p>
                 <Link to="/auth/login">
-                  <Button className="rounded-full bg-blue-600 hover:bg-blue-500 text-white px-6">
+                  <Button className="rounded-full bg-brand-gradient hover:opacity-90 text-white px-6">
                     {t("landing.openWorkspace") ?? "Open Workspace"}
                     <ArrowRight className="size-4" />
                   </Button>
@@ -268,7 +268,7 @@ export default function LandingPage() {
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
         >
-          <Bot className="size-12 text-blue-500 mx-auto mb-6" />
+          <Bot className="size-12 text-brand mx-auto mb-6" />
           <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-4">
             {t("landing.ctaTitle") ?? "Ready to Build the Agent Network?"}
           </h2>
@@ -277,7 +277,7 @@ export default function LandingPage() {
           </p>
           <div className="flex items-center justify-center gap-4 flex-col sm:flex-row">
             <Link to="/auth/register">
-              <Button size="lg" className="h-13 rounded-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 px-8 text-base font-semibold text-white shadow-[0_0_24px_rgba(59,130,246,0.35)]">
+              <Button size="lg" className="h-13 rounded-full bg-brand-gradient hover:opacity-90 px-8 text-base font-semibold text-white shadow-[0_0_24px_rgba(59,130,246,0.35)]">
                 {t("landing.getStarted") ?? "Get Started"}
                 <ArrowRight className="size-4" />
               </Button>

@@ -74,7 +74,7 @@ export default function ChatView() {
 
   if (isError || (!isLoading && (!agentId || !convId))) {
     return (
-      <div className="p-8 text-red-300">
+      <div className="p-8 text-danger">
         {error instanceof Error ? error.message : t("chatView.conversationNotFound")}
       </div>
     );
@@ -95,8 +95,8 @@ export default function ChatView() {
             </Button>
           </Link>
           <div className="flex items-center gap-3">
-            <div className="surface-chip flex h-8 w-8 items-center justify-center rounded-full border-transparent bg-[linear-gradient(180deg,rgba(37,99,235,0.16),rgba(37,99,235,0.08))]">
-              <Bot className="w-5 h-5 text-blue-500" />
+            <div className="surface-chip flex h-8 w-8 items-center justify-center rounded-full border-transparent bg-brand-icon">
+              <Bot className="w-5 h-5 text-brand" />
             </div>
             <div>
               <h3 className="text-heading-3 text-foreground">{conversationTitle(conversation, agentId, accountsById)}</h3>
@@ -106,7 +106,7 @@ export default function ChatView() {
         </div>
         <div className="flex items-center gap-3">
           {conversation && (
-            <Badge variant="outline" className="bg-[linear-gradient(180deg,rgba(37,99,235,0.16),rgba(37,99,235,0.08))] text-[10px] uppercase font-bold tracking-tighter text-blue-500">
+            <Badge variant="outline" className="bg-brand-icon text-[10px] uppercase font-bold tracking-tighter text-brand">
               {t(`enums.conversationKind.${conversation.kind}`, undefined, conversation.kind)}
             </Badge>
           )}
@@ -144,11 +144,11 @@ export default function ChatView() {
                   <div className={cn(
                     "surface-chip flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-transparent",
                     isSelectedAgent
-                      ? "bg-[linear-gradient(180deg,rgba(37,99,235,0.16),rgba(37,99,235,0.08))]"
+                      ? "bg-brand-icon"
                       : "bg-[linear-gradient(180deg,rgba(148,163,184,0.12),rgba(148,163,184,0.04))]",
                   )}>
                     {isSelectedAgent
-                      ? <Bot className="w-4 h-4 text-blue-500" />
+                      ? <Bot className="w-4 h-4 text-brand" />
                       : <User className="w-4 h-4 text-muted-foreground" />}
                   </div>
 

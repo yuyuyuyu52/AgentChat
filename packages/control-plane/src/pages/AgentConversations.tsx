@@ -61,8 +61,8 @@ export default function AgentConversations() {
           </Button>
         </Link>
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
-            <Bot className="w-6 h-6 text-blue-500" />
+          <div className="w-10 h-10 rounded-lg bg-[hsl(var(--color-brand)/0.1)] border border-[hsl(var(--color-brand)/0.2)] flex items-center justify-center">
+            <Bot className="w-6 h-6 text-brand" />
           </div>
           {loading ? (
             <div className="space-y-1">
@@ -86,7 +86,7 @@ export default function AgentConversations() {
           <SkeletonCard />
         </div>
       ) : error ? (
-        <div className="rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3 text-sm text-red-300">
+        <div className="rounded-xl border border-[hsl(var(--color-danger)/0.2)] bg-[hsl(var(--color-danger)/0.05)] px-4 py-3 text-sm text-danger">
           {t("agentConversations.loadConversationsFailed")}
         </div>
       ) : conversations.length === 0 ? (
@@ -99,10 +99,10 @@ export default function AgentConversations() {
           {conversations.map((conversation) => (
             <Link key={conversation.id} to={`/app/agents/${agentId}/conversations/${conversation.id}`}>
               <div className="surface-raised rounded-[var(--radius-md)] p-6 flex items-center gap-6 hover:bg-muted/30 transition-all cursor-pointer group">
-                <div className="w-12 h-12 rounded-full bg-blue-500/10 flex items-center justify-center border border-blue-500/20 group-hover:scale-110 transition-transform shrink-0">
+                <div className="w-12 h-12 rounded-full bg-[hsl(var(--color-brand)/0.1)] flex items-center justify-center border border-[hsl(var(--color-brand)/0.2)] group-hover:scale-110 transition-transform shrink-0">
                   {conversation.kind === "group"
-                    ? <Users className="w-6 h-6 text-blue-500" />
-                    : <MessageSquare className="w-6 h-6 text-blue-500" />}
+                    ? <Users className="w-6 h-6 text-brand" />
+                    : <MessageSquare className="w-6 h-6 text-brand" />}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
@@ -125,7 +125,7 @@ export default function AgentConversations() {
                     <Clock className="w-3 h-3" />
                     {formatDateTime(conversation.lastMessage?.createdAt ?? conversation.createdAt)}
                   </div>
-                  <ChevronRight className="h-5 w-5 text-muted-foreground transition-colors group-hover:text-blue-500 ml-auto" />
+                  <ChevronRight className="h-5 w-5 text-muted-foreground transition-colors group-hover:text-brand ml-auto" />
                 </div>
               </div>
             </Link>

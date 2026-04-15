@@ -85,7 +85,7 @@ export default function RegisterPage() {
         {/* Top: Logo */}
         <div className="relative z-10 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2.5">
-            <div className="size-9 rounded-[var(--radius-sm)] bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-[0_0_20px_rgba(59,130,246,0.4)]">
+            <div className="size-9 rounded-[var(--radius-sm)] bg-brand-gradient flex items-center justify-center shadow-[0_0_20px_rgba(59,130,246,0.4)]">
               <Zap className="size-4.5 text-white fill-white" />
             </div>
             <span className="text-lg font-bold tracking-tight">AgentChat</span>
@@ -151,7 +151,7 @@ export default function RegisterPage() {
         </div>
         <div className="mb-8 flex flex-col items-center gap-3 lg:hidden">
           <Link to="/" className="flex items-center gap-2">
-            <div className="size-9 rounded-[var(--radius-sm)] bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center shadow-[0_0_20px_rgba(59,130,246,0.4)]">
+            <div className="size-9 rounded-[var(--radius-sm)] bg-brand-gradient flex items-center justify-center shadow-[0_0_20px_rgba(59,130,246,0.4)]">
               <Zap className="size-4.5 text-white fill-white" />
             </div>
             <span className="text-lg font-bold tracking-tight">AgentChat</span>
@@ -179,7 +179,7 @@ export default function RegisterPage() {
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground/60" />
                   <Input id="name" placeholder="John Doe"
-                    className="h-11 pl-10 transition-all focus-visible:ring-blue-500/40"
+                    className="h-11 pl-10 transition-all focus-visible:ring-[hsl(var(--color-brand)/0.4)]"
                     value={name} onChange={(e) => setName(e.target.value)} required
                   />
                 </div>
@@ -191,7 +191,7 @@ export default function RegisterPage() {
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground/60" />
                   <Input id="email" type="email" placeholder="you@company.com"
-                    className="h-11 pl-10 transition-all focus-visible:ring-blue-500/40"
+                    className="h-11 pl-10 transition-all focus-visible:ring-[hsl(var(--color-brand)/0.4)]"
                     value={email} onChange={(e) => setEmail(e.target.value)} onBlur={handleEmailBlur} required
                   />
                 </div>
@@ -204,7 +204,7 @@ export default function RegisterPage() {
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground/60" />
                   <Input id="password" type={showPassword ? "text" : "password"} placeholder={t("register.passwordHint")}
-                    className="h-11 pl-10 pr-10 transition-all focus-visible:ring-blue-500/40"
+                    className="h-11 pl-10 pr-10 transition-all focus-visible:ring-[hsl(var(--color-brand)/0.4)]"
                     value={password} onChange={(e) => setPassword(e.target.value)} onBlur={handlePasswordBlur} required
                   />
                   <button type="button" className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground/60 hover:text-foreground"
@@ -220,12 +220,12 @@ export default function RegisterPage() {
 
             <div className="rounded-[var(--radius-md)] border border-[hsl(var(--line-soft)/0.3)] bg-[hsl(var(--surface-2)/0.3)] p-3">
               <p className="text-center text-[11px] leading-relaxed text-muted-foreground">
-                {t("register.termsPrefix")} <span className="text-blue-500">{t("register.termsOfService")}</span> & <span className="text-blue-500">{t("register.privacyPolicy")}</span>
+                {t("register.termsPrefix")} <span className="text-brand">{t("register.termsOfService")}</span> & <span className="text-brand">{t("register.privacyPolicy")}</span>
               </p>
             </div>
 
             <Button type="submit" disabled={isLoading}
-              className="h-11 w-full rounded-full bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-500 hover:to-violet-500 font-semibold text-white shadow-[0_0_20px_rgba(99,102,241,0.3)]"
+              className="h-11 w-full rounded-full bg-brand-gradient hover:opacity-90 font-semibold text-white shadow-[0_0_20px_rgba(99,102,241,0.3)]"
             >
               {isLoading ? (
                 <><div className="size-4 animate-spin rounded-full border-2 border-white/20 border-t-white" /> {t("register.initializing")}</>
@@ -237,7 +237,7 @@ export default function RegisterPage() {
 
           <p className="text-center text-sm text-muted-foreground">
             {t("register.alreadyHaveAccount")}{" "}
-            <Link to="/auth/login" className="font-semibold text-blue-500 hover:text-blue-400 underline underline-offset-4">
+            <Link to="/auth/login" className="font-semibold text-brand hover:text-brand underline underline-offset-4">
               {t("register.signIn")}
             </Link>
           </p>

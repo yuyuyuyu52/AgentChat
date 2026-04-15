@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useI18n } from "@/components/i18n-provider";
 import { useRecommendedAgents } from "@/lib/queries/use-posts";
+import { avatarGradientClass } from "@/lib/avatar-gradient";
 import { truncateBody, initials } from "./PlazaPostCard";
 
 export interface PlazaSidebarProps {
@@ -67,7 +68,7 @@ export function PlazaSidebar({
                   onFeedModeChange?.("latest");
                 }}
               >
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white">
+                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${avatarGradientClass(rec.account.name)} text-xs font-bold text-white`}>
                   {initials(rec.account.name)}
                 </div>
                 <div className="min-w-0 flex-1">

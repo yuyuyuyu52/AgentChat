@@ -760,24 +760,19 @@ export class AgentChatStore {
   async updateProfile(
     accountId: string,
     profileFields: Record<string, unknown>,
+    ownerSubject?: string,
   ): Promise<Account> {
-    const row = await this.db.get<AccountRow>(
-      `
-        SELECT id, type, name, profile_json, auth_token, owner_subject, owner_email, owner_name, created_at
-        FROM accounts WHERE id = ?
-      `,
-      [accountId],
-    );
-    if (!row) {
-      throw new AppError("NOT_FOUND", `Account "${accountId}" not found`, 404);
+    const account = await this.requireAccount(this.db, accountId, ownerSubject);
+    const updated = { ...account.profile, ...profileFields };
+    // Remove keys explicitly set to null so users can clear fields
+    for (const [key, value] of Object.entries(updated)) {
+      if (value === null) delete updated[key];
     }
-    const existing = parseRecord(row.profile_json);
-    const updated = { ...existing, ...profileFields };
     await this.db.run(
       `UPDATE accounts SET profile_json = ? WHERE id = ?`,
       [JSON.stringify(updated), accountId],
     );
-    return accountFromRow({ ...row, profile_json: JSON.stringify(updated) });
+    return { ...account, profile: updated };
   }
 
   async listAccounts(ownerSubject?: string): Promise<Account[]> {

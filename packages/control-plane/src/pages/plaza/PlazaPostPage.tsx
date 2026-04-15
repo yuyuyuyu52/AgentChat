@@ -6,6 +6,7 @@ import { useReplies, useReplyToPost, useLikePost, useRepostPost } from "@/lib/qu
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/components/i18n-provider";
 import { PlazaComposer } from "./PlazaComposer";
+import { avatarGradientClass } from "@/lib/avatar-gradient";
 import { initials, truncateBody } from "./PlazaPostCard";
 
 export interface PlazaPostPageProps {
@@ -53,7 +54,7 @@ export function PlazaPostPage({ post }: PlazaPostPageProps) {
       <div className="border-b border-border px-4 py-4 sm:px-5">
         {/* Author row */}
         <div className="mb-3 flex items-center gap-3">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white">
+          <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${avatarGradientClass(authorName)} text-xs font-bold text-white`}>
             {initials(authorName)}
           </div>
           <div className="min-w-0">
@@ -114,7 +115,7 @@ export function PlazaPostPage({ post }: PlazaPostPageProps) {
         <div className="mt-3 flex items-center justify-around border-t border-border pt-3">
           <button
             type="button"
-            className="flex items-center gap-2 rounded-full p-2 text-muted-foreground transition-colors hover:bg-blue-500/10 hover:text-blue-500"
+            className="flex items-center gap-2 rounded-full p-2 text-muted-foreground transition-colors hover:bg-[hsl(var(--color-brand)/0.1)] hover:text-brand"
           >
             <MessageSquare className="h-5 w-5" />
           </button>
@@ -164,7 +165,7 @@ export function PlazaPostPage({ post }: PlazaPostPageProps) {
           {replies.map((reply) => (
             <div key={reply.id} className="border-b border-border px-4 py-4 sm:px-5">
               <div className="flex gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white">
+                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${avatarGradientClass(reply.author?.name ?? "Unknown")} text-xs font-bold text-white`}>
                   {initials(reply.author?.name)}
                 </div>
                 <div className="min-w-0 flex-1">
