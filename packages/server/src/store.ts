@@ -225,6 +225,14 @@ function normalizeFriendshipPair(a: string, b: string): [string, string] {
   return a < b ? [a, b] : [b, a];
 }
 
+function parseVectorString(vectorStr: string): number[] {
+  return vectorStr
+    .replace(/^\[/, "")
+    .replace(/\]$/, "")
+    .split(",")
+    .map(Number);
+}
+
 function createId(prefix: string): string {
   return `${prefix}_${randomUUID()}`;
 }
@@ -274,6 +282,24 @@ function uniqueViolation(error: unknown, driver: StorageDriver): boolean {
 }
 
 const BASE_SCHEMA = [
+  `
+    DO $$
+    BEGIN
+      CREATE EXTENSION IF NOT EXISTS vector;
+    EXCEPTION
+      WHEN insufficient_privilege THEN
+        RAISE EXCEPTION USING
+          MESSAGE = 'Unable to create the Postgres "vector" extension with the current database role.',
+          DETAIL = 'The application role lacks CREATE EXTENSION privileges, which is common on managed Postgres providers.',
+          HINT = 'Install the "vector" extension as a database administrator or make extension creation an out-of-band migration step before starting the server.';
+      WHEN undefined_file THEN
+        RAISE EXCEPTION USING
+          MESSAGE = 'The Postgres "vector" extension is not available on this database server.',
+          DETAIL = 'The server does not have the pgvector extension installed or exposed to this database.',
+          HINT = 'Install/enable pgvector on the Postgres instance, or use a deployment that provides the "vector" extension.';
+    END
+    $$;
+  `,
   `
     CREATE TABLE IF NOT EXISTS accounts (
       id TEXT PRIMARY KEY,
@@ -488,6 +514,46 @@ const BASE_SCHEMA = [
   `
     CREATE INDEX IF NOT EXISTS idx_plaza_post_views_post
       ON plaza_post_views(post_id)
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS plaza_post_embeddings (
+      post_id TEXT PRIMARY KEY REFERENCES plaza_posts(id) ON DELETE CASCADE,
+      embedding vector(1536),
+      model TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    )
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS account_interest_vectors (
+      account_id TEXT PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,
+      interest_vector vector(1536),
+      interaction_count INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL
+    )
+  `,
+  `
+    CREATE TABLE IF NOT EXISTS agent_scores (
+      account_id TEXT PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,
+      score REAL NOT NULL DEFAULT 0,
+      engagement_rate REAL NOT NULL DEFAULT 0,
+      post_quality_avg REAL NOT NULL DEFAULT 0,
+      activity_recency REAL NOT NULL DEFAULT 0,
+      profile_completeness REAL NOT NULL DEFAULT 0,
+      content_vector vector(1536),
+      updated_at TEXT NOT NULL
+    )
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS idx_post_embeddings_hnsw
+      ON plaza_post_embeddings USING hnsw (embedding vector_cosine_ops)
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS idx_agent_scores_desc
+      ON agent_scores (score DESC)
+  `,
+  `
+    CREATE INDEX IF NOT EXISTS idx_agent_content_vector_hnsw
+      ON agent_scores USING hnsw (content_vector vector_cosine_ops)
   `,
 ];
 
@@ -1785,6 +1851,112 @@ export class AgentChatStore {
     );
   }
 
+  async listTrendingPosts(options: {
+    viewerAccountId?: string;
+    limit?: number;
+    offset?: number;
+  } = {}): Promise<PlazaPost[]> {
+    const limit = options.limit ?? 50;
+    const offset = options.offset ?? 0;
+    const viewerId = options.viewerAccountId ?? null;
+
+    const rows = await this.db.all<
+      PlazaPostRow & {
+        author_id: string;
+        author_type: AccountType;
+        author_name: string;
+        author_profile_json: string;
+        author_auth_token: string;
+        author_owner_subject: string | null;
+        author_owner_email: string | null;
+        author_owner_name: string | null;
+        author_created_at: string;
+        like_count: number;
+        reply_count: number;
+        quote_count: number;
+        repost_count: number;
+        view_count: number;
+        liked: number;
+        reposted: number;
+        hot_score: number;
+      }
+    >(
+      `
+        SELECT t.*,
+          CASE WHEN t.weighted_engagement > 0
+            THEN LOG(2.0, 1.0 + t.weighted_engagement)
+              * (1.0 / (1.0 + POWER(EXTRACT(EPOCH FROM (NOW() - t.created_at::timestamptz)) / 3600.0 / 48.0, 1.5)))
+            ELSE 0
+          END AS hot_score
+        FROM (
+          SELECT
+            p.id,
+            p.author_account_id,
+            p.body,
+            p.kind,
+            p.created_at,
+            p.parent_post_id,
+            p.quoted_post_id,
+            a.id AS author_id,
+            a.type AS author_type,
+            a.name AS author_name,
+            a.profile_json AS author_profile_json,
+            a.auth_token AS author_auth_token,
+            a.owner_subject AS author_owner_subject,
+            a.owner_email AS author_owner_email,
+            a.owner_name AS author_owner_name,
+            a.created_at AS author_created_at,
+            (SELECT COUNT(*) FROM plaza_post_likes WHERE post_id = p.id) AS like_count,
+            (SELECT COUNT(*) FROM plaza_posts r WHERE r.parent_post_id = p.id) AS reply_count,
+            (SELECT COUNT(*) FROM plaza_posts q WHERE q.quoted_post_id = p.id) AS quote_count,
+            (SELECT COUNT(*) FROM plaza_post_reposts WHERE post_id = p.id) AS repost_count,
+            (SELECT COUNT(*) FROM plaza_post_views WHERE post_id = p.id) AS view_count,
+            (SELECT COUNT(*) FROM plaza_post_likes WHERE post_id = p.id AND account_id = ?) AS liked,
+            (SELECT COUNT(*) FROM plaza_post_reposts WHERE post_id = p.id AND account_id = ?) AS reposted,
+            (SELECT COUNT(*) FROM plaza_post_likes WHERE post_id = p.id) * 1.0 +
+              (SELECT COUNT(*) FROM plaza_post_reposts WHERE post_id = p.id) * 3.0 +
+              (SELECT COUNT(*) FROM plaza_posts r2 WHERE r2.parent_post_id = p.id) * 5.0 +
+              (SELECT COUNT(*) FROM plaza_posts q2 WHERE q2.quoted_post_id = p.id) * 4.0 +
+              (SELECT COUNT(*) FROM plaza_post_views WHERE post_id = p.id) * 0.05
+              AS weighted_engagement
+          FROM plaza_posts p
+          JOIN accounts a ON a.id = p.author_account_id
+          WHERE p.parent_post_id IS NULL
+        ) t
+        ORDER BY hot_score DESC, t.created_at DESC
+        LIMIT ?
+        OFFSET ?
+      `,
+      [viewerId, viewerId, limit, offset],
+    );
+
+    return rows.map((row) =>
+      plazaPostFromRow(
+        row,
+        accountFromRow({
+          id: row.author_id,
+          type: row.author_type,
+          name: row.author_name,
+          profile_json: row.author_profile_json,
+          auth_token: row.author_auth_token,
+          owner_subject: row.author_owner_subject,
+          owner_email: row.author_owner_email,
+          owner_name: row.author_owner_name,
+          created_at: row.author_created_at,
+        }),
+        {
+          likeCount: Number(row.like_count),
+          replyCount: Number(row.reply_count),
+          quoteCount: Number(row.quote_count),
+          repostCount: Number(row.repost_count),
+          viewCount: Number(row.view_count),
+          liked: Number(row.liked) > 0,
+          reposted: Number(row.reposted) > 0,
+        },
+      )
+    );
+  }
+
   async getPlazaPost(postId: string, viewerAccountId?: string): Promise<PlazaPost> {
     const viewerId = viewerAccountId ?? null;
     const row = await this.db.get<
@@ -1928,6 +2100,488 @@ export class AgentChatStore {
       ...options,
       parentPostId: postId,
     });
+  }
+
+  async upsertPostEmbedding(
+    postId: string,
+    embedding: number[],
+    model: string,
+  ): Promise<void> {
+    const vectorStr = `[${embedding.join(",")}]`;
+    await this.db.run(
+      `
+        INSERT INTO plaza_post_embeddings (post_id, embedding, model, created_at)
+        VALUES (?, ?::vector, ?, ?)
+        ON CONFLICT (post_id)
+        DO UPDATE SET embedding = EXCLUDED.embedding, model = EXCLUDED.model, created_at = EXCLUDED.created_at
+      `,
+      [postId, vectorStr, model, nowIso()],
+    );
+  }
+
+  async getPostEmbedding(
+    postId: string,
+  ): Promise<{ postId: string; embedding: number[]; model: string } | null> {
+    const row = await this.db.get<{
+      post_id: string;
+      embedding: string;
+      model: string;
+    }>(`SELECT post_id, embedding::text, model FROM plaza_post_embeddings WHERE post_id = ?`, [postId]);
+    if (!row) return null;
+    if (!row.embedding) return null;
+    return {
+      postId: row.post_id,
+      embedding: parseVectorString(row.embedding),
+      model: row.model,
+    };
+  }
+
+  async upsertInterestVector(
+    accountId: string,
+    vector: number[],
+    interactionCount: number,
+  ): Promise<void> {
+    const vectorStr = `[${vector.join(",")}]`;
+    await this.db.run(
+      `
+        INSERT INTO account_interest_vectors (account_id, interest_vector, interaction_count, updated_at)
+        VALUES (?, ?::vector, ?, ?)
+        ON CONFLICT (account_id)
+        DO UPDATE SET interest_vector = EXCLUDED.interest_vector,
+                      interaction_count = EXCLUDED.interaction_count,
+                      updated_at = EXCLUDED.updated_at
+      `,
+      [accountId, vectorStr, interactionCount, nowIso()],
+    );
+  }
+
+  async getInterestVector(
+    accountId: string,
+  ): Promise<{ interestVector: number[]; interactionCount: number } | null> {
+    const row = await this.db.get<{
+      interest_vector: string;
+      interaction_count: number;
+    }>(
+      `SELECT interest_vector::text, interaction_count FROM account_interest_vectors WHERE account_id = ?`,
+      [accountId],
+    );
+    if (!row) return null;
+    if (!row.interest_vector) return null;
+    return {
+      interestVector: parseVectorString(row.interest_vector),
+      interactionCount: Number(row.interaction_count),
+    };
+  }
+
+  async findSimilarPosts(
+    queryVector: number[],
+    options: { limit?: number; excludePostIds?: string[] } = {},
+  ): Promise<Array<{ postId: string; similarity: number }>> {
+    const limit = options.limit ?? 20;
+    const vectorStr = `[${queryVector.join(",")}]`;
+
+    let excludeClause = "";
+    const params: SqlValue[] = [vectorStr, vectorStr, limit];
+
+    if (options.excludePostIds && options.excludePostIds.length > 0) {
+      const placeholders = options.excludePostIds.map(() => "?").join(",");
+      excludeClause = `AND e.post_id NOT IN (${placeholders})`;
+      params.splice(2, 0, ...options.excludePostIds);
+    }
+
+    const rows = await this.db.all<{ post_id: string; similarity: number }>(
+      `
+        SELECT e.post_id, 1 - (e.embedding <=> ?::vector) AS similarity
+        FROM plaza_post_embeddings e
+        JOIN plaza_posts p ON p.id = e.post_id AND p.parent_post_id IS NULL
+        WHERE true ${excludeClause}
+        ORDER BY e.embedding <=> ?::vector
+        LIMIT ?
+      `,
+      params,
+    );
+    return rows.map((r) => ({
+      postId: r.post_id,
+      similarity: Number(r.similarity),
+    }));
+  }
+
+  async upsertAgentScore(
+    accountId: string,
+    scores: {
+      score: number;
+      engagementRate: number;
+      postQualityAvg: number;
+      activityRecency: number;
+      profileCompleteness: number;
+      contentVector?: number[];
+    },
+  ): Promise<void> {
+    if (scores.contentVector) {
+      const vectorStr = `[${scores.contentVector.join(",")}]`;
+      await this.db.run(
+        `
+          INSERT INTO agent_scores (account_id, score, engagement_rate, post_quality_avg, activity_recency, profile_completeness, content_vector, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?::vector, ?)
+          ON CONFLICT (account_id)
+          DO UPDATE SET score = EXCLUDED.score,
+                        engagement_rate = EXCLUDED.engagement_rate,
+                        post_quality_avg = EXCLUDED.post_quality_avg,
+                        activity_recency = EXCLUDED.activity_recency,
+                        profile_completeness = EXCLUDED.profile_completeness,
+                        content_vector = EXCLUDED.content_vector,
+                        updated_at = EXCLUDED.updated_at
+        `,
+        [accountId, scores.score, scores.engagementRate, scores.postQualityAvg, scores.activityRecency, scores.profileCompleteness, vectorStr, nowIso()],
+      );
+    } else {
+      await this.db.run(
+        `
+          INSERT INTO agent_scores (account_id, score, engagement_rate, post_quality_avg, activity_recency, profile_completeness, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT (account_id)
+          DO UPDATE SET score = EXCLUDED.score,
+                        engagement_rate = EXCLUDED.engagement_rate,
+                        post_quality_avg = EXCLUDED.post_quality_avg,
+                        activity_recency = EXCLUDED.activity_recency,
+                        profile_completeness = EXCLUDED.profile_completeness,
+                        updated_at = EXCLUDED.updated_at
+        `,
+        [accountId, scores.score, scores.engagementRate, scores.postQualityAvg, scores.activityRecency, scores.profileCompleteness, nowIso()],
+      );
+    }
+  }
+
+  async listTopAgents(options: {
+    limit?: number;
+    excludeAccountIds?: string[];
+  } = {}): Promise<Array<{
+    accountId: string;
+    score: number;
+    engagementRate: number;
+    postQualityAvg: number;
+    activityRecency: number;
+    profileCompleteness: number;
+  }>> {
+    const limit = options.limit ?? 20;
+    let excludeClause = "";
+    const params: SqlValue[] = [];
+
+    if (options.excludeAccountIds && options.excludeAccountIds.length > 0) {
+      const placeholders = options.excludeAccountIds.map(() => "?").join(",");
+      excludeClause = `WHERE account_id NOT IN (${placeholders})`;
+      params.push(...options.excludeAccountIds);
+    }
+
+    params.push(limit);
+
+    const rows = await this.db.all<{
+      account_id: string;
+      score: number;
+      engagement_rate: number;
+      post_quality_avg: number;
+      activity_recency: number;
+      profile_completeness: number;
+    }>(
+      `
+        SELECT account_id, score, engagement_rate, post_quality_avg, activity_recency, profile_completeness
+        FROM agent_scores
+        ${excludeClause}
+        ORDER BY score DESC
+        LIMIT ?
+      `,
+      params,
+    );
+
+    return rows.map((r) => ({
+      accountId: r.account_id,
+      score: Number(r.score),
+      engagementRate: Number(r.engagement_rate),
+      postQualityAvg: Number(r.post_quality_avg),
+      activityRecency: Number(r.activity_recency),
+      profileCompleteness: Number(r.profile_completeness),
+    }));
+  }
+
+  async buildInterestVector(
+    accountId: string,
+  ): Promise<{ vector: number[]; interactionCount: number } | null> {
+    const rows = await this.db.all<{
+      post_id: string;
+      embedding: string;
+      interaction_type: string;
+      interaction_at: string;
+    }>(
+      `
+        SELECT i.post_id, e.embedding::text AS embedding, i.interaction_type, i.interaction_at
+        FROM (
+          SELECT post_id, 'view' AS interaction_type, created_at AS interaction_at
+          FROM plaza_post_views WHERE account_id = ?
+          UNION ALL
+          SELECT post_id, 'like' AS interaction_type, created_at AS interaction_at
+          FROM plaza_post_likes WHERE account_id = ?
+          UNION ALL
+          SELECT post_id, 'repost' AS interaction_type, created_at AS interaction_at
+          FROM plaza_post_reposts WHERE account_id = ?
+          UNION ALL
+          SELECT parent_post_id AS post_id, 'reply' AS interaction_type, created_at AS interaction_at
+          FROM plaza_posts WHERE parent_post_id IS NOT NULL AND author_account_id = ?
+        ) i
+        JOIN plaza_post_embeddings e ON e.post_id = i.post_id
+      `,
+      [accountId, accountId, accountId, accountId],
+    );
+
+    if (rows.length === 0) return null;
+
+    const interactionWeights: Record<string, number> = {
+      view: 0.1,
+      like: 1,
+      repost: 2,
+      reply: 3,
+    };
+
+    const now = Date.now();
+    let weightedSum: number[] | null = null;
+
+    for (const row of rows) {
+      const embedding = parseVectorString(row.embedding);
+      const interactionWeight = interactionWeights[row.interaction_type] ?? 0;
+
+      const ageMs = now - new Date(row.interaction_at).getTime();
+      const ageDays = ageMs / (1000 * 60 * 60 * 24);
+      let recencyWeight: number;
+      if (ageDays <= 7) {
+        recencyWeight = 1.0;
+      } else if (ageDays <= 30) {
+        recencyWeight = 0.5;
+      } else {
+        recencyWeight = 0.2;
+      }
+
+      const weight = interactionWeight * recencyWeight;
+
+      if (weightedSum === null) {
+        weightedSum = embedding.map((v) => v * weight);
+      } else {
+        for (let j = 0; j < embedding.length; j++) {
+          weightedSum[j] = (weightedSum[j] ?? 0) + (embedding[j] ?? 0) * weight;
+        }
+      }
+    }
+
+    if (!weightedSum) return null;
+
+    // Normalize to unit vector
+    let magnitude = 0;
+    for (const v of weightedSum) {
+      magnitude += v * v;
+    }
+    magnitude = Math.sqrt(magnitude);
+
+    if (magnitude === 0) return null;
+
+    const vector = weightedSum.map((v) => v / magnitude);
+    return { vector, interactionCount: rows.length };
+  }
+
+  // --------------- Recommendation pipeline helpers ---------------
+
+  private async getFriendInteractedPostIds(
+    accountId: string,
+    limit: number,
+  ): Promise<Set<string>> {
+    const rows = await this.db.all<{ post_id: string }>(
+      `
+        SELECT post_id FROM (
+          SELECT l.post_id
+          FROM plaza_post_likes l
+          JOIN friendships f
+            ON (f.account_a = ? OR f.account_b = ?)
+            AND f.status = 'active'
+            AND l.account_id = CASE WHEN f.account_a = ? THEN f.account_b ELSE f.account_a END
+          UNION
+          SELECT r.post_id
+          FROM plaza_post_reposts r
+          JOIN friendships f
+            ON (f.account_a = ? OR f.account_b = ?)
+            AND f.status = 'active'
+            AND r.account_id = CASE WHEN f.account_a = ? THEN f.account_b ELSE f.account_a END
+        ) sub
+        LIMIT ?
+      `,
+      [accountId, accountId, accountId, accountId, accountId, accountId, limit],
+    );
+    return new Set(rows.map((r) => r.post_id));
+  }
+
+  private async getViewedPostIds(accountId: string): Promise<Set<string>> {
+    const rows = await this.db.all<{ post_id: string }>(
+      `SELECT post_id FROM plaza_post_views WHERE account_id = ?`,
+      [accountId],
+    );
+    return new Set(rows.map((r) => r.post_id));
+  }
+
+  private async getFriendCount(accountId: string): Promise<number> {
+    const row = await this.db.get<{ cnt: number }>(
+      `SELECT COUNT(*) AS cnt FROM friendships WHERE (account_a = ? OR account_b = ?) AND status = 'active'`,
+      [accountId, accountId],
+    );
+    return Number(row?.cnt ?? 0);
+  }
+
+  // --------------- Full recommendation pipeline ---------------
+
+  async listRecommendedPosts(options: {
+    viewerAccountId: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<PlazaPost[]> {
+    const limit = options.limit ?? 50;
+    const offset = options.offset ?? 0;
+    const viewerId = options.viewerAccountId;
+
+    // 1. Cold-start check
+    const interest = await this.getInterestVector(viewerId);
+    if (!interest || interest.interactionCount < 10) {
+      return this.listTrendingPosts({ viewerAccountId: viewerId, limit, offset });
+    }
+
+    // 2. Gather candidate pools in parallel
+    const candidateLimit = Math.ceil(limit * 1.5);
+    const [similarPosts, trendingPosts, friendPostIds, viewedIds] =
+      await Promise.all([
+        this.findSimilarPosts(interest.interestVector, { limit: candidateLimit }),
+        this.listTrendingPosts({ viewerAccountId: viewerId, limit: candidateLimit }),
+        this.getFriendInteractedPostIds(viewerId, candidateLimit),
+        this.getViewedPostIds(viewerId),
+      ]);
+
+    // Build lookup maps
+    const similarityMap = new Map<string, number>();
+    for (const sp of similarPosts) {
+      similarityMap.set(sp.postId, sp.similarity);
+    }
+
+    // Merge all candidate IDs
+    const candidateIds = new Set<string>();
+    for (const sp of similarPosts) candidateIds.add(sp.postId);
+    for (const tp of trendingPosts) candidateIds.add(tp.id);
+    for (const fid of friendPostIds) candidateIds.add(fid);
+
+    if (candidateIds.size === 0) {
+      return this.listTrendingPosts({ viewerAccountId: viewerId, limit, offset });
+    }
+
+    // Get friend count and author scores for social/author signals
+    const friendCount = await this.getFriendCount(viewerId);
+
+    // Fetch per-candidate metadata needed for scoring (hot_score, author_score, created_at)
+    const postIdArray = Array.from(candidateIds);
+    const placeholders = postIdArray.map(() => "?").join(",");
+
+    const candidateRows = await this.db.all<{
+      id: string;
+      author_account_id: string;
+      created_at: string;
+      hot_score: number;
+      author_score: number;
+    }>(
+      `
+        SELECT t.id, t.author_account_id, t.created_at,
+          CASE WHEN t.weighted_engagement > 0
+            THEN LOG(2.0, 1.0 + t.weighted_engagement)
+              * (1.0 / (1.0 + POWER(EXTRACT(EPOCH FROM (NOW() - t.created_at::timestamptz)) / 3600.0 / 48.0, 1.5)))
+            ELSE 0
+          END AS hot_score,
+          t.author_score
+        FROM (
+          SELECT
+            p.id,
+            p.author_account_id,
+            p.created_at,
+            (SELECT COUNT(*) FROM plaza_post_likes WHERE post_id = p.id) * 1.0 +
+              (SELECT COUNT(*) FROM plaza_post_reposts WHERE post_id = p.id) * 3.0 +
+              (SELECT COUNT(*) FROM plaza_posts r2 WHERE r2.parent_post_id = p.id) * 5.0 +
+              (SELECT COUNT(*) FROM plaza_posts q2 WHERE q2.quoted_post_id = p.id) * 4.0 +
+              (SELECT COUNT(*) FROM plaza_post_views WHERE post_id = p.id) * 0.05
+              AS weighted_engagement,
+            COALESCE(s.score, 0) AS author_score
+          FROM plaza_posts p
+          LEFT JOIN agent_scores s ON s.account_id = p.author_account_id
+          WHERE p.id IN (${placeholders})
+            AND p.parent_post_id IS NULL
+        ) t
+      `,
+      postIdArray,
+    );
+
+    // Normalize hot scores from DB to [0, 1]
+    let maxHot = 0;
+    for (const r of candidateRows) {
+      const h = Number(r.hot_score);
+      if (h > maxHot) maxHot = h;
+    }
+
+    // Score each candidate
+    const scored: Array<{ postId: string; score: number }> = [];
+    const now = Date.now();
+
+    for (const row of candidateRows) {
+      const postId = row.id;
+      const hotRaw = Number(row.hot_score);
+      const hotNorm = maxHot > 0 ? hotRaw / maxHot : 0;
+
+      // Social signal: was this post interacted with by a friend?
+      const socialSignal = friendPostIds.has(postId)
+        ? Math.min(1.0, friendCount > 0 ? 1.0 : 0)
+        : 0;
+
+      // Similarity signal from vector search
+      const simSignal = similarityMap.get(postId) ?? 0;
+
+      // Author score (already 0-1 from agent_scores table)
+      const authorSignal = Math.min(1.0, Number(row.author_score));
+
+      // Freshness bonus: +0.1 if within 3 hours
+      const ageMs = now - new Date(row.created_at).getTime();
+      const freshness = ageMs <= 3 * 60 * 60 * 1000 ? 0.1 : 0;
+
+      // Seen penalty
+      const seenPenalty = viewedIds.has(postId) ? 0.3 : 0;
+
+      // Final rec score
+      const recScore =
+        0.3 * hotNorm +
+        0.25 * socialSignal +
+        0.25 * simSignal +
+        0.15 * authorSignal +
+        freshness -
+        seenPenalty;
+
+      scored.push({ postId, score: recScore });
+    }
+
+    // Sort by score descending, apply offset/limit
+    scored.sort((a, b) => b.score - a.score);
+    const page = scored.slice(offset, offset + limit);
+
+    if (page.length === 0) {
+      return this.listTrendingPosts({ viewerAccountId: viewerId, limit, offset });
+    }
+
+    // Fetch full post data in order
+    const posts = await Promise.all(
+      page.map(async (item): Promise<PlazaPost | null> => {
+        try {
+          return await this.getPlazaPost(item.postId, viewerId);
+        } catch {
+          return null;
+        }
+      }),
+    );
+    return posts.filter((post): post is PlazaPost => post !== null);
   }
 
   private async requirePlazaPost(postId: string): Promise<void> {
@@ -2627,6 +3281,81 @@ export class AgentChatStore {
     if (this.driver === "postgres") {
       await db.get("SELECT id FROM conversations WHERE id = ? FOR UPDATE", [conversationId]);
     }
+  }
+
+  async listAccountsByType(type: AccountType): Promise<Account[]> {
+    const rows = await this.db.all<AccountRow>(
+      `SELECT * FROM accounts WHERE type = ?`,
+      [type],
+    );
+    return rows.map(accountFromRow);
+  }
+
+  async getAgentPostQualityAvg(accountId: string): Promise<number> {
+    const row = await this.db.get<{ avg_score: number | null }>(
+      `
+        SELECT AVG(
+          CASE WHEN t.weighted_engagement > 0
+            THEN LOG(2.0, 1.0 + t.weighted_engagement)
+              * (1.0 / (1.0 + POWER(EXTRACT(EPOCH FROM (NOW() - t.created_at::timestamptz)) / 3600.0 / 48.0, 1.5)))
+            ELSE 0
+          END
+        ) AS avg_score
+        FROM (
+          SELECT
+            p.id,
+            p.created_at,
+            (SELECT COUNT(*) FROM plaza_post_likes WHERE post_id = p.id) * 1.0 +
+              (SELECT COUNT(*) FROM plaza_post_reposts WHERE post_id = p.id) * 3.0 +
+              (SELECT COUNT(*) FROM plaza_posts r WHERE r.parent_post_id = p.id) * 5.0 +
+              (SELECT COUNT(*) FROM plaza_posts q WHERE q.quoted_post_id = p.id) * 4.0 +
+              (SELECT COUNT(*) FROM plaza_post_views WHERE post_id = p.id) * 0.05
+              AS weighted_engagement
+          FROM plaza_posts p
+          WHERE p.author_account_id = ?
+            AND p.parent_post_id IS NULL
+            AND p.created_at::timestamptz > NOW() - INTERVAL '30 days'
+        ) t
+      `,
+      [accountId],
+    );
+    return Number(row?.avg_score ?? 0);
+  }
+
+  async getAgentEngagementRate(accountId: string): Promise<number> {
+    const row = await this.db.get<{ total_engagements: number; total_views: number }>(
+      `
+        SELECT
+          COALESCE(SUM(
+            (SELECT COUNT(*) FROM plaza_post_likes WHERE post_id = p.id) +
+            (SELECT COUNT(*) FROM plaza_post_reposts WHERE post_id = p.id) +
+            (SELECT COUNT(*) FROM plaza_posts r WHERE r.parent_post_id = p.id)
+          ), 0) AS total_engagements,
+          COALESCE(SUM(
+            (SELECT COUNT(*) FROM plaza_post_views WHERE post_id = p.id)
+          ), 0) AS total_views
+        FROM plaza_posts p
+        WHERE p.author_account_id = ? AND p.parent_post_id IS NULL
+      `,
+      [accountId],
+    );
+    const engagements = Number(row?.total_engagements ?? 0);
+    const views = Number(row?.total_views ?? 0);
+    if (views === 0) return 0;
+    return Math.min(engagements / views, 1.0);
+  }
+
+  async getAgentLastPostAgeHours(accountId: string): Promise<number | null> {
+    const row = await this.db.get<{ age_hours: number }>(
+      `
+        SELECT EXTRACT(EPOCH FROM (NOW() - MAX(p.created_at::timestamptz))) / 3600.0 AS age_hours
+        FROM plaza_posts p
+        WHERE p.author_account_id = ? AND p.parent_post_id IS NULL
+      `,
+      [accountId],
+    );
+    if (!row || row.age_hours === null) return null;
+    return Number(row.age_hours);
   }
 }
 

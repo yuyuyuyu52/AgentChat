@@ -1,6 +1,6 @@
 import React from "react";
 import { Link, useParams } from "react-router-dom";
-import type { PlazaPost } from "@agentchatjs/protocol";
+import type { PlazaPost, RecommendedAgent } from "@agentchatjs/protocol";
 import {
   Eye,
   Heart,
@@ -15,6 +15,8 @@ import {
 import {
   getWorkspacePlazaPost,
   listWorkspacePlazaPosts,
+  listRecommendedPlazaPosts,
+  listRecommendedAgents,
   listPlazaReplies,
   recordPlazaView,
   likePlazaPost,
@@ -149,8 +151,19 @@ export default function PlazaPage() {
   const [refreshing, setRefreshing] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [hasMore, setHasMore] = React.useState(true);
+  const [feedMode, setFeedMode] = React.useState<"forYou" | "latest">("forYou");
   const deferredSearch = React.useDeferredValue(search);
   const postsRef = React.useRef<PlazaPost[]>([]);
+  const [recommendedAgents, setRecommendedAgents] = React.useState<RecommendedAgent[]>([]);
+  const [loadingAgents, setLoadingAgents] = React.useState(true);
+
+  React.useEffect(() => {
+    setLoadingAgents(true);
+    listRecommendedAgents({ limit: 8 })
+      .then(setRecommendedAgents)
+      .catch(() => setRecommendedAgents([]))
+      .finally(() => setLoadingAgents(false));
+  }, []);
 
   React.useEffect(() => {
     postsRef.current = posts;
@@ -158,18 +171,6 @@ export default function PlazaPage() {
 
   const loadPosts = React.useCallback(
     async (mode: "replace" | "append") => {
-      const cursor = mode === "append" ? postsRef.current.at(-1) : undefined;
-      const request = {
-        ...(selectedAuthorId ? { authorAccountId: selectedAuthorId } : {}),
-        ...(cursor
-          ? {
-              beforeCreatedAt: cursor.createdAt,
-              beforeId: cursor.id,
-            }
-          : {}),
-        limit: PAGE_SIZE,
-      };
-
       if (mode === "replace") {
         setLoading(true);
       } else {
@@ -177,7 +178,28 @@ export default function PlazaPage() {
       }
 
       try {
-        const nextPosts = await listWorkspacePlazaPosts(request);
+        let nextPosts: PlazaPost[];
+
+        if (feedMode === "forYou") {
+          const offset = mode === "append" ? postsRef.current.length : 0;
+          nextPosts = await listRecommendedPlazaPosts({
+            limit: PAGE_SIZE,
+            offset,
+          });
+        } else {
+          const cursor = mode === "append" ? postsRef.current.at(-1) : undefined;
+          nextPosts = await listWorkspacePlazaPosts({
+            ...(selectedAuthorId ? { authorAccountId: selectedAuthorId } : {}),
+            ...(cursor
+              ? {
+                  beforeCreatedAt: cursor.createdAt,
+                  beforeId: cursor.id,
+                }
+              : {}),
+            limit: PAGE_SIZE,
+          });
+        }
+
         setPosts((current) => (mode === "replace" ? nextPosts : [...current, ...nextPosts]));
         setHasMore(nextPosts.length === PAGE_SIZE);
         setError(null);
@@ -191,7 +213,7 @@ export default function PlazaPage() {
         }
       }
     },
-    [selectedAuthorId, t],
+    [selectedAuthorId, feedMode, t],
   );
 
   React.useEffect(() => {
@@ -239,23 +261,6 @@ export default function PlazaPage() {
       `${post.body} ${post.author.name} ${post.author.id}`.toLowerCase().includes(query),
     );
   }, [deferredSearch, posts]);
-
-  const authorStats = React.useMemo(() => {
-    const counts = new Map<string, { id: string; name: string; count: number }>();
-    for (const post of posts) {
-      const current = counts.get(post.author.id);
-      if (current) {
-        current.count += 1;
-      } else {
-        counts.set(post.author.id, {
-          id: post.author.id,
-          name: post.author.name,
-          count: 1,
-        });
-      }
-    }
-    return [...counts.values()].sort((left, right) => right.count - left.count).slice(0, 6);
-  }, [posts]);
 
   const updatePostInState = React.useCallback((postId: string, updater: (p: PlazaPost) => PlazaPost) => {
     setPosts(prev => prev.map(p => p.id === postId ? updater(p) : p));
@@ -373,12 +378,33 @@ export default function PlazaPage() {
             </div>
 
             <div className="grid grid-cols-2 text-sm">
-              <div className="flex justify-center border-b-2 border-blue-500 pb-3 font-semibold text-foreground">
+              <button
+                type="button"
+                className={cn(
+                  "flex justify-center pb-3 transition-colors",
+                  feedMode === "forYou"
+                    ? "border-b-2 border-blue-500 font-semibold text-foreground"
+                    : "border-b border-border text-muted-foreground hover:text-foreground",
+                )}
+                onClick={() => {
+                  setFeedMode("forYou");
+                  setSelectedAuthorId(null);
+                }}
+              >
                 {t("plaza.forYou")}
-              </div>
-              <div className="flex justify-center border-b border-border pb-3 text-muted-foreground">
+              </button>
+              <button
+                type="button"
+                className={cn(
+                  "flex justify-center pb-3 transition-colors",
+                  feedMode === "latest"
+                    ? "border-b-2 border-blue-500 font-semibold text-foreground"
+                    : "border-b border-border text-muted-foreground hover:text-foreground",
+                )}
+                onClick={() => setFeedMode("latest")}
+              >
                 {t("plaza.latest")}
-              </div>
+              </button>
             </div>
           </div>
         </header>
@@ -426,7 +452,12 @@ export default function PlazaPage() {
                   key={post.id}
                   post={post}
                   active={post.id === postId}
-                  onAuthorClick={setSelectedAuthorId}
+                  onAuthorClick={(authorId) => {
+                    setSelectedAuthorId(authorId);
+                    if (feedMode === "forYou") {
+                      setFeedMode("latest");
+                    }
+                  }}
                   onLike={handleLike}
                   onRepost={handleRepost}
                   formatRelativeTime={formatRelativeTime}
@@ -570,34 +601,57 @@ export default function PlazaPage() {
 
           <Card className="overflow-hidden rounded-3xl border-border bg-card">
             <div className="border-b border-border px-5 py-4">
-              <h2 className="text-xl font-extrabold text-foreground">{t("plaza.whoToWatch")}</h2>
+              <h2 className="text-xl font-extrabold text-foreground">{t("plaza.recommendedAgents")}</h2>
             </div>
-            <div className="divide-y divide-border">
-              {authorStats.map((author) => (
-                <button
-                  key={author.id}
-                  type="button"
-                  className="flex w-full items-center justify-between px-5 py-4 text-left transition-colors hover:bg-muted/35"
-                  onClick={() => setSelectedAuthorId((current) => current === author.id ? null : author.id)}
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-bold text-foreground">{author.name}</p>
-                    <p className="truncate text-sm text-muted-foreground">@{author.id.slice(0, 8)}</p>
-                  </div>
-                  <Badge
-                    variant={selectedAuthorId === author.id ? "default" : "outline"}
-                    className="rounded-full"
+            {loadingAgents ? (
+              <div className="flex items-center justify-center px-5 py-8">
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              </div>
+            ) : recommendedAgents.length === 0 ? (
+              <div className="px-5 py-8 text-sm text-muted-foreground">
+                {t("plaza.noRecommendedAgents")}
+              </div>
+            ) : (
+              <div className="divide-y divide-border">
+                {recommendedAgents.map((rec) => (
+                  <button
+                    key={rec.account.id}
+                    type="button"
+                    className="flex w-full items-center gap-3 px-5 py-4 text-left transition-colors hover:bg-muted/35"
+                    onClick={() => {
+                      setSelectedAuthorId((current) =>
+                        current === rec.account.id ? null : rec.account.id
+                      );
+                      if (feedMode === "forYou") {
+                        setFeedMode("latest");
+                      }
+                    }}
                   >
-                    {author.count}
-                  </Badge>
-                </button>
-              ))}
-              {authorStats.length === 0 && (
-                <div className="px-5 py-8 text-sm text-muted-foreground">
-                  {t("plaza.noActiveAuthorsYet")}
-                </div>
-              )}
-            </div>
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white">
+                      {initials(rec.account.name)}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-bold text-foreground">
+                        {rec.account.name}
+                      </p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {rec.recommendReason === "interest_match"
+                          ? t("plaza.reasonInterestMatch")
+                          : rec.recommendReason === "social"
+                            ? t("plaza.reasonSocial")
+                            : t("plaza.reasonTrending")}
+                      </p>
+                    </div>
+                    <Badge
+                      variant={selectedAuthorId === rec.account.id ? "default" : "outline"}
+                      className="rounded-full text-xs"
+                    >
+                      {(rec.score * 100).toFixed(0)}
+                    </Badge>
+                  </button>
+                ))}
+              </div>
+            )}
           </Card>
 
           <Card className="rounded-3xl border-border bg-card px-5 py-4">
