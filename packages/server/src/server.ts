@@ -30,6 +30,8 @@ import {
   type SendMessageInput,
   type StoredUserSession,
 } from "./store.js";
+import { createEmbeddingProvider, type EmbeddingProvider } from "./embedding.js";
+import { computeAgentScore, computeActivityRecency, computeProfileCompleteness } from "./recommendation.js";
 
 type ConnectionState = {
   socket: WebSocket;
@@ -297,6 +299,8 @@ export class AgentChatServer {
     "agent authentication",
   );
   private actualPort = 0;
+  private scoreRefreshTimer: ReturnType<typeof setInterval> | null = null;
+  private embeddingProvider: EmbeddingProvider;
 
   constructor(options: AgentChatServerOptions) {
     if (process.env.NODE_ENV === "production" && !options.adminPassword) {
@@ -312,6 +316,10 @@ export class AgentChatServer {
     this.store = new AgentChatStore({
       databaseUrl: options.databaseUrl,
     });
+    const openaiKey = process.env.AGENTCHAT_OPENAI_API_KEY;
+    this.embeddingProvider = createEmbeddingProvider(
+      openaiKey ? { apiKey: openaiKey } : {},
+    );
 
     this.httpServer = createServer(this.handleHttpRequest.bind(this));
     this.wsServer = new WebSocketServer({ noServer: true });
@@ -403,6 +411,7 @@ export class AgentChatServer {
     }
 
     await this.store.initialize();
+    this.startScoreRefresh();
 
     await new Promise<void>((resolve, reject) => {
       this.httpServer.once("error", reject);
@@ -444,11 +453,58 @@ export class AgentChatServer {
       });
     });
 
+    if (this.scoreRefreshTimer) {
+      clearInterval(this.scoreRefreshTimer);
+      this.scoreRefreshTimer = null;
+    }
+
     await this.store.close();
   }
 
   async createAccount(input: CreateAccountInput): Promise<AuthAccount> {
     return this.store.createAccount(input);
+  }
+
+  private startScoreRefresh(): void {
+    this.refreshAgentScores().catch((err) => {
+      console.error("Failed initial agent score refresh:", err);
+    });
+    this.scoreRefreshTimer = setInterval(() => {
+      this.refreshAgentScores().catch((err) => {
+        console.error("Failed agent score refresh:", err);
+      });
+    }, 3600 * 1000);
+  }
+
+  async refreshAgentScores(): Promise<void> {
+    const agents = await this.store.listAccountsByType("agent");
+
+    for (const agent of agents) {
+      try {
+        const postQualityAvg = await this.store.getAgentPostQualityAvg(agent.id);
+        const engagementRate = await this.store.getAgentEngagementRate(agent.id);
+        const lastPostAge = await this.store.getAgentLastPostAgeHours(agent.id);
+
+        const activityRecency = computeActivityRecency(lastPostAge);
+        const profileCompleteness = computeProfileCompleteness(agent.profile);
+        const score = computeAgentScore({
+          postQualityAvg,
+          engagementRate,
+          activityRecency,
+          profileCompleteness,
+        });
+
+        await this.store.upsertAgentScore(agent.id, {
+          score,
+          engagementRate,
+          postQualityAvg,
+          activityRecency,
+          profileCompleteness,
+        });
+      } catch (err) {
+        console.error(`Failed to compute score for agent ${agent.id}:`, err);
+      }
+    }
   }
 
   async listAccounts(ownerSubject?: string): Promise<Account[]> {
@@ -639,7 +695,22 @@ export class AgentChatServer {
   ): Promise<PlazaPost> {
     const post = await this.store.createPlazaPost(authorAccountId, body, options);
     this.broadcastPlazaPostCreated(post);
+
+    // Async: generate embedding for top-level posts (fire-and-forget)
+    if (!options?.parentPostId) {
+      this.generatePostEmbedding(post.id, post.body).catch((err) => {
+        console.error(`Failed to generate embedding for post ${post.id}:`, err);
+      });
+    }
+
     return post;
+  }
+
+  private async generatePostEmbedding(postId: string, body: string): Promise<void> {
+    const results = await this.embeddingProvider.embed([body]);
+    const embedding = results[0];
+    if (!embedding) return;
+    await this.store.upsertPostEmbedding(postId, embedding, this.embeddingProvider.model);
   }
 
   async listPlazaPosts(options: {
@@ -650,6 +721,13 @@ export class AgentChatServer {
     limit?: number;
   } = {}) {
     return this.store.listPlazaPosts(options);
+  }
+
+  async updateInterestVector(accountId: string): Promise<void> {
+    const result = await this.store.buildInterestVector(accountId);
+    if (result) {
+      await this.store.upsertInterestVector(accountId, result.vector, result.interactionCount);
+    }
   }
 
   async getPlazaPost(postId: string, viewerAccountId?: string): Promise<PlazaPost> {
@@ -1028,6 +1106,29 @@ export class AgentChatServer {
       if (method === "GET" && url.pathname === "/app/api/plaza") {
         const session = await this.requireUserSession(request);
         const humanAccount = await this.store.getOrCreateHumanAccount(session);
+        const tab = typeof url.query.tab === "string" ? url.query.tab : "latest";
+
+        if (tab === "recommended") {
+          const rawLimit = typeof url.query.limit === "string" ? Number(url.query.limit) : undefined;
+          const limit = rawLimit !== undefined && Number.isFinite(rawLimit) && rawLimit > 0
+            ? Math.min(Math.trunc(rawLimit), 100)
+            : undefined;
+          const rawOffset = typeof url.query.offset === "string" ? Number(url.query.offset) : undefined;
+          const offset = rawOffset !== undefined && Number.isFinite(rawOffset) && rawOffset >= 0
+            ? Math.trunc(rawOffset)
+            : undefined;
+          jsonResponse(
+            response,
+            200,
+            await this.store.listRecommendedPosts({
+              viewerAccountId: humanAccount.id,
+              ...(limit ? { limit } : {}),
+              ...(offset ? { offset } : {}),
+            }),
+          );
+          return;
+        }
+
         const authorAccountId =
           typeof url.query.authorAccountId === "string" ? url.query.authorAccountId : undefined;
         const beforeCreatedAt =
@@ -1056,6 +1157,29 @@ export class AgentChatServer {
         return;
       }
 
+      if (method === "GET" && url.pathname === "/app/api/plaza/trending") {
+        const session = await this.requireUserSession(request);
+        const humanAccount = await this.store.getOrCreateHumanAccount(session);
+        const rawLimit = typeof url.query.limit === "string" ? Number(url.query.limit) : undefined;
+        const limit = rawLimit !== undefined && Number.isFinite(rawLimit) && rawLimit > 0
+          ? Math.min(Math.trunc(rawLimit), 100)
+          : undefined;
+        const rawOffset = typeof url.query.offset === "string" ? Number(url.query.offset) : undefined;
+        const offset = rawOffset !== undefined && Number.isFinite(rawOffset) && rawOffset >= 0
+          ? Math.trunc(rawOffset)
+          : undefined;
+        jsonResponse(
+          response,
+          200,
+          await this.store.listTrendingPosts({
+            viewerAccountId: humanAccount.id,
+            ...(limit ? { limit } : {}),
+            ...(offset ? { offset } : {}),
+          }),
+        );
+        return;
+      }
+
       const appPlazaPostMatch = url.pathname?.match(/^\/app\/api\/plaza\/([^/]+)$/);
       if (method === "GET" && appPlazaPostMatch) {
         const session = await this.requireUserSession(request);
@@ -1076,6 +1200,7 @@ export class AgentChatServer {
           parentPostId: appPlazaPostReplyMatch[1]!,
         });
         jsonResponse(response, 200, reply);
+        this.updateInterestVector(humanAccount.id).catch(() => {});
         return;
       }
 
@@ -1085,6 +1210,7 @@ export class AgentChatServer {
         const humanAccount = await this.store.getOrCreateHumanAccount(session);
         await this.store.recordPlazaView(humanAccount.id, appPlazaPostViewMatch[1]!);
         jsonResponse(response, 200, { ok: true });
+        this.updateInterestVector(humanAccount.id).catch(() => {});
         return;
       }
 
@@ -1093,12 +1219,14 @@ export class AgentChatServer {
         const session = await this.requireUserSession(request);
         const humanAccount = await this.store.getOrCreateHumanAccount(session);
         jsonResponse(response, 200, await this.store.likePlazaPost(humanAccount.id, appPlazaPostLikeMatch[1]!));
+        this.updateInterestVector(humanAccount.id).catch(() => {});
         return;
       }
       if (method === "DELETE" && appPlazaPostLikeMatch) {
         const session = await this.requireUserSession(request);
         const humanAccount = await this.store.getOrCreateHumanAccount(session);
         jsonResponse(response, 200, await this.store.unlikePlazaPost(humanAccount.id, appPlazaPostLikeMatch[1]!));
+        this.updateInterestVector(humanAccount.id).catch(() => {});
         return;
       }
 
@@ -1107,12 +1235,14 @@ export class AgentChatServer {
         const session = await this.requireUserSession(request);
         const humanAccount = await this.store.getOrCreateHumanAccount(session);
         jsonResponse(response, 200, await this.store.repostPlazaPost(humanAccount.id, appPlazaPostRepostMatch[1]!));
+        this.updateInterestVector(humanAccount.id).catch(() => {});
         return;
       }
       if (method === "DELETE" && appPlazaPostRepostMatch) {
         const session = await this.requireUserSession(request);
         const humanAccount = await this.store.getOrCreateHumanAccount(session);
         jsonResponse(response, 200, await this.store.unrepostPlazaPost(humanAccount.id, appPlazaPostRepostMatch[1]!));
+        this.updateInterestVector(humanAccount.id).catch(() => {});
         return;
       }
 
@@ -1133,6 +1263,42 @@ export class AgentChatServer {
             ...(limit ? { limit } : {}),
           }),
         );
+        return;
+      }
+
+      if (method === "GET" && url.pathname === "/app/api/agents/recommended") {
+        const session = await this.requireUserSession(request);
+        const humanAccount = await this.store.getOrCreateHumanAccount(session);
+        const rawLimit = typeof url.query.limit === "string" ? Number(url.query.limit) : undefined;
+        const limit = rawLimit !== undefined && Number.isFinite(rawLimit) && rawLimit > 0
+          ? Math.min(Math.trunc(rawLimit), 50)
+          : 8;
+
+        const friends = await this.store.listFriends(humanAccount.id);
+        const friendIds = friends.map((f) => f.account.id);
+
+        const topAgents = await this.store.listTopAgents({
+          limit,
+          excludeAccountIds: [humanAccount.id, ...friendIds],
+        });
+
+        const enriched = await Promise.all(
+          topAgents.map(async (agent) => {
+            try {
+              const account = await this.store.getAccountById(agent.accountId);
+              return {
+                account,
+                score: agent.score,
+                engagementRate: agent.engagementRate,
+                activityRecency: agent.activityRecency,
+              };
+            } catch {
+              return null;
+            }
+          }),
+        );
+
+        jsonResponse(response, 200, enriched.filter(Boolean));
         return;
       }
 

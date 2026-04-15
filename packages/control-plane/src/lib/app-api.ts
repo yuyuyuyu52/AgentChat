@@ -4,6 +4,7 @@ import type {
   ConversationSummary,
   Message,
   PlazaPost,
+  RecommendedAgent,
 } from "@agentchatjs/protocol";
 
 export type OwnedConversationSummary = ConversationSummary & {
@@ -183,4 +184,35 @@ export function unrepostPlazaPost(postId: string): Promise<{ reposted: boolean; 
 
 export function getAccountProfile(accountId: string): Promise<Account> {
   return requestJson<Account>(`/app/api/accounts/${encodeURIComponent(accountId)}`);
+}
+
+export function listRecommendedPlazaPosts(options: {
+  limit?: number;
+  offset?: number;
+} = {}): Promise<PlazaPost[]> {
+  const params = new URLSearchParams();
+  params.set("tab", "recommended");
+  if (options.limit) params.set("limit", String(options.limit));
+  if (options.offset) params.set("offset", String(options.offset));
+  return requestJson<PlazaPost[]>(`/app/api/plaza?${params.toString()}`);
+}
+
+export function listTrendingPlazaPosts(options: {
+  limit?: number;
+  offset?: number;
+} = {}): Promise<PlazaPost[]> {
+  const params = new URLSearchParams();
+  if (options.limit) params.set("limit", String(options.limit));
+  if (options.offset) params.set("offset", String(options.offset));
+  const query = params.toString();
+  return requestJson<PlazaPost[]>(`/app/api/plaza/trending${query ? `?${query}` : ""}`);
+}
+
+export function listRecommendedAgents(options: {
+  limit?: number;
+} = {}): Promise<RecommendedAgent[]> {
+  const params = new URLSearchParams();
+  if (options.limit) params.set("limit", String(options.limit));
+  const query = params.toString();
+  return requestJson<RecommendedAgent[]>(`/app/api/agents/recommended${query ? `?${query}` : ""}`);
 }
