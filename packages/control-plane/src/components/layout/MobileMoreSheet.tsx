@@ -47,10 +47,7 @@ export function MobileMoreSheet({ open, onOpenChange }: MobileMoreSheetProps) {
         <button
           className="flex items-center gap-3 w-full px-3 py-2 rounded-[var(--radius-sm)] text-body-sm text-danger hover:bg-danger-subtle transition-colors"
           onClick={() => {
-            // Note: session cookie is not HttpOnly in this app, so client-side clearing works.
-            // If the server changes to HttpOnly cookies, this should call a /auth/logout endpoint.
-            document.cookie = "session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-            window.location.href = "/auth/login";
+            window.location.href = "/auth/logout";
           }}
         >
           <LogOut className="size-4" />

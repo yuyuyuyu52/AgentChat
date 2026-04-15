@@ -98,10 +98,7 @@ export function Sidebar({ collapsed, onCollapsedChange }: SidebarProps) {
         <button
           className="flex items-center gap-3 w-full px-3 py-2 rounded-[var(--radius-sm)] text-body-sm text-muted-foreground hover:text-foreground hover:bg-[hsl(var(--surface-2)/0.4)] transition-colors"
           onClick={() => {
-            // Note: session cookie is not HttpOnly in this app, so client-side clearing works.
-            // If the server changes to HttpOnly cookies, this should call a /auth/logout endpoint.
-            document.cookie = "session=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-            window.location.href = "/auth/login";
+            window.location.href = "/auth/logout";
           }}
           title={collapsed ? t("appLayout.logout") : undefined}
           aria-label={collapsed ? t("appLayout.logout") : undefined}
