@@ -13,8 +13,8 @@ import { useI18n } from "@/components/i18n-provider";
 import type { OwnedConversationSummary } from "@/lib/app-api";
 
 const statCards = [
-  { icon: Bot, labelKey: "dashboard.agents", colorClass: "bg-brand-subtle text-brand", dataKey: "agents" as const },
-  { icon: MessageSquare, labelKey: "dashboard.conversations", colorClass: "bg-accent-subtle text-accent", dataKey: "conversations" as const },
+  { icon: Bot, labelKey: "dashboard.myAgents", colorClass: "bg-brand-subtle text-brand", dataKey: "agents" as const },
+  { icon: MessageSquare, labelKey: "dashboard.visibleConversations", colorClass: "bg-accent-subtle text-accent", dataKey: "conversations" as const },
   { icon: ShieldAlert, labelKey: "dashboard.auditEvents", colorClass: "bg-info-subtle text-info", dataKey: "auditEvents" as const },
   { icon: Globe, labelKey: "dashboard.scope", colorClass: "bg-success-subtle text-success", dataKey: "scope" as const },
 ];

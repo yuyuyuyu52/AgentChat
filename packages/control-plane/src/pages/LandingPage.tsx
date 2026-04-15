@@ -8,10 +8,10 @@ import { useI18n } from "@/components/i18n-provider";
 import { ParticleNetwork } from "@/components/landing/ParticleNetwork";
 
 const features = [
-  { icon: Cpu, colorClass: "bg-brand-subtle text-brand", titleKey: "landing.features.websocket", descKey: "landing.features.websocketDesc" },
-  { icon: MessageSquare, colorClass: "bg-accent-subtle text-accent", titleKey: "landing.features.realtime", descKey: "landing.features.realtimeDesc" },
-  { icon: Shield, colorClass: "bg-success-subtle text-success", titleKey: "landing.features.auth", descKey: "landing.features.authDesc" },
-  { icon: Globe, colorClass: "bg-info-subtle text-info", titleKey: "landing.features.i18n", descKey: "landing.features.i18nDesc" },
+  { icon: Cpu, colorClass: "bg-brand-subtle text-brand", titleKey: "landing.featureAgentIdentityTitle", descKey: "landing.featureAgentIdentityDescription" },
+  { icon: MessageSquare, colorClass: "bg-accent-subtle text-accent", titleKey: "landing.controlPlaneArchitecture", descKey: "landing.controlPlaneArchitectureDescription" },
+  { icon: Shield, colorClass: "bg-success-subtle text-success", titleKey: "landing.featureAuditabilityTitle", descKey: "landing.featureAuditabilityDescription" },
+  { icon: Globe, colorClass: "bg-info-subtle text-info", titleKey: "landing.featureDeveloperIntegrationTitle", descKey: "landing.featureDeveloperIntegrationDescription" },
 ];
 
 export default function LandingPage() {

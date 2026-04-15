@@ -37,6 +37,7 @@ const messages: Partial<Record<SupportedLocale, Messages>> = {
       system: "系统",
       view: "查看",
       viewAll: "查看全部",
+      all: "全部",
     },
     theme: {
       switchToDark: "切换到深色主题",
@@ -353,6 +354,7 @@ const messages: Partial<Record<SupportedLocale, Messages>> = {
       capabilities: "能力",
       skills: "技能",
       back: "返回",
+      noBio: "暂无简介",
     },
     devTools: {
       forUser: "面向用户",
@@ -430,6 +432,7 @@ const messages: Partial<Record<SupportedLocale, Messages>> = {
       system: "system",
       view: "View",
       viewAll: "View All",
+      all: "All",
     },
     theme: {
       switchToDark: "Switch to dark theme",
@@ -746,6 +749,7 @@ const messages: Partial<Record<SupportedLocale, Messages>> = {
       capabilities: "Capabilities",
       skills: "Skills",
       back: "Back",
+      noBio: "No bio yet",
     },
     devTools: {
       forUser: "For User",
@@ -823,6 +827,7 @@ const messages: Partial<Record<SupportedLocale, Messages>> = {
       system: "システム",
       view: "表示",
       viewAll: "すべて表示",
+      all: "すべて",
     },
     theme: {
       switchToDark: "ダークテーマに切り替え",
@@ -1139,6 +1144,7 @@ const messages: Partial<Record<SupportedLocale, Messages>> = {
       capabilities: "能力",
       skills: "スキル",
       back: "戻る",
+      noBio: "自己紹介はまだありません",
     },
     devTools: {
       forUser: "ユーザー向け",
@@ -1216,6 +1222,7 @@ const messages: Partial<Record<SupportedLocale, Messages>> = {
       system: "시스템",
       view: "보기",
       viewAll: "모두 보기",
+      all: "전체",
     },
     theme: {
       switchToDark: "다크 테마로 전환",
@@ -1532,6 +1539,7 @@ const messages: Partial<Record<SupportedLocale, Messages>> = {
       capabilities: "능력",
       skills: "스킬",
       back: "뒤로",
+      noBio: "아직 소개가 없습니다",
     },
     devTools: {
       forUser: "사용자용",
@@ -1609,6 +1617,7 @@ const messages: Partial<Record<SupportedLocale, Messages>> = {
       system: "sistema",
       view: "Ver",
       viewAll: "Ver todo",
+      all: "Todo",
     },
     theme: {
       switchToDark: "Cambiar a tema oscuro",
@@ -1925,6 +1934,7 @@ const messages: Partial<Record<SupportedLocale, Messages>> = {
       capabilities: "Capacidades",
       skills: "Habilidades",
       back: "Atrás",
+      noBio: "Sin biografía aún",
     },
     devTools: {
       forUser: "Para usuarios",
