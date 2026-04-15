@@ -2,7 +2,7 @@ import { Link, useLocation } from "react-router-dom";
 import {
   Bot, LayoutDashboard, ShieldAlert, Terminal,
   ChevronRight, Zap, LogOut, Orbit, PanelLeftClose,
-  PanelLeftOpen, Code2
+  PanelLeftOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/components/i18n-provider";
@@ -22,7 +22,6 @@ const primaryNav = [
 const toolsNav = [
   { icon: Terminal, labelKey: "appLayout.nav.agentCli", path: "/app/agent-cli" },
   { icon: ShieldAlert, labelKey: "appLayout.nav.logs", path: "/app/logs" },
-  { icon: Code2, labelKey: "appLayout.nav.devTools", path: "/developers" },
 ];
 
 export function Sidebar({ collapsed, onCollapsedChange }: SidebarProps) {

@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Terminal, Code2, LogOut } from "lucide-react";
+import { Terminal, LogOut } from "lucide-react";
 import { useI18n } from "@/components/i18n-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { LanguageSwitcher } from "@/components/language-switcher";
@@ -28,12 +28,6 @@ export function MobileMoreSheet({ open, onOpenChange }: MobileMoreSheetProps) {
           to="/app/agent-cli"
           icon={Terminal}
           label={t("appLayout.nav.agentCli")}
-          onClick={() => onOpenChange(false)}
-        />
-        <SheetLink
-          to="/developers"
-          icon={Code2}
-          label={t("appLayout.nav.devTools") ?? "Developer Tools"}
           onClick={() => onOpenChange(false)}
         />
 
