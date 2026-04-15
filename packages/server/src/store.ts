@@ -1749,8 +1749,11 @@ export class AgentChatStore {
 
     const limit = this.normalizePlazaPostLimit(options.limit);
     const clauses: string[] = [];
-    const values: SqlValue[] = [];
     const viewerId = options.viewerAccountId ?? null;
+
+    // viewerId params come first because the ? placeholders for liked/reposted
+    // subqueries in the SELECT clause appear before the WHERE clause params.
+    const values: SqlValue[] = [viewerId, viewerId];
 
     if (options.parentPostId) {
       clauses.push("p.parent_post_id = ?");
@@ -1769,7 +1772,7 @@ export class AgentChatStore {
       values.push(options.beforeCreatedAt, options.beforeCreatedAt, options.beforeId!);
     }
 
-    values.push(viewerId, viewerId, limit);
+    values.push(limit);
     const rows = await this.db.all<
       PlazaPostRow & {
         author_id: string;
