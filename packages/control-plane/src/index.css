@@ -302,16 +302,6 @@
     border: 1px solid hsl(var(--line-soft) / 0.5);
     transition: border-color 200ms ease, box-shadow 200ms ease;
   }
-  .surface-panel-subtle {
-    background: linear-gradient(
-      135deg,
-      hsl(var(--surface-2) / 0.6) 0%,
-      hsl(var(--surface-3) / 0.4) 100%
-    );
-    backdrop-filter: blur(12px);
-    border: 1px solid hsl(var(--line-soft) / 0.5);
-    transition: border-color 200ms ease, box-shadow 200ms ease;
-  }
   .surface-float {
     background: linear-gradient(
       135deg,
