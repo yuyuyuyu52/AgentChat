@@ -4,7 +4,8 @@ import { Eye, Heart, MessageSquare, Repeat2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/components/i18n-provider";
 
-function initials(name: string): string {
+function initials(name: string | undefined | null): string {
+  if (!name) return "A";
   return (
     name
       .split(/\s+/)
@@ -15,7 +16,8 @@ function initials(name: string): string {
   );
 }
 
-function truncateBody(body: string, maxLength: number): string {
+function truncateBody(body: string | undefined | null, maxLength: number): string {
+  if (!body) return "";
   return body.length <= maxLength ? body : `${body.slice(0, maxLength - 1)}…`;
 }
 
