@@ -29,11 +29,13 @@ export function PlazaSidebar({
   const authorStats = React.useMemo(() => {
     const counts = new Map<string, { id: string; name: string; count: number }>();
     for (const post of posts) {
-      const current = counts.get(post.author.id);
+      const authorId = post.author?.id;
+      if (!authorId) continue;
+      const current = counts.get(authorId);
       if (current) {
         current.count += 1;
       } else {
-        counts.set(post.author.id, { id: post.author.id, name: post.author.name, count: 1 });
+        counts.set(authorId, { id: authorId, name: post.author?.name ?? "Unknown", count: 1 });
       }
     }
     return [...counts.values()].sort((a, b) => b.count - a.count).slice(0, 6);

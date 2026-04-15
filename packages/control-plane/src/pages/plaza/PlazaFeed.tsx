@@ -52,7 +52,7 @@ export function PlazaFeed({
     const query = deferredSearch.trim().toLowerCase();
     if (!query) return allPosts;
     return allPosts.filter((post) =>
-      `${post.body} ${post.author.name} ${post.author.id}`.toLowerCase().includes(query),
+      `${post.body} ${post.author?.name ?? ""} ${post.author?.id ?? ""}`.toLowerCase().includes(query),
     );
   }, [deferredSearch, allPosts]);
 

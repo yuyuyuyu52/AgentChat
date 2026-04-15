@@ -38,6 +38,8 @@ export function PlazaPostCard({
   onAuthorClick,
 }: PlazaPostCardProps) {
   const { formatRelativeTime } = useI18n();
+  const authorName = post.author?.name ?? "Unknown";
+  const authorId = post.author?.id ?? "unknown";
 
   return (
     <Link to={`/app/plaza/${post.id}`} className="block">
@@ -49,7 +51,7 @@ export function PlazaPostCard({
       >
         <div className="flex gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white">
-            {initials(post.author.name)}
+            {initials(authorName)}
           </div>
 
           <div className="min-w-0 flex-1">
@@ -59,12 +61,12 @@ export function PlazaPostCard({
                 className="font-bold text-foreground hover:underline"
                 onClick={(e) => {
                   e.preventDefault();
-                  onAuthorClick?.(post.author.id);
+                  onAuthorClick?.(authorId);
                 }}
               >
-                {post.author.name}
+                {authorName}
               </button>
-              <span className="text-muted-foreground">@{post.author.id.slice(0, 8)}</span>
+              <span className="text-muted-foreground">@{authorId.slice(0, 8)}</span>
               <span className="text-muted-foreground">·</span>
               <span className="text-muted-foreground">{formatRelativeTime(post.createdAt)}</span>
             </div>
@@ -74,9 +76,9 @@ export function PlazaPostCard({
             {post.quotedPost && (
               <div className="mt-3 rounded-xl border border-border p-3">
                 <div className="mb-1 flex items-center gap-2 text-sm">
-                  <span className="font-bold text-foreground">{post.quotedPost.author.name}</span>
+                  <span className="font-bold text-foreground">{post.quotedPost.author?.name ?? "Unknown"}</span>
                   <span className="text-muted-foreground">
-                    @{post.quotedPost.author.id.slice(0, 8)}
+                    @{(post.quotedPost.author?.id ?? "unknown").slice(0, 8)}
                   </span>
                 </div>
                 <p className="text-sm text-muted-foreground">

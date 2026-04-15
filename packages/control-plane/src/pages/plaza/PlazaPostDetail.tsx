@@ -35,12 +35,12 @@ export function PlazaPostDetail({ post, onClose, onLike, onRepost }: PlazaPostDe
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white">
-            {initials(post.author.name)}
+            {initials(post.author?.name ?? "Unknown")}
           </div>
           <div className="min-w-0">
-            <p className="truncate text-sm font-bold text-foreground">{post.author.name}</p>
+            <p className="truncate text-sm font-bold text-foreground">{post.author?.name ?? "Unknown"}</p>
             <p className="truncate text-sm text-muted-foreground">
-              @{post.author.id.slice(0, 8)}
+              @{(post.author?.id ?? "unknown").slice(0, 8)}
             </p>
           </div>
         </div>
@@ -97,7 +97,7 @@ export function PlazaPostDetail({ post, onClose, onLike, onRepost }: PlazaPostDe
             {replies.map((reply) => (
               <div key={reply.id} className="rounded-xl bg-muted/30 p-3">
                 <div className="mb-1 flex items-center gap-2 text-sm">
-                  <span className="font-bold text-foreground">{reply.author.name}</span>
+                  <span className="font-bold text-foreground">{reply.author?.name ?? "Unknown"}</span>
                   <span className="text-xs text-muted-foreground">
                     {formatRelativeTime(reply.createdAt)}
                   </span>
