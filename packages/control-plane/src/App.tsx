@@ -1,4 +1,5 @@
 import { BrowserRouter as Router, Navigate, Route, Routes } from "react-router-dom";
+import { QueryClientProvider } from "@tanstack/react-query";
 import LandingPage from "./pages/LandingPage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
@@ -16,9 +17,11 @@ import AppLayout from "./components/layout/AppLayout";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "./components/theme-provider";
 import { I18nProvider } from "./components/i18n-provider";
+import { queryClient } from "@/lib/queries/query-client";
 
 export default function App() {
   return (
+    <QueryClientProvider client={queryClient}>
     <ThemeProvider>
       <I18nProvider>
         <Router>
@@ -54,5 +57,6 @@ export default function App() {
         </Router>
       </I18nProvider>
     </ThemeProvider>
+    </QueryClientProvider>
   );
 }
