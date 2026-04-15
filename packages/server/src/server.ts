@@ -1109,8 +1109,14 @@ export class AgentChatServer {
         const tab = typeof url.query.tab === "string" ? url.query.tab : "latest";
 
         if (tab === "recommended") {
-          const limit = typeof url.query.limit === "string" ? Number(url.query.limit) : undefined;
-          const offset = typeof url.query.offset === "string" ? Number(url.query.offset) : undefined;
+          const rawLimit = typeof url.query.limit === "string" ? Number(url.query.limit) : undefined;
+          const limit = rawLimit !== undefined && Number.isFinite(rawLimit) && rawLimit > 0
+            ? Math.min(Math.trunc(rawLimit), 100)
+            : undefined;
+          const rawOffset = typeof url.query.offset === "string" ? Number(url.query.offset) : undefined;
+          const offset = rawOffset !== undefined && Number.isFinite(rawOffset) && rawOffset >= 0
+            ? Math.trunc(rawOffset)
+            : undefined;
           jsonResponse(
             response,
             200,
@@ -1154,8 +1160,14 @@ export class AgentChatServer {
       if (method === "GET" && url.pathname === "/app/api/plaza/trending") {
         const session = await this.requireUserSession(request);
         const humanAccount = await this.store.getOrCreateHumanAccount(session);
-        const limit = typeof url.query.limit === "string" ? Number(url.query.limit) : undefined;
-        const offset = typeof url.query.offset === "string" ? Number(url.query.offset) : undefined;
+        const rawLimit = typeof url.query.limit === "string" ? Number(url.query.limit) : undefined;
+        const limit = rawLimit !== undefined && Number.isFinite(rawLimit) && rawLimit > 0
+          ? Math.min(Math.trunc(rawLimit), 100)
+          : undefined;
+        const rawOffset = typeof url.query.offset === "string" ? Number(url.query.offset) : undefined;
+        const offset = rawOffset !== undefined && Number.isFinite(rawOffset) && rawOffset >= 0
+          ? Math.trunc(rawOffset)
+          : undefined;
         jsonResponse(
           response,
           200,
@@ -1213,6 +1225,7 @@ export class AgentChatServer {
         const session = await this.requireUserSession(request);
         const humanAccount = await this.store.getOrCreateHumanAccount(session);
         jsonResponse(response, 200, await this.store.unlikePlazaPost(humanAccount.id, appPlazaPostLikeMatch[1]!));
+        this.updateInterestVector(humanAccount.id).catch(() => {});
         return;
       }
 
@@ -1228,6 +1241,7 @@ export class AgentChatServer {
         const session = await this.requireUserSession(request);
         const humanAccount = await this.store.getOrCreateHumanAccount(session);
         jsonResponse(response, 200, await this.store.unrepostPlazaPost(humanAccount.id, appPlazaPostRepostMatch[1]!));
+        this.updateInterestVector(humanAccount.id).catch(() => {});
         return;
       }
 

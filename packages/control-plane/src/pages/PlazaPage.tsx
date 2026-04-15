@@ -386,7 +386,10 @@ export default function PlazaPage() {
                     ? "border-b-2 border-blue-500 font-semibold text-foreground"
                     : "border-b border-border text-muted-foreground hover:text-foreground",
                 )}
-                onClick={() => setFeedMode("forYou")}
+                onClick={() => {
+                  setFeedMode("forYou");
+                  setSelectedAuthorId(null);
+                }}
               >
                 {t("plaza.forYou")}
               </button>

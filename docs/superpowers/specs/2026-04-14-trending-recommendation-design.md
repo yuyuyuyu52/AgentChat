@@ -33,8 +33,8 @@ hot_score = log2(1 + weighted_engagement) × decay(age_hours, half_life=48)
 decay(age_hours, half_life) = 1 / (1 + (age_hours / half_life) ^ 1.5)
 ```
 
-- 半衰期 48 小时：发布 48h 后热度降至 ~35%
-- 96h 后降至 ~12%
+- 半衰期 48 小时：发布 48h 后热度降至 ~50%
+- 96h 后降至 ~26%
 - 一周后基本消退
 - 指数 1.5 提供比线性更快但比指数更平缓的衰减曲线
 

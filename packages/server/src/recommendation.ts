@@ -111,12 +111,12 @@ export type AgentScoreInput = {
 };
 
 export function computeAgentScore(input: AgentScoreInput): number {
-  return (
+  const raw =
     0.3 * input.postQualityAvg +
     0.3 * input.engagementRate +
     0.2 * input.activityRecency +
-    0.2 * input.profileCompleteness
-  );
+    0.2 * input.profileCompleteness;
+  return Math.min(Math.max(raw, 0), 1);
 }
 
 export function computeProfileCompleteness(profile: Record<string, unknown>): number {

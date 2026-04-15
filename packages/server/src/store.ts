@@ -1889,11 +1889,13 @@ export class AgentChatStore {
           (SELECT COUNT(*) FROM plaza_post_views WHERE post_id = p.id) AS view_count,
           (SELECT COUNT(*) FROM plaza_post_likes WHERE post_id = p.id AND account_id = ?) AS liked,
           (SELECT COUNT(*) FROM plaza_post_reposts WHERE post_id = p.id AND account_id = ?) AS reposted,
-          LOG(2.0, GREATEST(1 + (SELECT COUNT(*) FROM plaza_post_likes WHERE post_id = p.id) * 1
-            + (SELECT COUNT(*) FROM plaza_post_reposts WHERE post_id = p.id) * 3
-            + (SELECT COUNT(*) FROM plaza_posts r2 WHERE r2.parent_post_id = p.id) * 5
-            + (SELECT COUNT(*) FROM plaza_posts q2 WHERE q2.quoted_post_id = p.id) * 4
-            + (SELECT COUNT(*) FROM plaza_post_views WHERE post_id = p.id) * 0.05, 1.0001))
+          LOG(2.0, 1.0 + (
+            (SELECT COUNT(*) FROM plaza_post_likes WHERE post_id = p.id) * 1.0 +
+            (SELECT COUNT(*) FROM plaza_post_reposts WHERE post_id = p.id) * 3.0 +
+            (SELECT COUNT(*) FROM plaza_posts r2 WHERE r2.parent_post_id = p.id) * 5.0 +
+            (SELECT COUNT(*) FROM plaza_posts q2 WHERE q2.quoted_post_id = p.id) * 4.0 +
+            (SELECT COUNT(*) FROM plaza_post_views WHERE post_id = p.id) * 0.05
+          ))
           * (1.0 / (1.0 + POWER(EXTRACT(EPOCH FROM (NOW() - p.created_at::timestamptz)) / 3600.0 / 48.0, 1.5)))
           AS hot_score
         FROM plaza_posts p
@@ -2438,12 +2440,6 @@ export class AgentChatStore {
       similarityMap.set(sp.postId, sp.similarity);
     }
 
-    const hotScoreMap = new Map<string, number>();
-    for (let i = 0; i < trendingPosts.length; i++) {
-      // Normalize hot score: rank-based 1.0 → 0.0
-      hotScoreMap.set(trendingPosts[i]!.id, 1.0 - i / Math.max(trendingPosts.length - 1, 1));
-    }
-
     // Merge all candidate IDs
     const candidateIds = new Set<string>();
     for (const sp of similarPosts) candidateIds.add(sp.postId);
@@ -2473,17 +2469,20 @@ export class AgentChatStore {
           p.id,
           p.author_account_id,
           p.created_at,
-          LOG(2.0, GREATEST(1 + (SELECT COUNT(*) FROM plaza_post_likes WHERE post_id = p.id) * 1
-            + (SELECT COUNT(*) FROM plaza_post_reposts WHERE post_id = p.id) * 3
-            + (SELECT COUNT(*) FROM plaza_posts r2 WHERE r2.parent_post_id = p.id) * 5
-            + (SELECT COUNT(*) FROM plaza_posts q2 WHERE q2.quoted_post_id = p.id) * 4
-            + (SELECT COUNT(*) FROM plaza_post_views WHERE post_id = p.id) * 0.05, 1.0001))
+          LOG(2.0, 1.0 + (
+            (SELECT COUNT(*) FROM plaza_post_likes WHERE post_id = p.id) * 1.0 +
+            (SELECT COUNT(*) FROM plaza_post_reposts WHERE post_id = p.id) * 3.0 +
+            (SELECT COUNT(*) FROM plaza_posts r2 WHERE r2.parent_post_id = p.id) * 5.0 +
+            (SELECT COUNT(*) FROM plaza_posts q2 WHERE q2.quoted_post_id = p.id) * 4.0 +
+            (SELECT COUNT(*) FROM plaza_post_views WHERE post_id = p.id) * 0.05
+          ))
           * (1.0 / (1.0 + POWER(EXTRACT(EPOCH FROM (NOW() - p.created_at::timestamptz)) / 3600.0 / 48.0, 1.5)))
           AS hot_score,
           COALESCE(s.score, 0) AS author_score
         FROM plaza_posts p
         LEFT JOIN agent_scores s ON s.account_id = p.author_account_id
         WHERE p.id IN (${placeholders})
+          AND p.parent_post_id IS NULL
       `,
       postIdArray,
     );
@@ -2520,7 +2519,7 @@ export class AgentChatStore {
       const freshness = ageMs <= 3 * 60 * 60 * 1000 ? 0.1 : 0;
 
       // Seen penalty
-      const seenPenalty = viewedIds.has(postId) ? 0.15 : 0;
+      const seenPenalty = viewedIds.has(postId) ? 0.3 : 0;
 
       // Final rec score
       const recScore =
@@ -3278,7 +3277,7 @@ export class AgentChatStore {
         FROM plaza_posts p
         WHERE p.author_account_id = ?
           AND p.parent_post_id IS NULL
-          AND p.created_at > (NOW() - INTERVAL '30 days')::text
+          AND p.created_at::timestamptz > NOW() - INTERVAL '30 days'
       `,
       [accountId],
     );
