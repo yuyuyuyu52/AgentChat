@@ -1,219 +1,117 @@
-import {
-  Zap,
-  Shield,
-  Cpu,
-  ArrowRight,
-  Terminal,
-  Globe,
-  User,
-  Code2,
-} from "lucide-react";
+import { Link } from "react-router-dom";
+import { Zap, Shield, Cpu, Globe, ArrowRight, MessageSquare, Code2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion } from "motion/react";
 import { LanguageSwitcher } from "@/components/language-switcher";
-import { useI18n } from "@/components/i18n-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { useI18n } from "@/components/i18n-provider";
+import { ParticleNetwork } from "@/components/landing/ParticleNetwork";
+
+const features = [
+  { icon: Cpu, colorClass: "bg-brand-subtle text-brand", titleKey: "landing.features.websocket", descKey: "landing.features.websocketDesc" },
+  { icon: MessageSquare, colorClass: "bg-accent-subtle text-accent", titleKey: "landing.features.realtime", descKey: "landing.features.realtimeDesc" },
+  { icon: Shield, colorClass: "bg-success-subtle text-success", titleKey: "landing.features.auth", descKey: "landing.features.authDesc" },
+  { icon: Globe, colorClass: "bg-info-subtle text-info", titleKey: "landing.features.i18n", descKey: "landing.features.i18nDesc" },
+];
 
 export default function LandingPage() {
   const { t } = useI18n();
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-transparent text-foreground selection:bg-blue-500/30">
-      <nav className="surface-header fixed top-0 z-50 w-full backdrop-blur-xl">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-600 shadow-[var(--glow-brand)]">
-              <Zap className="h-4 w-4 fill-white text-white" />
-            </div>
-            <span className="text-lg font-bold tracking-tight">AgentChat</span>
+    <div className="min-h-dvh flex flex-col surface-base">
+      {/* Nav */}
+      <nav className="fixed top-0 inset-x-0 z-50 surface-overlay h-14 flex items-center justify-between px-4 md:px-8">
+        <Link to="/" className="flex items-center gap-2">
+          <div className="size-8 rounded-[var(--radius-sm)] bg-[hsl(var(--color-brand))] flex items-center justify-center">
+            <Zap className="size-4 text-white" />
           </div>
-          <div className="hidden items-center gap-8 text-sm font-medium text-muted-foreground md:flex">
-            <a href="#features" className="transition-colors hover:text-foreground">{t("landing.features")}</a>
-            <a href="#personas" className="transition-colors hover:text-foreground">{t("landing.personas")}</a>
-            <a href="/developers" className="transition-colors hover:text-foreground">{t("landing.developers")}</a>
-            <a href="#security" className="transition-colors hover:text-foreground">{t("landing.security")}</a>
-          </div>
-          <div className="flex items-center gap-4">
-            <LanguageSwitcher className="text-muted-foreground hover:text-foreground" />
-            <ThemeToggle className="text-muted-foreground hover:text-foreground" />
-            <a href="/auth/login">
-              <Button variant="ghost" className="text-sm font-medium text-muted-foreground hover:text-foreground">
-                {t("landing.signIn")}
-              </Button>
-            </a>
-            <a href="/auth/register">
-              <Button className="rounded-full bg-primary px-6 text-primary-foreground hover:bg-primary/90">
-                {t("landing.getStarted")}
-              </Button>
-            </a>
-          </div>
+          <span className="font-semibold text-body">AgentChat</span>
+        </Link>
+        <div className="flex items-center gap-2">
+          <Link to="/developers" className="hidden md:block">
+            <Button variant="ghost" size="sm">{t("landing.nav.docs") ?? "Docs"}</Button>
+          </Link>
+          <LanguageSwitcher />
+          <ThemeToggle />
+          <Link to="/auth/login">
+            <Button variant="outline" size="sm">{t("landing.nav.signIn") ?? "Sign In"}</Button>
+          </Link>
         </div>
       </nav>
 
-      <section className="surface-section relative overflow-hidden px-6 pb-20 pt-32">
-        <div className="absolute left-1/2 top-0 -z-10 h-[500px] w-full -translate-x-1/2 rounded-full bg-blue-600/10 blur-[120px]" />
-        <div className="surface-grid-fade absolute inset-x-0 top-10 -z-10 mx-auto h-[420px] max-w-6xl opacity-60" />
+      {/* Hero */}
+      <section className="relative flex items-center justify-center min-h-[80vh] pt-14 overflow-hidden">
+        <div className="absolute inset-0">
+          <ParticleNetwork className="absolute inset-0" />
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[hsl(var(--background))]" />
+        </div>
 
-        <div className="mx-auto max-w-5xl text-center">
-          <motion.div
+        <div className="relative z-10 text-center px-4 max-w-3xl mx-auto">
+          <motion.h1
+            className="text-heading-1 md:text-5xl md:leading-tight font-bold tracking-tight"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
+            transition={{ duration: 0.6 }}
           >
-            <div className="surface-chip mb-6 inline-flex items-center gap-2 rounded-full border-transparent bg-[linear-gradient(180deg,rgba(37,99,235,0.16),rgba(37,99,235,0.08))] px-3 py-1 text-xs font-bold uppercase tracking-widest text-blue-500">
-              <span className="relative flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-400 opacity-75"></span>
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-blue-500"></span>
-              </span>
-              {t("landing.stableRelease")}
-            </div>
-            <h1 className="mb-8 bg-gradient-to-b from-foreground to-foreground/50 bg-clip-text text-6xl font-bold leading-[0.9] tracking-tighter text-transparent md:text-8xl">
-              {t("landing.heroTitlePrefix")} <br />
-              <span className="text-blue-500">{t("landing.heroTitleAccent")}</span>
-              {t("landing.heroTitleSuffix") ? ` ${t("landing.heroTitleSuffix")}` : null}
-            </h1>
-            <p className="mx-auto mb-10 max-w-2xl text-lg leading-relaxed text-muted-foreground md:text-xl">
-              {t("landing.heroDescription")}
-            </p>
-            <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
-              <a href="/auth/login">
-                <Button size="lg" className="group h-14 rounded-full border-none bg-blue-600 px-8 text-lg font-semibold text-white hover:bg-blue-700">
-                  {t("landing.forUser")}
-                  <ArrowRight className="ml-2 h-5 w-5 transition-transform group-hover:translate-x-1" />
-                </Button>
-              </a>
-              <a href="/developers">
-                <Button size="lg" variant="outline" className="h-14 rounded-full px-8 text-lg font-semibold text-foreground">
-                  {t("landing.forDeveloper")}
-                </Button>
-              </a>
-            </div>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 40 }}
+            {t("landing.hero.title") ?? "Agent Infrastructure for the Agentic Era"}
+          </motion.h1>
+          <motion.p
+            className="mt-4 text-body md:text-lg text-muted-foreground max-w-xl mx-auto"
+            initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.2 }}
-            className="relative mt-20"
+            transition={{ duration: 0.6, delay: 0.15 }}
           >
-            <div className="absolute inset-0 -z-10 bg-blue-500/20 blur-[100px]" />
-            <div className="surface-float overflow-hidden rounded-[32px] border-transparent p-4">
-              <div className="mb-4 flex items-center gap-2 px-2">
-                <div className="h-3 w-3 rounded-full bg-red-500/50" />
-                <div className="h-3 w-3 rounded-full bg-yellow-500/50" />
-                <div className="h-3 w-3 rounded-full bg-green-500/50" />
-                <div className="surface-chip ml-4 flex h-6 w-64 items-center rounded-full border-transparent px-3">
-                  <span className="font-mono text-[10px] text-muted-foreground">https://agentchat.io/app/dashboard</span>
-                </div>
-              </div>
-              <img
-                src="https://picsum.photos/seed/dashboard/1200/800?blur=2"
-                alt={t("landing.dashboardPreviewAlt")}
-                className="rounded-lg opacity-50 grayscale"
-                referrerPolicy="no-referrer"
-              />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="surface-float max-w-md rounded-[28px] border-transparent p-8 text-left">
-                  <Terminal className="mb-4 h-8 w-8 text-blue-500" />
-                  <h3 className="mb-2 text-xl font-bold">{t("landing.controlPlaneArchitecture")}</h3>
-                  <p className="text-sm leading-relaxed text-muted-foreground">
-                    {t("landing.controlPlaneArchitectureDescription")}
-                  </p>
-                </div>
-              </div>
-            </div>
+            {t("landing.hero.description") ?? "Local-first IM infrastructure for AI agents. WebSocket-native, real-time, and developer-friendly."}
+          </motion.p>
+          <motion.div
+            className="mt-8 flex items-center justify-center gap-3"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.3 }}
+          >
+            <Link to="/auth/register">
+              <Button size="lg">
+                {t("landing.hero.getStarted") ?? "Get Started"}
+                <ArrowRight className="size-4" />
+              </Button>
+            </Link>
+            <Link to="/developers">
+              <Button variant="outline" size="lg">
+                <Code2 className="size-4" />
+                {t("landing.hero.docs") ?? "Documentation"}
+              </Button>
+            </Link>
           </motion.div>
         </div>
       </section>
 
-      <section id="personas" className="surface-section px-6 py-24">
-        <div className="mx-auto max-w-6xl">
-          <div className="mb-10 max-w-2xl">
-            <div className="mb-3 text-xs font-bold uppercase tracking-[0.2em] text-blue-500">{t("landing.twoSurfaces")}</div>
-            <h2 className="text-3xl font-bold tracking-tight text-foreground">{t("landing.chooseSurfaceTitle")}</h2>
-            <p className="mt-3 text-sm leading-6 text-muted-foreground">{t("landing.chooseSurfaceDescription")}</p>
-          </div>
-
-          <div className="grid gap-6 md:grid-cols-2">
-            <div className="surface-panel surface-hover-lift rounded-[32px] border-transparent p-8">
-              <User className="mb-4 h-7 w-7 text-blue-500" />
-              <h3 className="text-2xl font-bold text-foreground">{t("landing.userCardTitle")}</h3>
-              <p className="mt-3 text-sm leading-6 text-muted-foreground">{t("landing.userCardDescription")}</p>
-              <div className="mt-6 flex flex-wrap gap-3">
-                <a href="/auth/login">
-                  <Button className="bg-blue-600 text-white hover:bg-blue-700">
-                    {t("landing.openWorkspace")}
-                  </Button>
-                </a>
-                <a href="/app/agent-cli">
-                  <Button variant="outline">{t("landing.userCli")}</Button>
-                </a>
+      {/* Features */}
+      <section className="py-20 px-4 md:px-8 max-w-5xl mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {features.map((feature, index) => (
+            <motion.div
+              key={feature.titleKey}
+              className="surface-raised rounded-[var(--radius-md)] p-6 group hover:border-[hsl(var(--color-brand)/0.3)] transition-all"
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.4, delay: index * 0.08 }}
+            >
+              <div className={`size-10 rounded-[var(--radius-sm)] ${feature.colorClass} flex items-center justify-center mb-4`}>
+                <feature.icon className="size-5" />
               </div>
-            </div>
-
-            <div className="surface-panel surface-hover-lift rounded-[32px] border-transparent p-8">
-              <Code2 className="mb-4 h-7 w-7 text-blue-500" />
-              <h3 className="text-2xl font-bold text-foreground">{t("landing.developerCardTitle")}</h3>
-              <p className="mt-3 text-sm leading-6 text-muted-foreground">{t("landing.developerCardDescription")}</p>
-              <div className="mt-6 flex flex-wrap gap-3">
-                <a href="/developers">
-                  <Button className="bg-blue-600 text-white hover:bg-blue-700">
-                    {t("landing.openDevelopers")}
-                  </Button>
-                </a>
-                <a href="https://www.npmjs.com/package/@agentchatjs/sdk" target="_blank" rel="noreferrer">
-                  <Button variant="outline">{t("landing.sdkPackage")}</Button>
-                </a>
-              </div>
-            </div>
-          </div>
+              <h3 className="text-heading-3 mb-2">{t(feature.titleKey)}</h3>
+              <p className="text-body-sm text-muted-foreground">{t(feature.descKey)}</p>
+            </motion.div>
+          ))}
         </div>
       </section>
 
-      <section id="features" className="surface-section px-6 py-32">
-        <div className="mx-auto max-w-7xl">
-          <div className="grid grid-cols-1 gap-12 md:grid-cols-3">
-            <div className="surface-panel-subtle rounded-[28px] border-transparent p-6">
-              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-[linear-gradient(180deg,rgba(37,99,235,0.16),rgba(37,99,235,0.08))] shadow-[inset_0_1px_0_rgba(255,255,255,0.18)]">
-                <Cpu className="h-6 w-6 text-blue-500" />
-              </div>
-              <h3 className="text-xl font-bold">{t("landing.featureAgentIdentityTitle")}</h3>
-              <p className="leading-relaxed text-muted-foreground">{t("landing.featureAgentIdentityDescription")}</p>
-            </div>
-            <div className="surface-panel-subtle rounded-[28px] border-transparent p-6">
-              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-[linear-gradient(180deg,rgba(168,85,247,0.16),rgba(168,85,247,0.08))] shadow-[inset_0_1px_0_rgba(255,255,255,0.18)]">
-                <Shield className="h-6 w-6 text-purple-500" />
-              </div>
-              <h3 className="text-xl font-bold">{t("landing.featureAuditabilityTitle")}</h3>
-              <p className="leading-relaxed text-muted-foreground">{t("landing.featureAuditabilityDescription")}</p>
-            </div>
-            <div className="surface-panel-subtle rounded-[28px] border-transparent p-6">
-              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-[linear-gradient(180deg,rgba(34,197,94,0.16),rgba(34,197,94,0.08))] shadow-[inset_0_1px_0_rgba(255,255,255,0.18)]">
-                <Globe className="h-6 w-6 text-green-500" />
-              </div>
-              <h3 className="text-xl font-bold">{t("landing.featureDeveloperIntegrationTitle")}</h3>
-              <p className="leading-relaxed text-muted-foreground">{t("landing.featureDeveloperIntegrationDescription")}</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <footer className="bg-[hsl(var(--surface-2)/0.35)] px-6 py-20 backdrop-blur-sm">
-        <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-8 md:flex-row">
-          <div className="flex items-center gap-2">
-            <Zap className="h-5 w-5 fill-blue-500 text-blue-500" />
-            <span className="font-bold tracking-tight">AgentChat</span>
-          </div>
-          <div className="flex gap-8 text-sm text-muted-foreground">
-            <a href="#" className="hover:text-foreground">Twitter</a>
-            <a href="#" className="hover:text-foreground">GitHub</a>
-            <a href="#" className="hover:text-foreground">Discord</a>
-            <a href="#" className="hover:text-foreground">{t("landing.documentation")}</a>
-          </div>
-          <p className="font-mono text-xs uppercase tracking-widest text-muted-foreground">
-            {t("landing.copyright")}
-          </p>
-        </div>
+      {/* Footer */}
+      <footer className="py-8 px-4 border-t border-[hsl(var(--line-soft)/0.4)] text-center">
+        <p className="text-caption text-muted-foreground">
+          AgentChat &mdash; {t("landing.footer.builtFor") ?? "Built for the agentic era"}
+        </p>
       </footer>
     </div>
   );
