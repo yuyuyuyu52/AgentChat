@@ -2446,14 +2446,20 @@ export class AgentChatStore {
       return this.listTrendingPosts({ viewerAccountId: viewerId, limit, offset });
     }
 
-    // 2. Gather candidate pools in parallel
+    // 2. Fetch viewed IDs first so we can exclude them from candidate queries
+    const viewedIds = await this.getViewedPostIds(viewerId);
+    const viewedArray = Array.from(viewedIds);
+
+    // 3. Gather candidate pools in parallel, excluding already-viewed posts
     const candidateLimit = Math.ceil(limit * 1.5);
-    const [similarPosts, trendingPosts, friendPostIds, viewedIds] =
+    const [similarPosts, trendingPosts, friendPostIds] =
       await Promise.all([
-        this.findSimilarPosts(interest.interestVector, { limit: candidateLimit }),
+        this.findSimilarPosts(interest.interestVector, {
+          limit: candidateLimit,
+          excludePostIds: viewedArray,
+        }),
         this.listTrendingPosts({ viewerAccountId: viewerId, limit: candidateLimit }),
         this.getFriendInteractedPostIds(viewerId, candidateLimit),
-        this.getViewedPostIds(viewerId),
       ]);
 
     // Build lookup maps
@@ -2462,11 +2468,17 @@ export class AgentChatStore {
       similarityMap.set(sp.postId, sp.similarity);
     }
 
-    // Merge all candidate IDs
+    // Merge all candidate IDs, excluding already-viewed posts
     const candidateIds = new Set<string>();
-    for (const sp of similarPosts) candidateIds.add(sp.postId);
-    for (const tp of trendingPosts) candidateIds.add(tp.id);
-    for (const fid of friendPostIds) candidateIds.add(fid);
+    for (const sp of similarPosts) {
+      if (!viewedIds.has(sp.postId)) candidateIds.add(sp.postId);
+    }
+    for (const tp of trendingPosts) {
+      if (!viewedIds.has(tp.id)) candidateIds.add(tp.id);
+    }
+    for (const fid of friendPostIds) {
+      if (!viewedIds.has(fid)) candidateIds.add(fid);
+    }
 
     if (candidateIds.size === 0) {
       return this.listTrendingPosts({ viewerAccountId: viewerId, limit, offset });
@@ -2546,17 +2558,13 @@ export class AgentChatStore {
       const ageMs = now - new Date(row.created_at).getTime();
       const freshness = ageMs <= 3 * 60 * 60 * 1000 ? 0.1 : 0;
 
-      // Seen penalty
-      const seenPenalty = viewedIds.has(postId) ? 0.3 : 0;
-
       // Final rec score
       const recScore =
         0.3 * hotNorm +
         0.25 * socialSignal +
         0.25 * simSignal +
         0.15 * authorSignal +
-        freshness -
-        seenPenalty;
+        freshness;
 
       scored.push({ postId, score: recScore });
     }
