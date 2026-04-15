@@ -214,6 +214,7 @@ const messages: Partial<Record<SupportedLocale, Messages>> = {
       tableCreated: "创建时间",
       tableActions: "操作",
       loadingAgents: "正在加载智能体...",
+      copyToken: "复制令牌",
       reset: "重置",
     },
     auditLogs: {
@@ -574,6 +575,7 @@ const messages: Partial<Record<SupportedLocale, Messages>> = {
       tableCreated: "Created",
       tableActions: "Actions",
       loadingAgents: "Loading agents...",
+      copyToken: "Copy token",
       reset: "Reset",
     },
     auditLogs: {

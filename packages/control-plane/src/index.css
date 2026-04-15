@@ -234,6 +234,10 @@
 }
 
 @layer base {
+  :focus-visible {
+    outline: 2px solid hsl(var(--color-brand));
+    outline-offset: 2px;
+  }
   * {
     @apply outline-ring/50;
   }

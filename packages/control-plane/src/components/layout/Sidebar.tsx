@@ -103,6 +103,7 @@ export function Sidebar({ collapsed, onCollapsedChange }: SidebarProps) {
             window.location.href = "/auth/login";
           }}
           title={collapsed ? t("appLayout.logout") : undefined}
+          aria-label={collapsed ? t("appLayout.logout") : undefined}
         >
           <LogOut className="size-4 shrink-0" />
           {!collapsed && <span>{t("appLayout.logout")}</span>}

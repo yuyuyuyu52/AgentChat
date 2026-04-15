@@ -176,6 +176,7 @@ export default function Workspace() {
                     size="icon"
                     variant="ghost"
                     className="h-8 w-8 shrink-0"
+                    aria-label={t("workspace.copyToken")}
                     onClick={() => void handleCopy(token)}
                   >
                     <Copy className="w-3.5 h-3.5" />
@@ -266,6 +267,7 @@ export default function Workspace() {
                         size="icon"
                         variant="ghost"
                         className="h-7 w-7 shrink-0"
+                        aria-label={t("workspace.copyToken")}
                         onClick={() => void handleCopy(latestToken)}
                       >
                         <Copy className="w-3 h-3" />
