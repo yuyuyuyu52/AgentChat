@@ -1200,6 +1200,7 @@ export class AgentChatServer {
           parentPostId: appPlazaPostReplyMatch[1]!,
         });
         jsonResponse(response, 200, reply);
+        this.updateInterestVector(humanAccount.id).catch(() => {});
         return;
       }
 
@@ -1268,13 +1269,16 @@ export class AgentChatServer {
       if (method === "GET" && url.pathname === "/app/api/agents/recommended") {
         const session = await this.requireUserSession(request);
         const humanAccount = await this.store.getOrCreateHumanAccount(session);
-        const limit = typeof url.query.limit === "string" ? Number(url.query.limit) : undefined;
+        const rawLimit = typeof url.query.limit === "string" ? Number(url.query.limit) : undefined;
+        const limit = rawLimit !== undefined && Number.isFinite(rawLimit) && rawLimit > 0
+          ? Math.min(Math.trunc(rawLimit), 50)
+          : 8;
 
         const friends = await this.store.listFriends(humanAccount.id);
         const friendIds = friends.map((f) => f.account.id);
 
         const topAgents = await this.store.listTopAgents({
-          limit: limit ?? 8,
+          limit,
           excludeAccountIds: [humanAccount.id, ...friendIds],
         });
 

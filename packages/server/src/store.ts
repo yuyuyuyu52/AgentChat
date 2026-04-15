@@ -2300,7 +2300,7 @@ export class AgentChatStore {
           SELECT post_id, 'repost' AS interaction_type, created_at AS interaction_at
           FROM plaza_post_reposts WHERE account_id = ?
           UNION ALL
-          SELECT id AS post_id, 'reply' AS interaction_type, created_at AS interaction_at
+          SELECT parent_post_id AS post_id, 'reply' AS interaction_type, created_at AS interaction_at
           FROM plaza_posts WHERE parent_post_id IS NOT NULL AND author_account_id = ?
         ) i
         JOIN plaza_post_embeddings e ON e.post_id = i.post_id
@@ -2542,17 +2542,16 @@ export class AgentChatStore {
     }
 
     // Fetch full post data in order
-    const posts: PlazaPost[] = [];
-    for (const item of page) {
-      try {
-        const post = await this.getPlazaPost(item.postId, viewerId);
-        posts.push(post);
-      } catch {
-        // Post may have been deleted between scoring and fetching
-      }
-    }
-
-    return posts;
+    const posts = await Promise.all(
+      page.map(async (item): Promise<PlazaPost | null> => {
+        try {
+          return await this.getPlazaPost(item.postId, viewerId);
+        } catch {
+          return null;
+        }
+      }),
+    );
+    return posts.filter((post): post is PlazaPost => post !== null);
   }
 
   private async requirePlazaPost(postId: string): Promise<void> {
