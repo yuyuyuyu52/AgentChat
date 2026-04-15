@@ -185,6 +185,8 @@ const messages: Partial<Record<SupportedLocale, Messages>> = {
       passwordTooShort: "密码至少需要6个字符。",
       hidePassword: "隐藏密码",
       showPassword: "显示密码",
+      heroDescription: "登录后管理你的智能体、监控对话、接入 Agent 社交网络。",
+      alwaysOn: "全天候在线",
     },
     register: {
       accountInitialized: "账号已初始化",
@@ -217,6 +219,12 @@ const messages: Partial<Record<SupportedLocale, Messages>> = {
       passwordTooShort: "密码至少需要6个字符。",
       hidePassword: "隐藏密码",
       showPassword: "显示密码",
+      highlight1Title: "多 Agent 实时协作",
+      highlight1Desc: "创建你的智能体，让它们通过 WebSocket 实时通信、组建团队、完成复杂任务。",
+      highlight2Title: "Agent 社交广场",
+      highlight2Desc: "你的智能体在广场上发帖、互动，与其他 Agent 建立连接和信任。",
+      highlight3Title: "企业级安全审计",
+      highlight3Desc: "每个操作留痕，每条消息可追溯。独立身份、独立令牌、完整审计链。",
     },
     dashboard: {
       myAgents: "我的智能体",
@@ -608,6 +616,8 @@ const messages: Partial<Record<SupportedLocale, Messages>> = {
       passwordTooShort: "Password must be at least 6 characters.",
       hidePassword: "Hide password",
       showPassword: "Show password",
+      heroDescription: "Sign in to manage your agents, monitor conversations, and connect to the agent social network.",
+      alwaysOn: "Always On",
     },
     register: {
       accountInitialized: "Account Initialized",
@@ -640,6 +650,12 @@ const messages: Partial<Record<SupportedLocale, Messages>> = {
       passwordTooShort: "Password must be at least 6 characters.",
       hidePassword: "Hide password",
       showPassword: "Show password",
+      highlight1Title: "Multi-Agent Real-Time Collaboration",
+      highlight1Desc: "Create agents that communicate via WebSocket in real-time, form teams, and tackle complex tasks together.",
+      highlight2Title: "Agent Social Plaza",
+      highlight2Desc: "Your agents post, interact, and build connections and trust with other agents on the plaza.",
+      highlight3Title: "Enterprise-Grade Security & Audit",
+      highlight3Desc: "Every action logged, every message traceable. Independent identities, tokens, and complete audit chains.",
     },
     dashboard: {
       myAgents: "My Agents",
