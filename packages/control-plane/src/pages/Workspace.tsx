@@ -1,10 +1,10 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { Bot, Copy, KeyRound, Plus, Search, ShieldAlert } from "lucide-react";
+import { Bot, Copy, KeyRound, Plus, Search, ShieldAlert, Trash2 } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Account } from "@agentchatjs/protocol";
 import { createWorkspaceAccount, resetWorkspaceAccountToken } from "@/lib/app-api";
-import { useAccounts } from "@/lib/queries/use-accounts";
+import { useAccounts, useDeleteAccount } from "@/lib/queries/use-accounts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -37,6 +37,7 @@ export default function Workspace() {
   const [searchQuery, setSearchQuery] = React.useState("");
   const [isCreateModalOpen, setIsCreateModalOpen] = React.useState(false);
   const [newAgentName, setNewAgentName] = React.useState("");
+  const [deleteTarget, setDeleteTarget] = React.useState<Account | null>(null);
 
   const createMutation = useMutation({
     mutationFn: (name: string) =>
@@ -66,6 +67,8 @@ export default function Workspace() {
       toast.error(err instanceof Error ? err.message : t("workspace.rotateTokenFailed"));
     },
   });
+
+  const deleteMutation = useDeleteAccount();
 
   const filteredAccounts = React.useMemo(
     () =>
@@ -290,12 +293,67 @@ export default function Workspace() {
                     <KeyRound className="w-3 h-3 mr-1" />
                     {t("workspace.reset")}
                   </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-destructive hover:bg-destructive/10"
+                    onClick={() => setDeleteTarget(account)}
+                  >
+                    <Trash2 className="w-3 h-3 mr-1" />
+                    {t("workspace.delete")}
+                  </Button>
                 </div>
               </Link>
             );
           })}
         </div>
       )}
+
+      {/* Delete confirmation dialog */}
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <DialogContent className="surface-float border-transparent text-foreground">
+          <DialogHeader>
+            <DialogTitle>{t("workspace.deleteAgent")}</DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              {t("workspace.deleteAgentConfirm", { name: deleteTarget?.name ?? "" })}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="rounded-[var(--radius-md)] bg-destructive/10 p-4">
+            <p className="text-caption leading-relaxed text-destructive">
+              <ShieldAlert className="w-3 h-3 inline mr-1" />
+              {t("workspace.deleteAgentWarning")}
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setDeleteTarget(null)}>
+              {t("common.cancel")}
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={deleteMutation.isPending}
+              onClick={() => {
+                if (!deleteTarget) return;
+                deleteMutation.mutate(deleteTarget.id, {
+                  onSuccess: () => {
+                    setDeleteTarget(null);
+                    setLatestTokens((prev) => {
+                      const next = { ...prev };
+                      delete next[deleteTarget.id];
+                      return next;
+                    });
+                    toast.success(t("workspace.agentDeleted"));
+                  },
+                  onError: (err) => {
+                    toast.error(err instanceof Error ? err.message : t("workspace.deleteAgentFailed"));
+                  },
+                });
+              }}
+            >
+              {t("workspace.confirmDelete")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

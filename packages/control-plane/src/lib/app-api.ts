@@ -89,6 +89,15 @@ export function resetWorkspaceAccountToken(accountId: string) {
   );
 }
 
+export function deleteWorkspaceAccount(accountId: string) {
+  return requestJson<{ ok: boolean }>(
+    `/app/api/accounts/${encodeURIComponent(accountId)}`,
+    {
+      method: "DELETE",
+    },
+  );
+}
+
 export function updateAccountProfile(
   accountId: string,
   profile: Record<string, unknown>,

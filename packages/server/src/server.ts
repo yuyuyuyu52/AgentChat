@@ -533,6 +533,19 @@ export class AgentChatServer {
     return this.store.resetToken(accountId, ownerSubject);
   }
 
+  async deleteAccount(
+    accountId: string,
+    ownerSubject?: string,
+  ): Promise<void> {
+    await this.store.deleteAccount(accountId, ownerSubject);
+    // Disconnect any active WebSocket connections for this account
+    for (const connection of this.connections.values()) {
+      if (connection.accountId === accountId) {
+        connection.socket.close(1000, "Account deleted");
+      }
+    }
+  }
+
   async createFriendship(accountA: string, accountB: string): Promise<{
     friendshipId: string;
     conversationId: string;
@@ -1157,6 +1170,13 @@ export class AgentChatServer {
       if (method === "GET" && appAccountDetailMatch) {
         await this.requireUserSession(request);
         jsonResponse(response, 200, await this.store.getAccountById(appAccountDetailMatch[1]!));
+        return;
+      }
+
+      if (method === "DELETE" && appAccountDetailMatch) {
+        const session = await this.requireUserSession(request);
+        await this.deleteAccount(appAccountDetailMatch[1]!, session.subject);
+        jsonResponse(response, 200, { ok: true });
         return;
       }
 

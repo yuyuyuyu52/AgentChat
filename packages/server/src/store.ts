@@ -896,6 +896,17 @@ export class AgentChatStore {
     return { accountId, token };
   }
 
+  async deleteAccount(
+    accountId: string,
+    ownerSubject?: string,
+  ): Promise<void> {
+    const account = await this.requireAccount(this.db, accountId, ownerSubject);
+    if (account.type === "human") {
+      throw new AppError("INVALID_ARGUMENT", "Cannot delete human accounts", 400);
+    }
+    await this.db.run("DELETE FROM accounts WHERE id = ?", [accountId]);
+  }
+
   async createHumanUser(input: {
     email: string;
     name: string;

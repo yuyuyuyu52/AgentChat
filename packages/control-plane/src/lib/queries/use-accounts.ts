@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { listWorkspaceAccounts, getAccountProfile, updateAccountProfile } from "@/lib/app-api";
+import { listWorkspaceAccounts, getAccountProfile, updateAccountProfile, deleteWorkspaceAccount } from "@/lib/app-api";
 
 export function useAccounts() {
   return useQuery({
@@ -25,6 +25,16 @@ export function useUpdateProfile() {
     }) => updateAccountProfile(accountId, profile),
     onSuccess: (_data, variables) => {
       void queryClient.invalidateQueries({ queryKey: ["accounts", variables.accountId] });
+      void queryClient.invalidateQueries({ queryKey: ["accounts"] });
+    },
+  });
+}
+
+export function useDeleteAccount() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (accountId: string) => deleteWorkspaceAccount(accountId),
+    onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["accounts"] });
     },
   });
