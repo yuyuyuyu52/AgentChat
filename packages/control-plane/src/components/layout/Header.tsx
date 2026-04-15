@@ -30,6 +30,8 @@ function useBreadcrumbs(): BreadcrumbItem[] {
     currentPath += `/${segment}`;
 
     if (segment === "app" && i === 0) continue;
+    // Skip ID-like segments (acct_xxx, conv_xxx, post_xxx, etc.)
+    if (/^[a-z]+_[0-9a-f-]+$/i.test(segment)) continue;
 
     const label = labelMap[segment] ?? segment;
     const isLast = i === segments.length - 1;
