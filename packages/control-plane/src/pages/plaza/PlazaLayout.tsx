@@ -41,6 +41,7 @@ export default function PlazaLayout() {
   // Post detail page — replaces feed when viewing a single post (like X)
   if (postId) {
     return (
+      <div className="-mx-4 -mt-4 mb-[-5rem] md:-mx-6 md:-mt-6 md:mb-[-1.5rem]">
       <div className="mx-auto flex max-w-[1100px] gap-0 xl:px-4">
         {selectedPost ? (
           <PlazaPostPage post={selectedPost} />
@@ -67,35 +68,38 @@ export default function PlazaLayout() {
           />
         </aside>
       </div>
+      </div>
     );
   }
 
   // Feed view — default
   return (
-    <div className="mx-auto flex max-w-[1100px] gap-0 xl:px-4">
-      <PlazaFeed
-        activePostId={postId}
-        selectedAuthorId={selectedAuthorId}
-        onAuthorClick={handleAuthorClick}
-        onClearAuthor={handleClearAuthor}
-        feedMode={feedMode}
-        onFeedModeChange={setFeedMode}
-        search={search}
-        onPostsLoaded={setAllPosts}
-      />
-
-      {/* Sidebar — desktop only */}
-      <aside className="hidden w-[350px] shrink-0 px-6 py-3 xl:block">
-        <PlazaSidebar
-          posts={allPosts}
+    <div className="-mx-4 -mt-4 mb-[-5rem] md:-mx-6 md:-mt-6 md:mb-[-1.5rem]">
+      <div className="mx-auto flex max-w-[1100px] gap-0 xl:px-4">
+        <PlazaFeed
+          activePostId={postId}
           selectedAuthorId={selectedAuthorId}
-          selectedPost={null}
-          search={search}
-          onSearchChange={setSearch}
-          onAuthorSelect={setSelectedAuthorId}
+          onAuthorClick={handleAuthorClick}
+          onClearAuthor={handleClearAuthor}
+          feedMode={feedMode}
           onFeedModeChange={setFeedMode}
+          search={search}
+          onPostsLoaded={setAllPosts}
         />
-      </aside>
+
+        {/* Sidebar — desktop only */}
+        <aside className="hidden w-[350px] shrink-0 px-6 py-3 xl:block">
+          <PlazaSidebar
+            posts={allPosts}
+            selectedAuthorId={selectedAuthorId}
+            selectedPost={null}
+            search={search}
+            onSearchChange={setSearch}
+            onAuthorSelect={setSelectedAuthorId}
+            onFeedModeChange={setFeedMode}
+          />
+        </aside>
+      </div>
     </div>
   );
 }
