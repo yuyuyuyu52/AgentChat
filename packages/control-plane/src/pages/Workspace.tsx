@@ -1,24 +1,13 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { Bot, Copy, KeyRound, Plus, Search, ShieldAlert } from "lucide-react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Account } from "@agentchatjs/protocol";
-import {
-  createWorkspaceAccount,
-  listWorkspaceAccounts,
-  resetWorkspaceAccountToken,
-} from "@/lib/app-api";
+import { createWorkspaceAccount, resetWorkspaceAccountToken } from "@/lib/app-api";
+import { useAccounts } from "@/lib/queries/use-accounts";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import {
   Dialog,
   DialogContent,
@@ -29,85 +18,62 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { EmptyState } from "@/components/ui/empty-state";
+import { SkeletonCard } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { useI18n } from "@/components/i18n-provider";
 
-function maskToken(token: string | undefined): string {
-  if (!token) {
-    return "";
-  }
+function maskToken(token: string): string {
   return token.length <= 12 ? token : `${token.slice(0, 8)}...${token.slice(-4)}`;
 }
 
 export default function Workspace() {
   const { t, formatDateTime } = useI18n();
-  const [accounts, setAccounts] = React.useState<Account[]>([]);
+  const queryClient = useQueryClient();
+
+  const { data: accounts = [], isLoading, isError, error } = useAccounts();
+
   const [latestTokens, setLatestTokens] = React.useState<Record<string, string>>({});
   const [searchQuery, setSearchQuery] = React.useState("");
   const [isCreateModalOpen, setIsCreateModalOpen] = React.useState(false);
   const [newAgentName, setNewAgentName] = React.useState("");
-  const [loading, setLoading] = React.useState(true);
-  const [submitting, setSubmitting] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
 
-  const loadAccounts = React.useCallback(async () => {
-    try {
-      setLoading(true);
-      const nextAccounts = await listWorkspaceAccounts();
-      setAccounts(nextAccounts);
-      setError(null);
-    } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : t("workspace.loadAccountsFailed"));
-    } finally {
-      setLoading(false);
-    }
-  }, [t]);
-
-  React.useEffect(() => {
-    void loadAccounts();
-  }, [loadAccounts]);
-
-  const filteredAccounts = React.useMemo(
-    () =>
-      accounts.filter((account) =>
-        `${account.name} ${account.id}`.toLowerCase().includes(searchQuery.toLowerCase()),
-      ),
-    [accounts, searchQuery],
-  );
-
-  const handleCreateAgent = async () => {
-    if (!newAgentName.trim()) {
-      return;
-    }
-    try {
-      setSubmitting(true);
-      const createdAccount = await createWorkspaceAccount({
-        name: newAgentName.trim(),
-        type: "agent",
-      });
-      setAccounts((current) => [...current, createdAccount]);
-      setLatestTokens((current) => ({ ...current, [createdAccount.id]: createdAccount.token }));
+  const createMutation = useMutation({
+    mutationFn: (name: string) =>
+      createWorkspaceAccount({ name, type: "agent" }),
+    onSuccess: (createdAccount) => {
+      void queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      setLatestTokens((prev) => ({ ...prev, [createdAccount.id]: createdAccount.token }));
       setNewAgentName("");
       setIsCreateModalOpen(false);
       toast.success(t("workspace.agentCreated"), {
         description: t("workspace.tokenShownOnce"),
       });
-    } catch (nextError) {
-      toast.error(nextError instanceof Error ? nextError.message : t("workspace.createAccountFailed"));
-    } finally {
-      setSubmitting(false);
-    }
-  };
+    },
+    onError: (err) => {
+      toast.error(err instanceof Error ? err.message : t("workspace.createAccountFailed"));
+    },
+  });
 
-  const handleResetToken = async (accountId: string) => {
-    try {
-      const result = await resetWorkspaceAccountToken(accountId);
-      setLatestTokens((current) => ({ ...current, [accountId]: result.token }));
+  const resetMutation = useMutation({
+    mutationFn: (accountId: string) => resetWorkspaceAccountToken(accountId),
+    onSuccess: (result) => {
+      void queryClient.invalidateQueries({ queryKey: ["accounts"] });
+      setLatestTokens((prev) => ({ ...prev, [result.accountId]: result.token }));
       toast.success(t("workspace.tokenRotated"));
-    } catch (nextError) {
-      toast.error(nextError instanceof Error ? nextError.message : t("workspace.rotateTokenFailed"));
-    }
-  };
+    },
+    onError: (err) => {
+      toast.error(err instanceof Error ? err.message : t("workspace.rotateTokenFailed"));
+    },
+  });
+
+  const filteredAccounts = React.useMemo(
+    () =>
+      accounts.filter((account: Account) =>
+        `${account.name} ${account.id}`.toLowerCase().includes(searchQuery.toLowerCase()),
+      ),
+    [accounts, searchQuery],
+  );
 
   const handleCopy = async (token: string) => {
     await navigator.clipboard.writeText(token);
@@ -116,21 +82,24 @@ export default function Workspace() {
 
   return (
     <div className="p-8 space-y-8 max-w-7xl mx-auto">
+      {/* Header */}
       <div className="flex flex-col md:flex-row items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight text-foreground">{t("workspace.title")}</h2>
-          <p className="text-sm text-muted-foreground">{t("workspace.description")}</p>
+          <h2 className="text-heading-2 text-foreground">{t("workspace.title")}</h2>
+          <p className="text-body-sm text-muted-foreground">{t("workspace.description")}</p>
         </div>
         <div className="flex items-center gap-3 w-full md:w-auto">
           <div className="relative flex-1 md:w-64">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               placeholder={t("workspace.searchAgents")}
-              className="pl-10 focus-visible:ring-blue-500"
+              className="pl-10"
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
             />
           </div>
+
+          {/* Create Agent Dialog */}
           <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
             <DialogTrigger asChild>
               <Button className="bg-blue-600 hover:bg-blue-700 text-white gap-2 rounded-lg">
@@ -153,21 +122,28 @@ export default function Workspace() {
                     placeholder={t("workspace.agentDisplayNamePlaceholder")}
                     value={newAgentName}
                     onChange={(event) => setNewAgentName(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" && newAgentName.trim()) {
+                        createMutation.mutate(newAgentName.trim());
+                      }
+                    }}
                   />
                 </div>
-                <div className="surface-panel-subtle rounded-2xl border-transparent bg-[linear-gradient(180deg,rgba(37,99,235,0.12),rgba(37,99,235,0.05))] p-4">
-                  <p className="text-xs text-blue-400 leading-relaxed">
+                <div className="rounded-[var(--radius-md)] bg-warning-subtle p-4">
+                  <p className="text-caption leading-relaxed">
                     <ShieldAlert className="w-3 h-3 inline mr-1" />
                     {t("workspace.saveTokenWarning")}
                   </p>
                 </div>
               </div>
               <DialogFooter>
-                <Button variant="ghost" onClick={() => setIsCreateModalOpen(false)}>{t("common.cancel")}</Button>
+                <Button variant="ghost" onClick={() => setIsCreateModalOpen(false)}>
+                  {t("common.cancel")}
+                </Button>
                 <Button
                   className="bg-blue-600 hover:bg-blue-700"
-                  onClick={() => void handleCreateAgent()}
-                  disabled={submitting || !newAgentName.trim()}
+                  onClick={() => createMutation.mutate(newAgentName.trim())}
+                  disabled={createMutation.isPending || !newAgentName.trim()}
                 >
                   {t("common.create")}
                 </Button>
@@ -177,85 +153,149 @@ export default function Workspace() {
         </div>
       </div>
 
-      <Card className="overflow-hidden border-transparent">
-        <Table>
-          <TableHeader className="bg-[hsl(var(--surface-2)/0.52)]">
-            <TableRow className="hover:bg-transparent">
-              <TableHead className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">{t("workspace.tableAgent")}</TableHead>
-              <TableHead className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">{t("workspace.tableType")}</TableHead>
-              <TableHead className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">{t("workspace.tableLatestToken")}</TableHead>
-              <TableHead className="text-[10px] uppercase tracking-widest font-bold text-muted-foreground">{t("workspace.tableCreated")}</TableHead>
-              <TableHead className="text-right text-[10px] uppercase tracking-widest font-bold text-muted-foreground">{t("workspace.tableActions")}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell className="text-muted-foreground" colSpan={5}>{t("workspace.loadingAgents")}</TableCell>
-              </TableRow>
-            ) : error ? (
-              <TableRow>
-                <TableCell className="text-red-400" colSpan={5}>{error}</TableCell>
-              </TableRow>
-            ) : filteredAccounts.map((account) => (
-              <TableRow key={account.id} className="group">
-                <TableCell>
-                  <div className="flex items-center gap-3">
-                    <div className="surface-chip flex h-10 w-10 items-center justify-center rounded-2xl border-transparent bg-[linear-gradient(180deg,rgba(37,99,235,0.16),rgba(37,99,235,0.08))]">
-                      <Bot className="w-5 h-5 text-blue-500" />
-                    </div>
-                    <div>
-                      <Link to={`/app/agents/${account.id}`} className="mb-1 block text-sm font-bold leading-none text-foreground hover:text-blue-500 hover:underline">
-                        {account.name}
-                      </Link>
-                      <p className="text-xs font-mono text-muted-foreground">{account.id}</p>
-                    </div>
+      {/* Token revealed after creation */}
+      {Object.keys(latestTokens).length > 0 && (
+        <div className="space-y-3">
+          {Object.entries(latestTokens).map(([accountId, token]) => {
+            const account = accounts.find((a: Account) => a.id === accountId);
+            return (
+              <div
+                key={accountId}
+                className="rounded-[var(--radius-md)] bg-warning-subtle p-4 space-y-2"
+              >
+                <p className="text-caption font-medium flex items-center gap-1">
+                  <ShieldAlert className="w-3.5 h-3.5" />
+                  {account?.name ?? accountId} — {t("workspace.tokenShownOnce")}
+                </p>
+                <div className="flex items-center gap-2">
+                  <code className="surface-inset flex-1 rounded-[var(--radius-sm)] px-3 py-2 text-xs font-mono text-foreground truncate">
+                    {token}
+                  </code>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8 shrink-0"
+                    aria-label={t("workspace.copyToken")}
+                    onClick={() => void handleCopy(token)}
+                  >
+                    <Copy className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Card grid */}
+      {isLoading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <SkeletonCard key={i} />
+          ))}
+        </div>
+      ) : isError ? (
+        <div className="rounded-[var(--radius-md)] bg-destructive/10 p-6 text-center text-sm text-destructive">
+          {error instanceof Error ? error.message : t("workspace.loadAccountsFailed")}
+        </div>
+      ) : filteredAccounts.length === 0 ? (
+        <EmptyState
+          icon={<Bot className="w-10 h-10" />}
+          title={searchQuery ? t("workspace.searchAgents") : t("workspace.title")}
+          description={
+            searchQuery
+              ? undefined
+              : t("workspace.description")
+          }
+          action={
+            !searchQuery ? (
+              <Button
+                className="bg-blue-600 hover:bg-blue-700 text-white gap-2 rounded-lg"
+                onClick={() => setIsCreateModalOpen(true)}
+              >
+                <Plus className="w-4 h-4" />
+                {t("workspace.createAgent")}
+              </Button>
+            ) : undefined
+          }
+        />
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredAccounts.map((account: Account) => {
+            const latestToken = latestTokens[account.id];
+            return (
+              <Link
+                key={account.id}
+                to={`/app/agents/${account.id}`}
+                className="surface-raised rounded-[var(--radius-md)] p-5 flex flex-col gap-4 hover:ring-2 hover:ring-blue-500/40 transition-all block"
+              >
+                {/* Card header: avatar + name + badge */}
+                <div className="flex items-start gap-3">
+                  <div className="surface-chip flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--radius-sm)] bg-[linear-gradient(180deg,rgba(37,99,235,0.16),rgba(37,99,235,0.08))]">
+                    <Bot className="w-5 h-5 text-blue-500" />
                   </div>
-                </TableCell>
-                <TableCell>
-                  <Badge variant="outline" className="rounded-full px-2 py-0 text-[10px] font-bold uppercase tracking-tighter bg-[linear-gradient(180deg,rgba(34,197,94,0.16),rgba(34,197,94,0.08))] text-green-600 dark:text-green-400">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-heading-3 text-foreground truncate">{account.name}</p>
+                    <p className="text-caption font-mono text-muted-foreground truncate">{account.id}</p>
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className="shrink-0 rounded-full px-2 py-0 text-[10px] font-bold uppercase tracking-tighter bg-[linear-gradient(180deg,rgba(34,197,94,0.16),rgba(34,197,94,0.08))] text-green-600 dark:text-green-400"
+                  >
                     {t(`enums.accountType.${account.type}`, undefined, account.type)}
                   </Badge>
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    <code className="surface-chip rounded-xl border-transparent px-2 py-1 text-xs font-mono text-muted-foreground">
-                      {latestTokens[account.id] ? maskToken(latestTokens[account.id]) : t("workspace.hiddenUntilIssuedOrReset")}
-                    </code>
-                    {latestTokens[account.id] && (
+                </div>
+
+                {/* Created date */}
+                <p className="text-caption text-muted-foreground">
+                  {formatDateTime(account.createdAt)}
+                </p>
+
+                {/* Token row — only shown when a token is available for this account */}
+                {latestToken && (
+                  <div
+                    className="rounded-[var(--radius-sm)] bg-warning-subtle p-3 space-y-1.5"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <p className="text-caption">{t("workspace.tokenShownOnce")}</p>
+                    <div className="flex items-center gap-2">
+                      <code className="surface-inset flex-1 rounded-[var(--radius-sm)] px-2 py-1 text-xs font-mono text-foreground truncate">
+                        {maskToken(latestToken)}
+                      </code>
                       <Button
                         size="icon"
                         variant="ghost"
-                        className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-                        onClick={() => void handleCopy(latestTokens[account.id]!)}
+                        className="h-7 w-7 shrink-0"
+                        aria-label={t("workspace.copyToken")}
+                        onClick={() => void handleCopy(latestToken)}
                       >
-                        <Copy className="w-3 h-3 text-muted-foreground" />
+                        <Copy className="w-3 h-3" />
                       </Button>
-                    )}
+                    </div>
                   </div>
-                </TableCell>
-                <TableCell className="text-xs text-muted-foreground">{formatDateTime(account.createdAt)}</TableCell>
-                <TableCell className="text-right">
-                  <div className="flex items-center justify-end gap-2">
-                    <Link to={`/app/agents/${account.id}/conversations`}>
-                      <Button size="sm" variant="ghost" className="text-blue-400 hover:text-blue-300">{t("common.view")}</Button>
-                    </Link>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="text-foreground/80"
-                      onClick={() => void handleResetToken(account.id)}
-                    >
-                      <KeyRound className="w-3 h-3 mr-1" />
-                      {t("workspace.reset")}
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </Card>
+                )}
+
+                {/* Card footer actions */}
+                <div
+                  className="flex items-center justify-end gap-2 pt-1 border-t border-border/40"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-foreground/80"
+                    disabled={resetMutation.isPending}
+                    onClick={() => resetMutation.mutate(account.id)}
+                  >
+                    <KeyRound className="w-3 h-3 mr-1" />
+                    {t("workspace.reset")}
+                  </Button>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
