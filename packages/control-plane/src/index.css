@@ -41,6 +41,25 @@
       hsl(var(--surface-3) / 0.94) 0%,
       hsl(var(--surface-1) / 0.98) 100%
     );
+    /* Semantic colors - light theme */
+    --color-brand: 217 91% 60%;
+    --color-brand-subtle: 217 91% 95%;
+    --color-brand-emphasis: 217 91% 50%;
+    --color-accent: 260 60% 55%;
+    --color-accent-subtle: 260 60% 94%;
+    --color-accent-emphasis: 260 60% 45%;
+    --color-success: 142 71% 45%;
+    --color-success-subtle: 142 71% 93%;
+    --color-success-emphasis: 142 71% 35%;
+    --color-warning: 38 92% 50%;
+    --color-warning-subtle: 38 92% 93%;
+    --color-warning-emphasis: 38 92% 40%;
+    --color-danger: 0 84% 60%;
+    --color-danger-subtle: 0 84% 95%;
+    --color-danger-emphasis: 0 84% 50%;
+    --color-info: 190 80% 45%;
+    --color-info-subtle: 190 80% 93%;
+    --color-info-emphasis: 190 80% 35%;
   }
 
   .dark {
@@ -76,6 +95,25 @@
       hsl(var(--surface-3) / 0.82) 0%,
       hsl(var(--surface-1) / 0.94) 100%
     );
+    /* Semantic colors - dark theme */
+    --color-brand: 217 91% 60%;
+    --color-brand-subtle: 217 40% 15%;
+    --color-brand-emphasis: 217 91% 65%;
+    --color-accent: 260 60% 65%;
+    --color-accent-subtle: 260 30% 15%;
+    --color-accent-emphasis: 260 60% 70%;
+    --color-success: 142 71% 50%;
+    --color-success-subtle: 142 30% 14%;
+    --color-success-emphasis: 142 71% 55%;
+    --color-warning: 38 92% 55%;
+    --color-warning-subtle: 38 40% 14%;
+    --color-warning-emphasis: 38 92% 60%;
+    --color-danger: 0 84% 62%;
+    --color-danger-subtle: 0 40% 14%;
+    --color-danger-emphasis: 0 84% 67%;
+    --color-info: 190 80% 50%;
+    --color-info-subtle: 190 30% 14%;
+    --color-info-emphasis: 190 80% 55%;
   }
 }
 
