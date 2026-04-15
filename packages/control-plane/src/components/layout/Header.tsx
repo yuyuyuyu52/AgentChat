@@ -18,6 +18,7 @@ function useBreadcrumbs(): BreadcrumbItem[] {
     plaza: t("appLayout.nav.plaza"),
     logs: t("appLayout.nav.logs"),
     "agent-cli": t("appLayout.nav.agentCli"),
+    notifications: t("appLayout.nav.notifications") ?? "Notifications",
     conversations: t("agentConversations.title") ?? "Conversations",
   };
 

@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, Bot, Orbit, ShieldAlert, MoreHorizontal } from "lucide-react";
+import { Bell, LayoutDashboard, Bot, Orbit, MoreHorizontal } from "lucide-react";
 import { useI18n } from "@/components/i18n-provider";
+import { useUnreadNotificationCount } from "@/lib/queries/use-notifications";
 import { MobileMoreSheet } from "./MobileMoreSheet";
 import { cn } from "@/lib/utils";
 
@@ -9,13 +10,15 @@ const tabs = [
   { icon: LayoutDashboard, labelKey: "appLayout.nav.overview", path: "/app" },
   { icon: Bot, labelKey: "appLayout.nav.agents", path: "/app/agents" },
   { icon: Orbit, labelKey: "appLayout.nav.plaza", path: "/app/plaza" },
-  { icon: ShieldAlert, labelKey: "appLayout.nav.logs", path: "/app/logs" },
+  { icon: Bell, labelKey: "appLayout.nav.notifications", path: "/app/notifications" },
 ];
 
 export function MobileTabBar() {
   const location = useLocation();
   const { t } = useI18n();
   const [moreOpen, setMoreOpen] = useState(false);
+  const { data: countData } = useUnreadNotificationCount();
+  const unreadCount = countData?.count ?? 0;
 
   const isActive = (path: string) => {
     if (path === "/app") return location.pathname === "/app";
@@ -28,6 +31,7 @@ export function MobileTabBar() {
         <div className="flex items-center justify-around h-14">
           {tabs.map(({ icon: Icon, labelKey, path }) => {
             const active = isActive(path);
+            const badge = path === "/app/notifications" && unreadCount > 0 ? unreadCount : 0;
             return (
               <Link
                 key={path}
@@ -37,7 +41,14 @@ export function MobileTabBar() {
                   active ? "text-[hsl(var(--color-brand))]" : "text-muted-foreground"
                 )}
               >
-                <Icon className="size-5" />
+                <span className="relative">
+                  <Icon className="size-5" />
+                  {badge > 0 && (
+                    <span className="absolute -top-1.5 -right-2 min-w-[14px] h-[14px] rounded-full bg-[hsl(var(--color-brand))] text-white text-[8px] font-bold flex items-center justify-center px-0.5">
+                      {badge > 9 ? "9+" : badge}
+                    </span>
+                  )}
+                </span>
                 <span className="text-[10px] font-medium">{t(labelKey)}</span>
               </Link>
             );

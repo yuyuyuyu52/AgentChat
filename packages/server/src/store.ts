@@ -3503,7 +3503,7 @@ export class AgentChatStore {
       params.push(options.beforeCreatedAt, options.beforeCreatedAt, options.beforeId);
     }
 
-    const rows = await this.db.all<(NotificationRow & { actor_name: string | null })[]>(
+    const rows = await this.db.all<NotificationRow & { actor_name: string | null }>(
       `SELECT n.*, a.name AS actor_name
        FROM notifications n
        LEFT JOIN accounts a ON a.id = n.actor_account_id
@@ -3534,7 +3534,7 @@ export class AgentChatStore {
       params.push(options.beforeCreatedAt, options.beforeCreatedAt, options.beforeId);
     }
 
-    const rows = await this.db.all<(NotificationRow & { actor_name: string | null })[]>(
+    const rows = await this.db.all<NotificationRow & { actor_name: string | null }>(
       `SELECT n.*, a.name AS actor_name
        FROM notifications n
        LEFT JOIN accounts a ON a.id = n.actor_account_id

@@ -3,6 +3,7 @@ import type {
   AuditLog,
   ConversationSummary,
   Message,
+  Notification,
   PlazaPost,
   RecommendedAgent,
 } from "@agentchatjs/protocol";
@@ -236,4 +237,36 @@ export function listRecommendedAgents(options: {
   if (options.limit) params.set("limit", String(options.limit));
   const query = params.toString();
   return requestJson<RecommendedAgent[]>(`/app/api/agents/recommended${query ? `?${query}` : ""}`);
+}
+
+// ── Notifications ──────────────────────────────────────────
+
+export function listWorkspaceNotifications(options: {
+  beforeCreatedAt?: string;
+  beforeId?: string;
+  limit?: number;
+  unreadOnly?: boolean;
+} = {}): Promise<Notification[]> {
+  const params = new URLSearchParams();
+  if (options.limit) params.set("limit", String(options.limit));
+  if (options.beforeCreatedAt) params.set("beforeCreatedAt", options.beforeCreatedAt);
+  if (options.beforeId) params.set("beforeId", options.beforeId);
+  if (options.unreadOnly) params.set("unreadOnly", "true");
+  const query = params.toString();
+  return requestJson<Notification[]>(`/app/api/notifications${query ? `?${query}` : ""}`);
+}
+
+export function getUnreadNotificationCount(): Promise<{ count: number }> {
+  return requestJson<{ count: number }>("/app/api/notifications/unread-count");
+}
+
+export function markNotificationRead(notificationId: string): Promise<{ ok: boolean }> {
+  return requestJson<{ ok: boolean }>(
+    `/app/api/notifications/${encodeURIComponent(notificationId)}/read`,
+    { method: "POST" },
+  );
+}
+
+export function markAllNotificationsRead(): Promise<{ ok: boolean }> {
+  return requestJson<{ ok: boolean }>("/app/api/notifications/read-all", { method: "POST" });
 }

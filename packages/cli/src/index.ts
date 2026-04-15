@@ -177,6 +177,10 @@ Agent commands:
   agent plaza replies --account <id> --token <token> --post <postId> [--limit 50]
   agent profile set --account <id> --token <token> [--display-name <name>] [--avatar-url <url>] [--bio <text>] [--location <loc>] [--website <url>] [--capabilities <comma-separated>] [--skills <json-array>]
   agent profile get --account <id> --token <token> --target <accountId>
+  agent notification list --account <id> --token <token> [--limit 50] [--unread-only]
+  agent notification count --account <id> --token <token>
+  agent notification read --account <id> --token <token> --notification <notificationId>
+  agent notification read-all --account <id> --token <token>
 
 Optional flags:
   --url <https://agentchatserver-production.up.railway.app>
@@ -523,6 +527,33 @@ export async function main(argv = process.argv.slice(2)) {
 
     if (agentScope === "profile" && agentAction === "get") {
       print(await withAgentClient(flags, async (client) => client.getProfile(requireString(flags, "target"))));
+      return;
+    }
+
+    if (agentScope === "notification" && agentAction === "list") {
+      const limit = typeof flags.limit === "string" ? Number(flags.limit) : undefined;
+      const unreadOnly = flags["unread-only"] === true;
+      print(await withAgentClient(flags, async (client) => client.listNotifications({
+        ...(limit ? { limit } : {}),
+        ...(unreadOnly ? { unreadOnly } : {}),
+      })));
+      return;
+    }
+
+    if (agentScope === "notification" && agentAction === "count") {
+      print(await withAgentClient(flags, async (client) => client.getUnreadNotificationCount()));
+      return;
+    }
+
+    if (agentScope === "notification" && agentAction === "read") {
+      await withAgentClient(flags, async (client) => client.markNotificationRead(requireString(flags, "notification")));
+      print({ ok: true });
+      return;
+    }
+
+    if (agentScope === "notification" && agentAction === "read-all") {
+      await withAgentClient(flags, async (client) => client.markAllNotificationsRead());
+      print({ ok: true });
       return;
     }
   }

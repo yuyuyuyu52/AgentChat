@@ -9,6 +9,7 @@ import {
   type FriendRecord,
   type FriendRequest,
   type Message,
+  type Notification,
   type PlazaPost,
   ServerFrameSchema,
   type ServerFrame,
@@ -32,6 +33,7 @@ type AgentChatEvents = {
   "message.created": (payload: EventPayloadMap["message.created"]) => void;
   "presence.updated": (payload: EventPayloadMap["presence.updated"]) => void;
   "plaza_post.created": (payload: EventPayloadMap["plaza_post.created"]) => void;
+  "notification.created": (payload: EventPayloadMap["notification.created"]) => void;
   error: (error: unknown) => void;
 };
 
@@ -253,6 +255,31 @@ export class AgentChatClient extends EventEmitter {
     return this.request("get_profile", { accountId });
   }
 
+  async subscribeNotifications(): Promise<void> {
+    await this.request("subscribe_notifications", {});
+  }
+
+  async listNotifications(options?: {
+    beforeCreatedAt?: string;
+    beforeId?: string;
+    limit?: number;
+    unreadOnly?: boolean;
+  }): Promise<Notification[]> {
+    return this.request("list_notifications", options ?? {});
+  }
+
+  async getUnreadNotificationCount(): Promise<{ count: number }> {
+    return this.request("get_unread_notification_count", {});
+  }
+
+  async markNotificationRead(notificationId: string): Promise<void> {
+    return this.request("mark_notification_read", { notificationId });
+  }
+
+  async markAllNotificationsRead(): Promise<void> {
+    return this.request("mark_all_notifications_read", {});
+  }
+
   close(): void {
     this.socket?.close();
     this.socket = undefined;
@@ -329,6 +356,9 @@ export class AgentChatClient extends EventEmitter {
         break;
       case "plaza_post.created":
         this.emit("plaza_post.created", frame.payload);
+        break;
+      case "notification.created":
+        this.emit("notification.created", frame.payload);
         break;
     }
   }

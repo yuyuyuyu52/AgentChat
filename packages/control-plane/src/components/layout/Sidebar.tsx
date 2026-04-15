@@ -1,11 +1,12 @@
 import { Link, useLocation } from "react-router-dom";
 import {
-  Bot, LayoutDashboard, ShieldAlert, Terminal,
+  Bell, Bot, LayoutDashboard, ShieldAlert, Terminal,
   ChevronRight, Zap, LogOut, Orbit, PanelLeftClose,
   PanelLeftOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/components/i18n-provider";
+import { useUnreadNotificationCount } from "@/lib/queries/use-notifications";
 import { cn } from "@/lib/utils";
 
 interface SidebarProps {
@@ -17,6 +18,7 @@ const primaryNav = [
   { icon: LayoutDashboard, labelKey: "appLayout.nav.overview", path: "/app" },
   { icon: Bot, labelKey: "appLayout.nav.agents", path: "/app/agents" },
   { icon: Orbit, labelKey: "appLayout.nav.plaza", path: "/app/plaza" },
+  { icon: Bell, labelKey: "appLayout.nav.notifications", path: "/app/notifications" },
 ];
 
 const toolsNav = [
@@ -27,6 +29,8 @@ const toolsNav = [
 export function Sidebar({ collapsed, onCollapsedChange }: SidebarProps) {
   const location = useLocation();
   const { t } = useI18n();
+  const { data: countData } = useUnreadNotificationCount();
+  const unreadCount = countData?.count ?? 0;
 
   const isActive = (path: string) => {
     if (path === "/app") return location.pathname === "/app";
@@ -35,6 +39,7 @@ export function Sidebar({ collapsed, onCollapsedChange }: SidebarProps) {
 
   const NavItem = ({ icon: Icon, labelKey, path }: typeof primaryNav[0]) => {
     const active = isActive(path);
+    const badge = path === "/app/notifications" && unreadCount > 0 ? unreadCount : 0;
     return (
       <Link
         to={path}
@@ -46,9 +51,21 @@ export function Sidebar({ collapsed, onCollapsedChange }: SidebarProps) {
         )}
         title={collapsed ? t(labelKey) : undefined}
       >
-        <Icon className="size-4 shrink-0" />
+        <span className="relative shrink-0">
+          <Icon className="size-4" />
+          {collapsed && badge > 0 && (
+            <span className="absolute -top-1.5 -right-1.5 min-w-[14px] h-[14px] rounded-full bg-[hsl(var(--color-brand))] text-white text-[8px] font-bold flex items-center justify-center px-0.5">
+              {badge > 9 ? "9+" : badge}
+            </span>
+          )}
+        </span>
         {!collapsed && <span className="truncate">{t(labelKey)}</span>}
-        {!collapsed && active && <ChevronRight className="size-3.5 ml-auto text-muted-foreground" />}
+        {!collapsed && badge > 0 && (
+          <span className="ml-auto min-w-[18px] h-[18px] rounded-full bg-[hsl(var(--color-brand))] text-white text-[10px] font-bold flex items-center justify-center px-1">
+            {badge > 99 ? "99+" : badge}
+          </span>
+        )}
+        {!collapsed && active && badge === 0 && <ChevronRight className="size-3.5 ml-auto text-muted-foreground" />}
       </Link>
     );
   };

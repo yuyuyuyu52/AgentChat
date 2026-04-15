@@ -579,6 +579,14 @@ export class AgentChatServer {
       if (request) {
         await this.broadcastConversationCreated(request.requester.id, result.conversationId);
         await this.broadcastConversationCreated(request.target.id, result.conversationId);
+        // Notify the requester that their request was accepted
+        this.createAndDispatchNotification({
+          recipientAccountId: request.requester.id,
+          type: "friend_request_accepted",
+          actorAccountId: actorId,
+          subjectType: "friend_request",
+          subjectId: requestId,
+        }).catch(() => {});
       }
     }
     return result;
@@ -724,6 +732,20 @@ export class AgentChatServer {
       this.generatePostEmbedding(post.id, post.body).catch((err) => {
         console.error(`Failed to generate embedding for post ${post.id}:`, err);
       });
+    }
+
+    // Notify parent post author when this is a reply
+    if (options?.parentPostId) {
+      this.store.getPlazaPostAuthorId(options.parentPostId).then((parentAuthorId) => {
+        this.createAndDispatchNotification({
+          recipientAccountId: parentAuthorId,
+          type: "plaza_post_replied",
+          actorAccountId: authorAccountId,
+          subjectType: "plaza_post",
+          subjectId: post.id,
+          data: { postBody: post.body.slice(0, 100) },
+        }).catch(() => {});
+      }).catch(() => {});
     }
 
     return post;
@@ -1267,8 +1289,18 @@ export class AgentChatServer {
       if (method === "POST" && appPlazaPostLikeMatch) {
         const session = await this.requireUserSession(request);
         const humanAccount = await this.store.getOrCreateHumanAccount(session);
-        jsonResponse(response, 200, await this.store.likePlazaPost(humanAccount.id, appPlazaPostLikeMatch[1]!));
+        const postId = appPlazaPostLikeMatch[1]!;
+        jsonResponse(response, 200, await this.store.likePlazaPost(humanAccount.id, postId));
         this.updateInterestVector(humanAccount.id).catch(() => {});
+        this.store.getPlazaPostAuthorId(postId).then((authorId) => {
+          this.createAndDispatchNotification({
+            recipientAccountId: authorId,
+            type: "plaza_post_liked",
+            actorAccountId: humanAccount.id,
+            subjectType: "plaza_post",
+            subjectId: postId,
+          }).catch(() => {});
+        }).catch(() => {});
         return;
       }
       if (method === "DELETE" && appPlazaPostLikeMatch) {
@@ -1283,8 +1315,18 @@ export class AgentChatServer {
       if (method === "POST" && appPlazaPostRepostMatch) {
         const session = await this.requireUserSession(request);
         const humanAccount = await this.store.getOrCreateHumanAccount(session);
-        jsonResponse(response, 200, await this.store.repostPlazaPost(humanAccount.id, appPlazaPostRepostMatch[1]!));
+        const postId = appPlazaPostRepostMatch[1]!;
+        jsonResponse(response, 200, await this.store.repostPlazaPost(humanAccount.id, postId));
         this.updateInterestVector(humanAccount.id).catch(() => {});
+        this.store.getPlazaPostAuthorId(postId).then((authorId) => {
+          this.createAndDispatchNotification({
+            recipientAccountId: authorId,
+            type: "plaza_post_reposted",
+            actorAccountId: humanAccount.id,
+            subjectType: "plaza_post",
+            subjectId: postId,
+          }).catch(() => {});
+        }).catch(() => {});
         return;
       }
       if (method === "DELETE" && appPlazaPostRepostMatch) {
@@ -1312,6 +1354,53 @@ export class AgentChatServer {
             ...(limit ? { limit } : {}),
           }),
         );
+        return;
+      }
+
+      // ── Notification HTTP endpoints ───────────────────────────
+      if (method === "GET" && url.pathname === "/app/api/notifications") {
+        const session = await this.requireUserSession(request);
+        const humanAccount = await this.store.getOrCreateHumanAccount(session);
+        const beforeCreatedAt = typeof url.query.beforeCreatedAt === "string" ? url.query.beforeCreatedAt : undefined;
+        const beforeId = typeof url.query.beforeId === "string" ? url.query.beforeId : undefined;
+        const rawLimit = typeof url.query.limit === "string" ? Number(url.query.limit) : undefined;
+        const limit = rawLimit !== undefined && Number.isFinite(rawLimit) && rawLimit > 0
+          ? Math.min(Math.trunc(rawLimit), 100) : undefined;
+        const unreadOnly = url.query.unreadOnly === "true";
+        jsonResponse(response, 200, await this.store.listNotificationsForOwner(
+          session.subject, humanAccount.id, {
+            ...(beforeCreatedAt ? { beforeCreatedAt } : {}),
+            ...(beforeId ? { beforeId } : {}),
+            ...(limit ? { limit } : {}),
+            ...(unreadOnly ? { unreadOnly } : {}),
+          },
+        ));
+        return;
+      }
+
+      if (method === "GET" && url.pathname === "/app/api/notifications/unread-count") {
+        const session = await this.requireUserSession(request);
+        const humanAccount = await this.store.getOrCreateHumanAccount(session);
+        jsonResponse(response, 200, {
+          count: await this.store.getUnreadNotificationCountForOwner(session.subject, humanAccount.id),
+        });
+        return;
+      }
+
+      const appNotificationReadMatch = url.pathname?.match(/^\/app\/api\/notifications\/([^/]+)\/read$/);
+      if (method === "POST" && appNotificationReadMatch) {
+        const session = await this.requireUserSession(request);
+        const humanAccount = await this.store.getOrCreateHumanAccount(session);
+        await this.store.markNotificationReadForOwner(session.subject, humanAccount.id, appNotificationReadMatch[1]!);
+        jsonResponse(response, 200, { ok: true });
+        return;
+      }
+
+      if (method === "POST" && url.pathname === "/app/api/notifications/read-all") {
+        const session = await this.requireUserSession(request);
+        const humanAccount = await this.store.getOrCreateHumanAccount(session);
+        await this.store.markAllNotificationsReadForOwner(session.subject, humanAccount.id);
+        jsonResponse(response, 200, { ok: true });
         return;
       }
 
@@ -1677,7 +1766,17 @@ export class AgentChatServer {
         }
         case "like_plaza_post": {
           const accountId = this.requireAuthenticated(connection);
-          this.sendResponse(connection, request.id, await this.store.likePlazaPost(accountId, request.payload.postId));
+          const likeResult = await this.store.likePlazaPost(accountId, request.payload.postId);
+          this.sendResponse(connection, request.id, likeResult);
+          this.store.getPlazaPostAuthorId(request.payload.postId).then((authorId) => {
+            this.createAndDispatchNotification({
+              recipientAccountId: authorId,
+              type: "plaza_post_liked",
+              actorAccountId: accountId,
+              subjectType: "plaza_post",
+              subjectId: request.payload.postId,
+            }).catch(() => {});
+          }).catch(() => {});
           return;
         }
         case "unlike_plaza_post": {
@@ -1687,7 +1786,17 @@ export class AgentChatServer {
         }
         case "repost_plaza_post": {
           const accountId = this.requireAuthenticated(connection);
-          this.sendResponse(connection, request.id, await this.store.repostPlazaPost(accountId, request.payload.postId));
+          const repostResult = await this.store.repostPlazaPost(accountId, request.payload.postId);
+          this.sendResponse(connection, request.id, repostResult);
+          this.store.getPlazaPostAuthorId(request.payload.postId).then((authorId) => {
+            this.createAndDispatchNotification({
+              recipientAccountId: authorId,
+              type: "plaza_post_reposted",
+              actorAccountId: accountId,
+              subjectType: "plaza_post",
+              subjectId: request.payload.postId,
+            }).catch(() => {});
+          }).catch(() => {});
           return;
         }
         case "unrepost_plaza_post": {
@@ -1731,6 +1840,46 @@ export class AgentChatServer {
             request.id,
             await this.store.getAccountById(request.payload.accountId),
           );
+          return;
+        }
+        case "subscribe_notifications": {
+          this.requireAuthenticated(connection);
+          connection.subscribedNotifications = true;
+          this.sendResponse(connection, request.id, {});
+          return;
+        }
+        case "list_notifications": {
+          const accountId = this.requireAuthenticated(connection);
+          const payload = request.payload ?? {};
+          this.sendResponse(
+            connection,
+            request.id,
+            await this.store.listNotifications(accountId, {
+              ...(payload.beforeCreatedAt ? { beforeCreatedAt: payload.beforeCreatedAt } : {}),
+              ...(payload.beforeId ? { beforeId: payload.beforeId } : {}),
+              ...(payload.limit ? { limit: payload.limit } : {}),
+              ...(payload.unreadOnly ? { unreadOnly: payload.unreadOnly } : {}),
+            }),
+          );
+          return;
+        }
+        case "get_unread_notification_count": {
+          const accountId = this.requireAuthenticated(connection);
+          this.sendResponse(connection, request.id, {
+            count: await this.store.getUnreadNotificationCount(accountId),
+          });
+          return;
+        }
+        case "mark_notification_read": {
+          const accountId = this.requireAuthenticated(connection);
+          await this.store.markNotificationRead(accountId, request.payload.notificationId);
+          this.sendResponse(connection, request.id, {});
+          return;
+        }
+        case "mark_all_notifications_read": {
+          const accountId = this.requireAuthenticated(connection);
+          await this.store.markAllNotificationsRead(accountId);
+          this.sendResponse(connection, request.id, {});
           return;
         }
       }
@@ -1811,6 +1960,17 @@ export class AgentChatServer {
         event,
         (connection) => connection.subscribedConversationIds.has(message.conversationId),
       );
+      // Notify offline members about new messages
+      if (memberId !== message.senderId && !this.accountConnections.has(memberId)) {
+        this.createAndDispatchNotification({
+          recipientAccountId: memberId,
+          type: "message_received",
+          actorAccountId: message.senderId,
+          subjectType: "message",
+          subjectId: message.id,
+          data: { conversationId: message.conversationId, messageBody: message.body.slice(0, 100) },
+        }).catch(() => {});
+      }
     }
   }
 

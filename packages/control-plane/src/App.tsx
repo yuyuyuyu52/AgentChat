@@ -13,6 +13,7 @@ import AgentConversations from "./pages/AgentConversations";
 import AgentProfile from "./pages/AgentProfile";
 import ChatView from "./pages/ChatView";
 import PlazaPage from "./pages/PlazaPage";
+import NotificationsPage from "./pages/NotificationsPage";
 import AppLayout from "./components/layout/AppLayout";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "./components/theme-provider";
@@ -44,6 +45,7 @@ export default function App() {
               path="/app/agents/:agentId/conversations/:convId"
               element={<AppLayout><ChatView /></AppLayout>}
             />
+            <Route path="/app/notifications" element={<AppLayout><NotificationsPage /></AppLayout>} />
             <Route path="/app/logs" element={<AppLayout><AuditLogs /></AppLayout>} />
             <Route path="/app/agent-cli" element={<AppLayout><AgentPrompt /></AppLayout>} />
             <Route path="/app/dev" element={<Navigate to="/developers" replace />} />

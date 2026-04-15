@@ -19,6 +19,17 @@ export type MessageKind = z.infer<typeof MessageKindSchema>;
 export const PlazaPostKindSchema = z.enum(["text"]);
 export type PlazaPostKind = z.infer<typeof PlazaPostKindSchema>;
 
+export const NotificationTypeSchema = z.enum([
+  "friend_request_received",
+  "friend_request_accepted",
+  "plaza_post_liked",
+  "plaza_post_reposted",
+  "plaza_post_replied",
+  "message_received",
+  "system_announcement",
+]);
+export type NotificationType = z.infer<typeof NotificationTypeSchema>;
+
 export const AgentSkillSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -151,6 +162,20 @@ export const AuditLogSchema = z.object({
   createdAt: z.string(),
 });
 export type AuditLog = z.infer<typeof AuditLogSchema>;
+
+export const NotificationSchema = z.object({
+  id: z.string(),
+  recipientAccountId: z.string(),
+  type: NotificationTypeSchema,
+  actorAccountId: z.string().nullable(),
+  actorName: z.string().nullable(),
+  subjectType: z.string(),
+  subjectId: z.string(),
+  data: z.record(z.string(), z.unknown()),
+  isRead: z.boolean(),
+  createdAt: z.string(),
+});
+export type Notification = z.infer<typeof NotificationSchema>;
 
 const RequestEnvelopeSchema = z.object({
   id: z.string().min(1),
@@ -357,6 +382,38 @@ const GetProfileRequestSchema = RequestEnvelopeSchema.extend({
   }),
 });
 
+const SubscribeNotificationsRequestSchema = RequestEnvelopeSchema.extend({
+  type: z.literal("subscribe_notifications"),
+  payload: z.object({}).optional(),
+});
+
+const ListNotificationsRequestSchema = RequestEnvelopeSchema.extend({
+  type: z.literal("list_notifications"),
+  payload: z.object({
+    beforeCreatedAt: z.string().optional(),
+    beforeId: z.string().optional(),
+    limit: z.number().int().positive().max(100).optional(),
+    unreadOnly: z.boolean().optional(),
+  }).optional(),
+});
+
+const GetUnreadNotificationCountRequestSchema = RequestEnvelopeSchema.extend({
+  type: z.literal("get_unread_notification_count"),
+  payload: z.object({}).optional(),
+});
+
+const MarkNotificationReadRequestSchema = RequestEnvelopeSchema.extend({
+  type: z.literal("mark_notification_read"),
+  payload: z.object({
+    notificationId: z.string(),
+  }),
+});
+
+const MarkAllNotificationsReadRequestSchema = RequestEnvelopeSchema.extend({
+  type: z.literal("mark_all_notifications_read"),
+  payload: z.object({}).optional(),
+});
+
 export const ClientRequestSchema = z.discriminatedUnion("type", [
   ConnectRequestSchema,
   SubscribeConversationsRequestSchema,
@@ -385,6 +442,11 @@ export const ClientRequestSchema = z.discriminatedUnion("type", [
   ListPlazaRepliesRequestSchema,
   UpdateProfileRequestSchema,
   GetProfileRequestSchema,
+  SubscribeNotificationsRequestSchema,
+  ListNotificationsRequestSchema,
+  GetUnreadNotificationCountRequestSchema,
+  MarkNotificationReadRequestSchema,
+  MarkAllNotificationsReadRequestSchema,
 ]);
 export type ClientRequest = z.infer<typeof ClientRequestSchema>;
 
@@ -443,12 +505,19 @@ export const PlazaPostCreatedEventSchema = z.object({
   payload: PlazaPostSchema,
 });
 
+export const NotificationCreatedEventSchema = z.object({
+  type: z.literal("event"),
+  event: z.literal("notification.created"),
+  payload: NotificationSchema,
+});
+
 export const ServerEventSchema = z.discriminatedUnion("event", [
   ConversationCreatedEventSchema,
   ConversationMemberAddedEventSchema,
   MessageCreatedEventSchema,
   PresenceUpdatedEventSchema,
   PlazaPostCreatedEventSchema,
+  NotificationCreatedEventSchema,
 ]);
 export type ServerEvent = z.infer<typeof ServerEventSchema>;
 
@@ -471,6 +540,7 @@ export type EventPayloadMap = {
     status: PresenceStatus;
   };
   "plaza_post.created": PlazaPost;
+  "notification.created": Notification;
 };
 
 export function makeResponse(id: string, payload: unknown): ServerResponse {
