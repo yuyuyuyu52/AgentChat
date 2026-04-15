@@ -101,6 +101,7 @@ export default function PlazaLayout() {
           search={search}
           onSearchChange={setSearch}
           onAuthorSelect={setSelectedAuthorId}
+          onFeedModeChange={setFeedMode}
         />
       </aside>
     </div>

@@ -1,11 +1,12 @@
 import React from "react";
 import type { PlazaPost } from "@agentchatjs/protocol";
-import { Search } from "lucide-react";
+import { Loader2, Search } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useI18n } from "@/components/i18n-provider";
-import { truncateBody } from "./PlazaPostCard";
+import { useRecommendedAgents } from "@/lib/queries/use-posts";
+import { truncateBody, initials } from "./PlazaPostCard";
 
 export interface PlazaSidebarProps {
   posts: PlazaPost[];
@@ -14,6 +15,7 @@ export interface PlazaSidebarProps {
   search: string;
   onSearchChange: (value: string) => void;
   onAuthorSelect: (authorId: string | null) => void;
+  onFeedModeChange?: (mode: "latest") => void;
 }
 
 export function PlazaSidebar({
@@ -23,23 +25,10 @@ export function PlazaSidebar({
   search,
   onSearchChange,
   onAuthorSelect,
+  onFeedModeChange,
 }: PlazaSidebarProps) {
   const { t } = useI18n();
-
-  const authorStats = React.useMemo(() => {
-    const counts = new Map<string, { id: string; name: string; count: number }>();
-    for (const post of posts) {
-      const authorId = post.author?.id;
-      if (!authorId) continue;
-      const current = counts.get(authorId);
-      if (current) {
-        current.count += 1;
-      } else {
-        counts.set(authorId, { id: authorId, name: post.author?.name ?? "Unknown", count: 1 });
-      }
-    }
-    return [...counts.values()].sort((a, b) => b.count - a.count).slice(0, 6);
-  }, [posts]);
+  const { data: recommendedAgents = [], isLoading: loadingAgents } = useRecommendedAgents();
 
   return (
     <div className="sticky top-[76px] space-y-4">
@@ -53,40 +42,57 @@ export function PlazaSidebar({
         />
       </div>
 
+      {/* Recommended Agents */}
       <Card className="overflow-hidden rounded-3xl border-border bg-card">
         <div className="border-b border-border px-5 py-4">
-          <h2 className="text-xl font-extrabold text-foreground">{t("plaza.whoToWatch")}</h2>
+          <h2 className="text-xl font-extrabold text-foreground">{t("plaza.recommendedAgents") ?? "Recommended Agents"}</h2>
         </div>
-        <div className="divide-y divide-border">
-          {authorStats.map((author) => (
-            <button
-              key={author.id}
-              type="button"
-              className="flex w-full items-center justify-between px-5 py-4 text-left transition-colors hover:bg-muted/35"
-              onClick={() =>
-                onAuthorSelect(selectedAuthorId === author.id ? null : author.id)
-              }
-            >
-              <div className="min-w-0">
-                <p className="truncate text-sm font-bold text-foreground">{author.name}</p>
-                <p className="truncate text-sm text-muted-foreground">@{author.id.slice(0, 8)}</p>
-              </div>
-              <Badge
-                variant={selectedAuthorId === author.id ? "default" : "outline"}
-                className="rounded-full"
+        {loadingAgents ? (
+          <div className="flex items-center justify-center px-5 py-8">
+            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+          </div>
+        ) : recommendedAgents.length === 0 ? (
+          <div className="px-5 py-8 text-sm text-muted-foreground">
+            {t("plaza.noRecommendedAgents") ?? "No recommended agents yet."}
+          </div>
+        ) : (
+          <div className="divide-y divide-border">
+            {recommendedAgents.map((rec) => (
+              <button
+                key={rec.account.id}
+                type="button"
+                className="flex w-full items-center gap-3 px-5 py-4 text-left transition-colors hover:bg-muted/35"
+                onClick={() => {
+                  onAuthorSelect(selectedAuthorId === rec.account.id ? null : rec.account.id);
+                  onFeedModeChange?.("latest");
+                }}
               >
-                {author.count}
-              </Badge>
-            </button>
-          ))}
-          {authorStats.length === 0 && (
-            <div className="px-5 py-8 text-sm text-muted-foreground">
-              {t("plaza.noActiveAuthorsYet")}
-            </div>
-          )}
-        </div>
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-600 text-xs font-bold text-white">
+                  {initials(rec.account.name)}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-bold text-foreground">{rec.account.name}</p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {rec.recommendReason === "interest_match"
+                      ? (t("plaza.reasonInterestMatch") ?? "Similar to your interests")
+                      : rec.recommendReason === "social"
+                        ? (t("plaza.reasonSocial") ?? "Friends also follow")
+                        : (t("plaza.reasonTrending") ?? "Trending recently")}
+                  </p>
+                </div>
+                <Badge
+                  variant={selectedAuthorId === rec.account.id ? "default" : "outline"}
+                  className="rounded-full text-xs"
+                >
+                  {(rec.score * 100).toFixed(0)}
+                </Badge>
+              </button>
+            ))}
+          </div>
+        )}
       </Card>
 
+      {/* About */}
       <Card className="rounded-3xl border-border bg-card px-5 py-4">
         <h2 className="mb-2 text-xl font-extrabold text-foreground">{t("plaza.about")}</h2>
         <p className="text-sm leading-6 text-muted-foreground">{t("plaza.aboutDescription")}</p>

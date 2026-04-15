@@ -1,7 +1,7 @@
 import React from "react";
 import type { PlazaPost } from "@agentchatjs/protocol";
 import { Loader2, RefreshCcw, Sparkles } from "lucide-react";
-import { usePosts, useLikePost, useRepostPost } from "@/lib/queries/use-posts";
+import { usePosts, useRecommendedPosts, useLikePost, useRepostPost } from "@/lib/queries/use-posts";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/components/i18n-provider";
 import { cn } from "@/lib/utils";
@@ -17,7 +17,6 @@ export interface PlazaFeedProps {
   feedMode: FeedMode;
   onFeedModeChange: (mode: FeedMode) => void;
   search: string;
-  /** Callback to expose the flat post list to the parent for sidebar/detail use */
   onPostsLoaded?: (posts: PlazaPost[]) => void;
 }
 
@@ -34,19 +33,19 @@ export function PlazaFeed({
   const { t } = useI18n();
   const deferredSearch = React.useDeferredValue(search);
 
-  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, isRefetching, refetch } =
-    usePosts(selectedAuthorId ? { authorAccountId: selectedAuthorId } : undefined);
+  // Use recommended API for "For You", standard listing for "Latest"
+  const latestQuery = usePosts(
+    selectedAuthorId ? { authorAccountId: selectedAuthorId } : undefined,
+  );
+  const recommendedQuery = useRecommendedPosts();
+
+  const activeQuery = feedMode === "forYou" && !selectedAuthorId ? recommendedQuery : latestQuery;
+  const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, isRefetching, refetch } = activeQuery;
 
   const allPosts = React.useMemo(() => {
     const pages = data?.pages ?? [];
-    let flat = pages.flat();
-    if (feedMode === "latest") {
-      flat = [...flat].sort(
-        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-      );
-    }
-    return flat;
-  }, [data, feedMode]);
+    return pages.flat();
+  }, [data]);
 
   const filteredPosts = React.useMemo(() => {
     const query = deferredSearch.trim().toLowerCase();
@@ -56,7 +55,6 @@ export function PlazaFeed({
     );
   }, [deferredSearch, allPosts]);
 
-  // Notify parent of loaded posts so sidebar and detail can use them
   const onPostsLoadedRef = React.useRef(onPostsLoaded);
   onPostsLoadedRef.current = onPostsLoaded;
   React.useEffect(() => {
@@ -76,7 +74,6 @@ export function PlazaFeed({
 
   return (
     <section className="min-w-0 flex-1 border-x border-border bg-background">
-      {/* Header */}
       <header className="sticky top-0 z-10 border-b border-border bg-background/80 backdrop-blur">
         <div className="px-4 py-3 sm:px-5">
           <div className="mb-3 flex items-center justify-between gap-3">
@@ -86,17 +83,8 @@ export function PlazaFeed({
                 {selectedAuthorId ? t("plaza.filteredAuthorTimeline") : t("plaza.plazaTimeline")}
               </p>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="rounded-full"
-              onClick={() => void refetch()}
-            >
-              {isRefetching ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <RefreshCcw className="h-4 w-4" />
-              )}
+            <Button variant="ghost" size="sm" className="rounded-full" onClick={() => void refetch()}>
+              {isRefetching ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCcw className="h-4 w-4" />}
             </Button>
           </div>
 
@@ -109,7 +97,10 @@ export function PlazaFeed({
                   ? "border-b-2 border-blue-500 font-semibold text-foreground"
                   : "border-b border-border text-muted-foreground hover:text-foreground",
               )}
-              onClick={() => onFeedModeChange("forYou")}
+              onClick={() => {
+                onFeedModeChange("forYou");
+                onClearAuthor();
+              }}
             >
               {t("plaza.forYou")}
             </button>
@@ -129,7 +120,6 @@ export function PlazaFeed({
         </div>
       </header>
 
-      {/* Author filter banner */}
       {selectedAuthorId && (
         <div className="border-b border-border px-4 py-3 sm:px-5">
           <div className="flex items-center justify-between gap-3 rounded-2xl bg-muted/35 px-4 py-3">
@@ -141,11 +131,9 @@ export function PlazaFeed({
         </div>
       )}
 
-      {/* Content */}
       {isLoading ? (
         <div className="flex min-h-[420px] items-center justify-center gap-3 text-muted-foreground">
-          <Loader2 className="h-5 w-5 animate-spin" />
-          {t("plaza.loadingPosts")}
+          <Loader2 className="h-5 w-5 animate-spin" /> {t("plaza.loadingPosts")}
         </div>
       ) : filteredPosts.length === 0 ? (
         <div className="flex min-h-[420px] flex-col items-center justify-center gap-3 px-6 text-center">
@@ -166,7 +154,6 @@ export function PlazaFeed({
               />
             ))}
           </div>
-
           <div className="border-t border-border px-4 py-5 sm:px-5">
             <Button
               variant="ghost"

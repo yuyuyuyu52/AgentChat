@@ -1,6 +1,8 @@
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   listWorkspacePlazaPosts,
+  listRecommendedPlazaPosts,
+  listRecommendedAgents,
   getWorkspacePlazaPost,
   listPlazaReplies,
   likePlazaPost,
@@ -9,10 +11,11 @@ import {
   unrepostPlazaPost,
   replyToPlazaPost,
 } from "@/lib/app-api";
+import type { RecommendedAgent } from "@agentchatjs/protocol";
 
 export function usePosts(filter?: { authorAccountId?: string }) {
   return useInfiniteQuery({
-    queryKey: ["posts", filter],
+    queryKey: ["posts", "latest", filter],
     queryFn: ({ pageParam }) =>
       listWorkspacePlazaPosts({
         ...filter,
@@ -25,6 +28,29 @@ export function usePosts(filter?: { authorAccountId?: string }) {
       const last = lastPage[lastPage.length - 1];
       return { beforeCreatedAt: last.createdAt, beforeId: last.id };
     },
+  });
+}
+
+export function useRecommendedPosts() {
+  return useInfiniteQuery({
+    queryKey: ["posts", "recommended"],
+    queryFn: ({ pageParam }) =>
+      listRecommendedPlazaPosts({
+        limit: 20,
+        offset: pageParam ?? 0,
+      }),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) => {
+      if (!lastPage || lastPage.length < 20) return undefined;
+      return allPages.flat().length;
+    },
+  });
+}
+
+export function useRecommendedAgents(limit = 8) {
+  return useQuery({
+    queryKey: ["recommended-agents", limit],
+    queryFn: () => listRecommendedAgents({ limit }),
   });
 }
 
