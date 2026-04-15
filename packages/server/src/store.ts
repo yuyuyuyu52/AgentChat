@@ -1882,50 +1882,48 @@ export class AgentChatStore {
       }
     >(
       `
-        SELECT
-          p.id,
-          p.author_account_id,
-          p.body,
-          p.kind,
-          p.created_at,
-          p.parent_post_id,
-          p.quoted_post_id,
-          a.id AS author_id,
-          a.type AS author_type,
-          a.name AS author_name,
-          a.profile_json AS author_profile_json,
-          a.auth_token AS author_auth_token,
-          a.owner_subject AS author_owner_subject,
-          a.owner_email AS author_owner_email,
-          a.owner_name AS author_owner_name,
-          a.created_at AS author_created_at,
-          (SELECT COUNT(*) FROM plaza_post_likes WHERE post_id = p.id) AS like_count,
-          (SELECT COUNT(*) FROM plaza_posts r WHERE r.parent_post_id = p.id) AS reply_count,
-          (SELECT COUNT(*) FROM plaza_posts q WHERE q.quoted_post_id = p.id) AS quote_count,
-          (SELECT COUNT(*) FROM plaza_post_reposts WHERE post_id = p.id) AS repost_count,
-          (SELECT COUNT(*) FROM plaza_post_views WHERE post_id = p.id) AS view_count,
-          (SELECT COUNT(*) FROM plaza_post_likes WHERE post_id = p.id AND account_id = ?) AS liked,
-          (SELECT COUNT(*) FROM plaza_post_reposts WHERE post_id = p.id AND account_id = ?) AS reposted,
-          CASE
-            WHEN (SELECT COUNT(*) FROM plaza_post_likes WHERE post_id = p.id) * 1.0 +
-              (SELECT COUNT(*) FROM plaza_post_reposts WHERE post_id = p.id) * 3.0 +
-              (SELECT COUNT(*) FROM plaza_posts r2 WHERE r2.parent_post_id = p.id) * 5.0 +
-              (SELECT COUNT(*) FROM plaza_posts q2 WHERE q2.quoted_post_id = p.id) * 4.0 +
-              (SELECT COUNT(*) FROM plaza_post_views WHERE post_id = p.id) * 0.05 > 0
-            THEN LOG(2.0, 1.0 + (
-              (SELECT COUNT(*) FROM plaza_post_likes WHERE post_id = p.id) * 1.0 +
+        SELECT t.*,
+          CASE WHEN t.weighted_engagement > 0
+            THEN LOG(2.0, 1.0 + t.weighted_engagement)
+              * (1.0 / (1.0 + POWER(EXTRACT(EPOCH FROM (NOW() - t.created_at::timestamptz)) / 3600.0 / 48.0, 1.5)))
+            ELSE 0
+          END AS hot_score
+        FROM (
+          SELECT
+            p.id,
+            p.author_account_id,
+            p.body,
+            p.kind,
+            p.created_at,
+            p.parent_post_id,
+            p.quoted_post_id,
+            a.id AS author_id,
+            a.type AS author_type,
+            a.name AS author_name,
+            a.profile_json AS author_profile_json,
+            a.auth_token AS author_auth_token,
+            a.owner_subject AS author_owner_subject,
+            a.owner_email AS author_owner_email,
+            a.owner_name AS author_owner_name,
+            a.created_at AS author_created_at,
+            (SELECT COUNT(*) FROM plaza_post_likes WHERE post_id = p.id) AS like_count,
+            (SELECT COUNT(*) FROM plaza_posts r WHERE r.parent_post_id = p.id) AS reply_count,
+            (SELECT COUNT(*) FROM plaza_posts q WHERE q.quoted_post_id = p.id) AS quote_count,
+            (SELECT COUNT(*) FROM plaza_post_reposts WHERE post_id = p.id) AS repost_count,
+            (SELECT COUNT(*) FROM plaza_post_views WHERE post_id = p.id) AS view_count,
+            (SELECT COUNT(*) FROM plaza_post_likes WHERE post_id = p.id AND account_id = ?) AS liked,
+            (SELECT COUNT(*) FROM plaza_post_reposts WHERE post_id = p.id AND account_id = ?) AS reposted,
+            (SELECT COUNT(*) FROM plaza_post_likes WHERE post_id = p.id) * 1.0 +
               (SELECT COUNT(*) FROM plaza_post_reposts WHERE post_id = p.id) * 3.0 +
               (SELECT COUNT(*) FROM plaza_posts r2 WHERE r2.parent_post_id = p.id) * 5.0 +
               (SELECT COUNT(*) FROM plaza_posts q2 WHERE q2.quoted_post_id = p.id) * 4.0 +
               (SELECT COUNT(*) FROM plaza_post_views WHERE post_id = p.id) * 0.05
-            ))
-            * (1.0 / (1.0 + POWER(EXTRACT(EPOCH FROM (NOW() - p.created_at::timestamptz)) / 3600.0 / 48.0, 1.5)))
-            ELSE 0
-          END AS hot_score
-        FROM plaza_posts p
-        JOIN accounts a ON a.id = p.author_account_id
-        WHERE p.parent_post_id IS NULL
-        ORDER BY hot_score DESC, p.created_at DESC
+              AS weighted_engagement
+          FROM plaza_posts p
+          JOIN accounts a ON a.id = p.author_account_id
+          WHERE p.parent_post_id IS NULL
+        ) t
+        ORDER BY hot_score DESC, t.created_at DESC
         LIMIT ?
         OFFSET ?
       `,
@@ -2491,31 +2489,30 @@ export class AgentChatStore {
       author_score: number;
     }>(
       `
-        SELECT
-          p.id,
-          p.author_account_id,
-          p.created_at,
-          CASE
-            WHEN (SELECT COUNT(*) FROM plaza_post_likes WHERE post_id = p.id) * 1.0 +
-              (SELECT COUNT(*) FROM plaza_post_reposts WHERE post_id = p.id) * 3.0 +
-              (SELECT COUNT(*) FROM plaza_posts r2 WHERE r2.parent_post_id = p.id) * 5.0 +
-              (SELECT COUNT(*) FROM plaza_posts q2 WHERE q2.quoted_post_id = p.id) * 4.0 +
-              (SELECT COUNT(*) FROM plaza_post_views WHERE post_id = p.id) * 0.05 > 0
-            THEN LOG(2.0, 1.0 + (
-              (SELECT COUNT(*) FROM plaza_post_likes WHERE post_id = p.id) * 1.0 +
+        SELECT t.id, t.author_account_id, t.created_at,
+          CASE WHEN t.weighted_engagement > 0
+            THEN LOG(2.0, 1.0 + t.weighted_engagement)
+              * (1.0 / (1.0 + POWER(EXTRACT(EPOCH FROM (NOW() - t.created_at::timestamptz)) / 3600.0 / 48.0, 1.5)))
+            ELSE 0
+          END AS hot_score,
+          t.author_score
+        FROM (
+          SELECT
+            p.id,
+            p.author_account_id,
+            p.created_at,
+            (SELECT COUNT(*) FROM plaza_post_likes WHERE post_id = p.id) * 1.0 +
               (SELECT COUNT(*) FROM plaza_post_reposts WHERE post_id = p.id) * 3.0 +
               (SELECT COUNT(*) FROM plaza_posts r2 WHERE r2.parent_post_id = p.id) * 5.0 +
               (SELECT COUNT(*) FROM plaza_posts q2 WHERE q2.quoted_post_id = p.id) * 4.0 +
               (SELECT COUNT(*) FROM plaza_post_views WHERE post_id = p.id) * 0.05
-            ))
-            * (1.0 / (1.0 + POWER(EXTRACT(EPOCH FROM (NOW() - p.created_at::timestamptz)) / 3600.0 / 48.0, 1.5)))
-            ELSE 0
-          END AS hot_score,
-          COALESCE(s.score, 0) AS author_score
-        FROM plaza_posts p
-        LEFT JOIN agent_scores s ON s.account_id = p.author_account_id
-        WHERE p.id IN (${placeholders})
-          AND p.parent_post_id IS NULL
+              AS weighted_engagement,
+            COALESCE(s.score, 0) AS author_score
+          FROM plaza_posts p
+          LEFT JOIN agent_scores s ON s.account_id = p.author_account_id
+          WHERE p.id IN (${placeholders})
+            AND p.parent_post_id IS NULL
+        ) t
       `,
       postIdArray,
     );
@@ -3298,26 +3295,27 @@ export class AgentChatStore {
     const row = await this.db.get<{ avg_score: number | null }>(
       `
         SELECT AVG(
-          CASE
-            WHEN (SELECT COUNT(*) FROM plaza_post_likes WHERE post_id = p.id) * 1.0 +
-              (SELECT COUNT(*) FROM plaza_post_reposts WHERE post_id = p.id) * 3.0 +
-              (SELECT COUNT(*) FROM plaza_posts r WHERE r.parent_post_id = p.id) * 5.0 +
-              (SELECT COUNT(*) FROM plaza_posts q WHERE q.quoted_post_id = p.id) * 4.0 +
-              (SELECT COUNT(*) FROM plaza_post_views WHERE post_id = p.id) * 0.05 > 0
-            THEN LOG(2.0, 1.0 + (
-              (SELECT COUNT(*) FROM plaza_post_likes WHERE post_id = p.id) * 1.0 +
+          CASE WHEN t.weighted_engagement > 0
+            THEN LOG(2.0, 1.0 + t.weighted_engagement)
+              * (1.0 / (1.0 + POWER(EXTRACT(EPOCH FROM (NOW() - t.created_at::timestamptz)) / 3600.0 / 48.0, 1.5)))
+            ELSE 0
+          END
+        ) AS avg_score
+        FROM (
+          SELECT
+            p.id,
+            p.created_at,
+            (SELECT COUNT(*) FROM plaza_post_likes WHERE post_id = p.id) * 1.0 +
               (SELECT COUNT(*) FROM plaza_post_reposts WHERE post_id = p.id) * 3.0 +
               (SELECT COUNT(*) FROM plaza_posts r WHERE r.parent_post_id = p.id) * 5.0 +
               (SELECT COUNT(*) FROM plaza_posts q WHERE q.quoted_post_id = p.id) * 4.0 +
               (SELECT COUNT(*) FROM plaza_post_views WHERE post_id = p.id) * 0.05
-            )) * (1.0 / (1.0 + POWER(EXTRACT(EPOCH FROM (NOW() - p.created_at::timestamptz)) / 3600.0 / 48.0, 1.5)))
-            ELSE 0
-          END
-        ) AS avg_score
-        FROM plaza_posts p
-        WHERE p.author_account_id = ?
-          AND p.parent_post_id IS NULL
-          AND p.created_at::timestamptz > NOW() - INTERVAL '30 days'
+              AS weighted_engagement
+          FROM plaza_posts p
+          WHERE p.author_account_id = ?
+            AND p.parent_post_id IS NULL
+            AND p.created_at::timestamptz > NOW() - INTERVAL '30 days'
+        ) t
       `,
       [accountId],
     );
