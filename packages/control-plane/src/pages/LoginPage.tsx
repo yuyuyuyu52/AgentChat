@@ -5,10 +5,11 @@ import {
   Mail,
   Lock,
   ArrowRight,
-  Github,
   Chrome,
   Shield,
   Activity,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +26,9 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [emailError, setEmailError] = useState("");
+  const [passwordError, setPasswordError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -45,6 +49,22 @@ export default function LoginPage() {
     };
   }, []);
 
+  const handleEmailBlur = () => {
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setEmailError("Please enter a valid email address.");
+    } else {
+      setEmailError("");
+    }
+  };
+
+  const handlePasswordBlur = () => {
+    if (password && password.length < 6) {
+      setPasswordError("Password must be at least 6 characters.");
+    } else {
+      setPasswordError("");
+    }
+  };
+
   const handleLogin = async (event: React.FormEvent) => {
     event.preventDefault();
     try {
@@ -63,6 +83,7 @@ export default function LoginPage() {
 
   return (
     <div className="grid min-h-screen grid-cols-1 bg-background selection:bg-blue-500/30 lg:grid-cols-2">
+      {/* Left branding panel — hidden on mobile */}
       <div className="relative hidden overflow-hidden border-r border-border/70 bg-card p-12 lg:flex lg:flex-col lg:justify-between">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(37,99,235,0.1),transparent_70%)]" />
         <div
@@ -119,9 +140,21 @@ export default function LoginPage() {
       </div>
 
       <div className="relative flex flex-col items-center justify-center bg-background p-8 lg:p-24">
+        {/* Mobile controls row */}
         <div className="absolute right-6 top-6 flex items-center gap-2 lg:hidden">
           <LanguageSwitcher className="border-border bg-background/80 text-muted-foreground hover:bg-muted hover:text-foreground" />
           <ThemeToggle className="border-border bg-background/80 text-muted-foreground hover:bg-muted hover:text-foreground" />
+        </div>
+
+        {/* Mobile logo + tagline */}
+        <div className="mb-8 flex flex-col items-center gap-2 lg:hidden">
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded bg-blue-600 shadow-[0_0_15px_rgba(37,99,235,0.4)]">
+              <Zap className="h-5 w-5 fill-white text-white" />
+            </div>
+            <span className="text-xl font-bold tracking-tight text-foreground">AgentChat</span>
+          </div>
+          <p className="text-xs text-muted-foreground">{t("login.systemOperational")}</p>
         </div>
 
         <div className="w-full max-w-sm space-y-8">
@@ -145,9 +178,11 @@ export default function LoginPage() {
                     className="h-12 border-border bg-muted/30 pl-10 text-foreground transition-all focus-visible:bg-background focus-visible:ring-blue-500"
                     value={email}
                     onChange={(event) => setEmail(event.target.value)}
+                    onBlur={handleEmailBlur}
                     required
                   />
                 </div>
+                {emailError && <p className="text-xs text-danger">{emailError}</p>}
               </div>
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
@@ -159,13 +194,23 @@ export default function LoginPage() {
                   <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     id="password"
-                    type="password"
-                    className="h-12 border-border bg-muted/30 pl-10 text-foreground transition-all focus-visible:bg-background focus-visible:ring-blue-500"
+                    type={showPassword ? "text" : "password"}
+                    className="h-12 border-border bg-muted/30 pl-10 pr-10 text-foreground transition-all focus-visible:bg-background focus-visible:ring-blue-500"
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
+                    onBlur={handlePasswordBlur}
                     required
                   />
+                  <button
+                    type="button"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1"
+                    onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                  </button>
                 </div>
+                {passwordError && <p className="text-xs text-danger">{passwordError}</p>}
               </div>
             </div>
 
@@ -197,12 +242,8 @@ export default function LoginPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <Button type="button" variant="outline" className="h-11 gap-2 border-border bg-muted/30 text-xs font-bold text-foreground hover:bg-muted" disabled>
-              <Github className="h-4 w-4" />
-              GitHub
-            </Button>
-            <a href="/auth/google/login">
+          <div className="flex justify-center">
+            <a href="/auth/google/login" className="w-full">
               <Button type="button" variant="outline" className="h-11 w-full gap-2 border-border bg-muted/30 text-xs font-bold text-foreground hover:bg-muted">
                 <Chrome className="h-4 w-4" />
                 Google
