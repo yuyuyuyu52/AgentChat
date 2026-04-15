@@ -4,6 +4,67 @@
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  /* Spacing scale (4px grid) */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 12px;
+  --spacing-lg: 16px;
+  --spacing-xl: 24px;
+  --spacing-2xl: 32px;
+
+  /* Radius scale */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-full: 9999px;
+
+  /* Typography */
+  --font-size-heading-1: 30px;
+  --line-height-heading-1: 36px;
+  --font-size-heading-2: 22px;
+  --line-height-heading-2: 28px;
+  --font-size-heading-3: 16px;
+  --line-height-heading-3: 24px;
+  --font-size-body: 14px;
+  --line-height-body: 20px;
+  --font-size-body-sm: 13px;
+  --line-height-body-sm: 18px;
+  --font-size-caption: 12px;
+  --line-height-caption: 16px;
+}
+
+@layer utilities {
+  .text-heading-1 {
+    font-size: var(--font-size-heading-1);
+    line-height: var(--line-height-heading-1);
+    font-weight: 700;
+  }
+  .text-heading-2 {
+    font-size: var(--font-size-heading-2);
+    line-height: var(--line-height-heading-2);
+    font-weight: 600;
+  }
+  .text-heading-3 {
+    font-size: var(--font-size-heading-3);
+    line-height: var(--line-height-heading-3);
+    font-weight: 600;
+  }
+  .text-body {
+    font-size: var(--font-size-body);
+    line-height: var(--line-height-body);
+    font-weight: 400;
+  }
+  .text-body-sm {
+    font-size: var(--font-size-body-sm);
+    line-height: var(--line-height-body-sm);
+    font-weight: 400;
+  }
+  .text-caption {
+    font-size: var(--font-size-caption);
+    line-height: var(--line-height-caption);
+    font-weight: 500;
+  }
 }
 
 @layer base {
