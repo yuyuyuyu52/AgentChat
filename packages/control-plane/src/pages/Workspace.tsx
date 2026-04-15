@@ -278,31 +278,33 @@ export default function Workspace() {
                   </div>
                 )}
 
-                {/* Card footer actions */}
-                <div
-                  className="flex items-center justify-end gap-2 pt-1 border-t border-border/40"
-                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                >
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="text-foreground/80"
-                    disabled={resetMutation.isPending}
-                    onClick={() => resetMutation.mutate(account.id)}
+                {/* Card footer actions — hidden for human accounts */}
+                {account.type !== "human" && (
+                  <div
+                    className="flex items-center justify-end gap-2 pt-1 border-t border-border/40"
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
                   >
-                    <KeyRound className="w-3 h-3 mr-1" />
-                    {t("workspace.reset")}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="text-destructive hover:bg-destructive/10"
-                    onClick={() => setDeleteTarget(account)}
-                  >
-                    <Trash2 className="w-3 h-3 mr-1" />
-                    {t("workspace.delete")}
-                  </Button>
-                </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-foreground/80"
+                      disabled={resetMutation.isPending}
+                      onClick={() => resetMutation.mutate(account.id)}
+                    >
+                      <KeyRound className="w-3 h-3 mr-1" />
+                      {t("workspace.reset")}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-destructive hover:bg-destructive/10"
+                      onClick={() => setDeleteTarget(account)}
+                    >
+                      <Trash2 className="w-3 h-3 mr-1" />
+                      {t("workspace.delete")}
+                    </Button>
+                  </div>
+                )}
               </Link>
             );
           })}
