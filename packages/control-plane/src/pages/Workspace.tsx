@@ -258,7 +258,7 @@ export default function Workspace() {
                 {latestToken && (
                   <div
                     className="rounded-[var(--radius-sm)] bg-warning-subtle p-3 space-y-1.5"
-                    onClick={(e) => e.stopPropagation()}
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
                   >
                     <p className="text-caption">{t("workspace.tokenShownOnce")}</p>
                     <div className="flex items-center gap-2">
@@ -281,7 +281,7 @@ export default function Workspace() {
                 {/* Card footer actions */}
                 <div
                   className="flex items-center justify-end gap-2 pt-1 border-t border-border/40"
-                  onClick={(e) => e.stopPropagation()}
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
                 >
                   <Button
                     size="sm"
