@@ -86,11 +86,8 @@ export function useViewportImpression(onFlush: FlushFn) {
       for (const timer of timersRef.current.values()) clearTimeout(timer);
       timersRef.current.clear();
       if (flushTimerRef.current) clearTimeout(flushTimerRef.current);
-      // Flush remaining on unmount
-      if (pendingRef.current.length > 0) {
-        const batch = pendingRef.current.splice(0);
-        onFlushRef.current(batch);
-      }
+      // Flush remaining on unmount (reuse chunked logic)
+      flush();
     };
   }, [scheduleFlush]);
 
