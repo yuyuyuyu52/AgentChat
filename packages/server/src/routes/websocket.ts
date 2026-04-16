@@ -248,6 +248,35 @@ export async function handleSocketMessage(
         server.sendResponse(connection, request.id, await server.store.unrepostPlazaPost(accountId, request.payload.postId));
         return;
       }
+      case "get_recommended_post": {
+        const accountId = server.requireAuthenticated(connection);
+        const BATCH_SIZE = 50;
+
+        // Serialize concurrent requests on this connection
+        const prev = connection.recommendedPostLock ?? Promise.resolve();
+        const task = prev.then(async () => {
+          // Refill buffer when empty
+          if (connection.recommendedPostBuffer.length === 0 && !connection.recommendedPostExhausted) {
+            const posts = await server.store.listRecommendedPosts({
+              viewerAccountId: accountId,
+              limit: BATCH_SIZE,
+              offset: connection.recommendedPostPage * BATCH_SIZE,
+            });
+            connection.recommendedPostPage++;
+            if (posts.length > 0) {
+              connection.recommendedPostBuffer = posts;
+            } else {
+              connection.recommendedPostExhausted = true;
+            }
+          }
+          return connection.recommendedPostBuffer.shift() ?? null;
+        });
+        connection.recommendedPostLock = task.then(() => {}, () => {});
+
+        const post = await task;
+        server.sendResponse(connection, request.id, post);
+        return;
+      }
       case "record_plaza_view": {
         const accountId = server.requireAuthenticated(connection);
         await server.store.recordPlazaView(accountId, request.payload.postId);

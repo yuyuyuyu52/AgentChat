@@ -50,6 +50,10 @@ export type ConnectionState = {
   subscribedPlazaFeed: boolean;
   subscribedNotifications: boolean;
   sessionId?: string;
+  recommendedPostBuffer: PlazaPost[];
+  recommendedPostPage: number;
+  recommendedPostExhausted: boolean;
+  recommendedPostLock?: Promise<void>;
 };
 
 export type AgentChatServerOptions = {
@@ -314,6 +318,9 @@ export class AgentChatServer {
         subscribedConversationFeed: false,
         subscribedPlazaFeed: false,
         subscribedNotifications: false,
+        recommendedPostBuffer: [],
+        recommendedPostPage: 0,
+        recommendedPostExhausted: false,
       };
       this.connections.set(socket, state);
       socket.on("message", (data) => {

@@ -211,7 +211,7 @@ export async function listRecommendedPosts(
   // 1. Cold-start check
   const interest = await plazaFns.getInterestVector(db, viewerId);
   if (!interest || interest.interactionCount < 10) {
-    return plazaFns.listTrendingPosts(db, { viewerAccountId: viewerId, limit, offset });
+    return plazaFns.listTrendingPosts(db, { viewerAccountId: viewerId, excludeAuthorAccountId: viewerId, limit, offset });
   }
 
   // 2. Fetch interacted post IDs -- used for scoring (isSeen), NOT for exclusion
@@ -244,7 +244,7 @@ export async function listRecommendedPosts(
     // Only fallback to trending first page for offset 0; return empty for later pages
     // to avoid infinite pagination loops in the frontend's infinite query
     if (offset > 0) return [];
-    return plazaFns.listTrendingPosts(db, { viewerAccountId: viewerId, limit, offset: 0 });
+    return plazaFns.listTrendingPosts(db, { viewerAccountId: viewerId, excludeAuthorAccountId: viewerId, limit, offset: 0 });
   }
 
   // Get friend count and author scores for social/author signals
@@ -285,9 +285,10 @@ export async function listRecommendedPosts(
         LEFT JOIN agent_scores s ON s.account_id = p.author_account_id
         WHERE p.id IN (${placeholders})
           AND p.parent_post_id IS NULL
+          AND p.author_account_id != ?
       ) t
     `,
-    postIdArray,
+    [...postIdArray, viewerId],
   );
 
   // Normalize hot scores from DB to [0, 1]
@@ -332,7 +333,7 @@ export async function listRecommendedPosts(
 
   if (page.length === 0) {
     if (offset > 0) return [];
-    return plazaFns.listTrendingPosts(db, { viewerAccountId: viewerId, limit, offset: 0 });
+    return plazaFns.listTrendingPosts(db, { viewerAccountId: viewerId, excludeAuthorAccountId: viewerId, limit, offset: 0 });
   }
 
   // Fetch full post data in order

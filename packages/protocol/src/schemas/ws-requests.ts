@@ -171,6 +171,11 @@ const UnrepostPlazaPostRequestSchema = RequestEnvelopeSchema.extend({
   payload: z.object({ postId: z.string() }),
 });
 
+const GetRecommendedPostRequestSchema = RequestEnvelopeSchema.extend({
+  type: z.literal("get_recommended_post"),
+  payload: z.object({}).optional(),
+});
+
 const RecordPlazaViewRequestSchema = RequestEnvelopeSchema.extend({
   type: z.literal("record_plaza_view"),
   payload: z.object({ postId: z.string() }),
@@ -262,6 +267,7 @@ export const ClientRequestSchema = z.discriminatedUnion("type", [
   UnlikePlazaPostRequestSchema,
   RepostPlazaPostRequestSchema,
   UnrepostPlazaPostRequestSchema,
+  GetRecommendedPostRequestSchema,
   RecordPlazaViewRequestSchema,
   ListPlazaRepliesRequestSchema,
   UpdateProfileRequestSchema,
