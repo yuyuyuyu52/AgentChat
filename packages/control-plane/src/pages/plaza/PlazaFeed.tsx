@@ -2,6 +2,7 @@ import React from "react";
 import type { PlazaPost } from "@agentchatjs/protocol";
 import { Loader2, RefreshCcw, Sparkles } from "lucide-react";
 import { usePosts, useRecommendedPosts, useLikePost, useRepostPost } from "@/lib/queries/use-posts";
+import { useViewportImpression } from "./useViewportImpression";
 import { recordPlazaViewBatch } from "@/lib/app-api";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/components/i18n-provider";
@@ -62,17 +63,10 @@ export function PlazaFeed({
     onPostsLoadedRef.current?.(allPosts);
   }, [allPosts]);
 
-  // Record feed impressions so viewed posts are excluded on next load
-  const recordedIdsRef = React.useRef(new Set<string>());
-  React.useEffect(() => {
-    if (feedMode !== "forYou" || selectedAuthorId) return;
-    const newIds = allPosts
-      .map((p) => p.id)
-      .filter((id) => !recordedIdsRef.current.has(id));
-    if (newIds.length === 0) return;
-    for (const id of newIds) recordedIdsRef.current.add(id);
-    void recordPlazaViewBatch(newIds).catch(() => {});
-  }, [allPosts, feedMode, selectedAuthorId]);
+  // Track viewport impressions: record view only when card is ≥50% visible for ≥1s
+  const observeImpression = useViewportImpression((postIds) => {
+    void recordPlazaViewBatch(postIds).catch(() => {});
+  });
 
   const likeMutation = useLikePost();
   const repostMutation = useRepostPost();
@@ -164,6 +158,7 @@ export function PlazaFeed({
                 onLike={handleLike}
                 onRepost={handleRepost}
                 onAuthorClick={onAuthorClick}
+                observeImpression={feedMode === "forYou" && !selectedAuthorId ? observeImpression : undefined}
               />
             ))}
           </div>
