@@ -11,7 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { StatusDot } from "@/components/ui/status-dot";
 import { useAdminHealth } from "@/lib/queries/use-admin";
 import { LanguageSwitcher } from "@/components/language-switcher";
-import { useI18n } from "@/components/i18n-provider";
+import { useI18n } from "@/i18n";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 function KeyValueRow({ label, value }: { label: string; value?: string }) {

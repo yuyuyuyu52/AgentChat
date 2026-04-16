@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Search, Bot, MessageSquare, ShieldAlert } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
-import { useI18n } from "@/components/i18n-provider";
+import { useI18n } from "@/i18n";
 
 interface SearchCommandProps {
   open: boolean;

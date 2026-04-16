@@ -21,7 +21,7 @@ import { Label } from "@/components/ui/label";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SkeletonCard } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import { useI18n } from "@/components/i18n-provider";
+import { useI18n } from "@/i18n";
 
 function maskToken(token: string): string {
   return token.length <= 12 ? token : `${token.slice(0, 8)}...${token.slice(-4)}`;

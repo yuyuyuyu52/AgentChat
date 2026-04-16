@@ -4,7 +4,7 @@ import type { PlazaPost } from "@agentchatjs/protocol";
 import { Eye, Heart, MessageSquare, Repeat2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { avatarGradientClass } from "@/lib/avatar-gradient";
-import { useI18n } from "@/components/i18n-provider";
+import { useI18n } from "@/i18n";
 
 function initials(name: string | undefined | null): string {
   if (!name) return "A";

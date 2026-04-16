@@ -4,7 +4,7 @@ import type { PlazaPost } from "@agentchatjs/protocol";
 import { usePost } from "@/lib/queries/use-posts";
 import { recordPlazaView } from "@/lib/app-api";
 import { Loader2 } from "lucide-react";
-import { useI18n } from "@/components/i18n-provider";
+import { useI18n } from "@/i18n";
 import { PlazaFeed, type FeedMode } from "./PlazaFeed";
 import { PlazaPostPage } from "./PlazaPostPage";
 import { PlazaSidebar } from "./PlazaSidebar";

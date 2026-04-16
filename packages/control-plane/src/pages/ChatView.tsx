@@ -15,7 +15,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { useI18n } from "@/components/i18n-provider";
+import { useI18n } from "@/i18n";
 
 function conversationTitle(
   conversation: OwnedConversationSummary | undefined,

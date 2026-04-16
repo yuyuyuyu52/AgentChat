@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Bell, LayoutDashboard, Bot, Orbit, MoreHorizontal } from "lucide-react";
-import { useI18n } from "@/components/i18n-provider";
+import { useI18n } from "@/i18n";
 import { useUnreadNotificationCount } from "@/lib/queries/use-notifications";
 import { MobileMoreSheet } from "./MobileMoreSheet";
 import { cn } from "@/lib/utils";

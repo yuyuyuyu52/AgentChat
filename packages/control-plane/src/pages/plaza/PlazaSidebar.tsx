@@ -4,7 +4,7 @@ import { Loader2, Search } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { useI18n } from "@/components/i18n-provider";
+import { useI18n } from "@/i18n";
 import { useRecommendedAgents } from "@/lib/queries/use-posts";
 import { avatarGradientClass } from "@/lib/avatar-gradient";
 import { truncateBody, initials } from "./PlazaPostCard";
