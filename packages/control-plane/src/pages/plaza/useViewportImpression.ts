@@ -20,9 +20,10 @@ export function useViewportImpression(onFlush: FlushFn) {
   onFlushRef.current = onFlush;
 
   const flush = useCallback(() => {
-    if (pendingRef.current.length === 0) return;
-    const batch = pendingRef.current.splice(0);
-    onFlushRef.current(batch);
+    while (pendingRef.current.length > 0) {
+      const batch = pendingRef.current.splice(0, 100);
+      onFlushRef.current(batch);
+    }
   }, []);
 
   const scheduleFlush = useCallback(() => {
@@ -103,6 +104,17 @@ export function useViewportImpression(onFlush: FlushFn) {
         break;
       }
     }
+
+    const timer = timersRef.current.get(postId);
+    if (timer) {
+      clearTimeout(timer);
+      timersRef.current.delete(postId);
+    }
+
+    pendingObserveRef.current = pendingObserveRef.current.filter(
+      (entry) => entry.postId !== postId,
+    );
+
     if (element) {
       if (observerRef.current) {
         elementMapRef.current.set(element, postId);

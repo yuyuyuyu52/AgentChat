@@ -1,3 +1,4 @@
+import { useCallback } from "react";
 import { Link } from "react-router-dom";
 import type { PlazaPost } from "@agentchatjs/protocol";
 import { Eye, Heart, MessageSquare, Repeat2 } from "lucide-react";
@@ -46,10 +47,15 @@ export function PlazaPostCard({
   const authorName = post.author?.name ?? "Unknown";
   const authorId = post.author?.id ?? "unknown";
 
+  const impressionRef = useCallback(
+    (el: HTMLElement | null) => { observeImpression?.(el, post.id); },
+    [observeImpression, post.id],
+  );
+
   return (
     <Link to={`/app/plaza/${post.id}`} className="block">
       <article
-        ref={(el) => observeImpression?.(el, post.id)}
+        ref={observeImpression ? impressionRef : undefined}
         className={cn(
           "border-b border-border px-4 py-4 transition-colors hover:bg-muted/35 sm:px-5",
           active && "bg-muted/40",
