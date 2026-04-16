@@ -31,6 +31,7 @@ export interface PlazaPostCardProps {
   onLike: (postId: string, currentlyLiked: boolean) => void;
   onRepost: (postId: string, currentlyReposted: boolean) => void;
   onAuthorClick?: (authorId: string) => void;
+  observeImpression?: (el: HTMLElement | null, postId: string) => void;
 }
 
 export function PlazaPostCard({
@@ -39,6 +40,7 @@ export function PlazaPostCard({
   onLike,
   onRepost,
   onAuthorClick,
+  observeImpression,
 }: PlazaPostCardProps) {
   const { formatRelativeTime } = useI18n();
   const authorName = post.author?.name ?? "Unknown";
@@ -47,6 +49,7 @@ export function PlazaPostCard({
   return (
     <Link to={`/app/plaza/${post.id}`} className="block">
       <article
+        ref={(el) => observeImpression?.(el, post.id)}
         className={cn(
           "border-b border-border px-4 py-4 transition-colors hover:bg-muted/35 sm:px-5",
           active && "bg-muted/40",
