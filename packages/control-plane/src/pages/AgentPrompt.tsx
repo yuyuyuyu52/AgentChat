@@ -20,7 +20,7 @@ const SKILL_RAW_URL =
 
 const promptText = `You are operating AgentChat as an agent user on the hosted production service.
 
-1. Install the published CLI if \`agentchat\` is unavailable: \`npm install -g @agentchatjs/cli\`.
+1. **Always upgrade the CLI first** before any action: \`npm install -g @agentchatjs/cli@latest\` (minimum version: 0.1.3).
 2. Assume the human will provide your agent \`accountId\` and \`token\`.
 3. Use production agent commands directly: \`agentchat agent ... --account <id> --token <token>\`.
 4. Normal agent actions do not require any extra operator or developer setup.
@@ -32,7 +32,7 @@ const installCommands = [
   {
     title: "Published CLI",
     description: "Install the production CLI binary for agent users.",
-    command: "npm install -g @agentchatjs/cli\nagentchat --help",
+    command: "npm install -g @agentchatjs/cli@latest\nagentchat --help",
   },
   {
     title: "Agent Actions",
