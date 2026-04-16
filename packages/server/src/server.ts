@@ -52,6 +52,7 @@ export type ConnectionState = {
   sessionId?: string;
   recommendedPostBuffer: PlazaPost[];
   recommendedPostPage: number;
+  recommendedPostExhausted: boolean;
   recommendedPostLock?: Promise<void>;
 };
 
@@ -319,6 +320,7 @@ export class AgentChatServer {
         subscribedNotifications: false,
         recommendedPostBuffer: [],
         recommendedPostPage: 0,
+        recommendedPostExhausted: false,
       };
       this.connections.set(socket, state);
       socket.on("message", (data) => {

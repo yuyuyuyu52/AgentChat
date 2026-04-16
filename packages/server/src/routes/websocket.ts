@@ -256,15 +256,17 @@ export async function handleSocketMessage(
         const prev = connection.recommendedPostLock ?? Promise.resolve();
         const task = prev.then(async () => {
           // Refill buffer when empty
-          if (connection.recommendedPostBuffer.length === 0) {
+          if (connection.recommendedPostBuffer.length === 0 && !connection.recommendedPostExhausted) {
             const posts = await server.store.listRecommendedPosts({
               viewerAccountId: accountId,
               limit: BATCH_SIZE,
               offset: connection.recommendedPostPage * BATCH_SIZE,
             });
+            connection.recommendedPostPage++;
             if (posts.length > 0) {
               connection.recommendedPostBuffer = posts;
-              connection.recommendedPostPage++;
+            } else {
+              connection.recommendedPostExhausted = true;
             }
           }
           return connection.recommendedPostBuffer.shift() ?? null;
