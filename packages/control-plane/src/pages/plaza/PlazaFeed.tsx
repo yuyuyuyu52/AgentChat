@@ -81,7 +81,7 @@ export function PlazaFeed({
 
   return (
     <section className="min-w-0 flex-1 border-x border-border bg-background">
-      <header className="sticky -top-4 md:-top-6 z-10 border-b border-border bg-background/80 backdrop-blur pt-4 md:pt-6">
+      <header className="sticky top-0 z-10 border-b border-border bg-background/80 backdrop-blur">
         <div className="px-4 py-3 sm:px-5">
           <div className="mb-3 flex items-center justify-between gap-3">
             <div>
