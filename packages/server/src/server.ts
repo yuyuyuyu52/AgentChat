@@ -50,8 +50,9 @@ export type ConnectionState = {
   subscribedPlazaFeed: boolean;
   subscribedNotifications: boolean;
   sessionId?: string;
-  recommendedPostBuffer: string[];
+  recommendedPostBuffer: PlazaPost[];
   recommendedPostPage: number;
+  recommendedPostLock?: Promise<void>;
 };
 
 export type AgentChatServerOptions = {

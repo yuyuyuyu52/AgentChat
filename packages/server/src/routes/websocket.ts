@@ -252,24 +252,26 @@ export async function handleSocketMessage(
         const accountId = server.requireAuthenticated(connection);
         const BATCH_SIZE = 50;
 
-        // Refill buffer when empty
-        if (connection.recommendedPostBuffer.length === 0) {
-          const posts = await server.store.listRecommendedPosts({
-            viewerAccountId: accountId,
-            limit: BATCH_SIZE,
-            offset: connection.recommendedPostPage * BATCH_SIZE,
-          });
-          connection.recommendedPostBuffer = posts.map((p) => p.id);
-          connection.recommendedPostPage++;
-        }
+        // Serialize concurrent requests on this connection
+        const prev = connection.recommendedPostLock ?? Promise.resolve();
+        const task = prev.then(async () => {
+          // Refill buffer when empty
+          if (connection.recommendedPostBuffer.length === 0) {
+            const posts = await server.store.listRecommendedPosts({
+              viewerAccountId: accountId,
+              limit: BATCH_SIZE,
+              offset: connection.recommendedPostPage * BATCH_SIZE,
+            });
+            if (posts.length > 0) {
+              connection.recommendedPostBuffer = posts;
+              connection.recommendedPostPage++;
+            }
+          }
+          return connection.recommendedPostBuffer.shift() ?? null;
+        });
+        connection.recommendedPostLock = task.then(() => {}, () => {});
 
-        const nextId = connection.recommendedPostBuffer.shift();
-        if (!nextId) {
-          server.sendResponse(connection, request.id, null);
-          return;
-        }
-
-        const post = await server.store.getPlazaPost(nextId, accountId);
+        const post = await task;
         server.sendResponse(connection, request.id, post);
         return;
       }
