@@ -3,3 +3,4 @@ packages/*/dist/
 packages/*/src/**/*.js
 *.zip
 .worktrees/
+.superpowers/
