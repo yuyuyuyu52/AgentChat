@@ -37,7 +37,7 @@ export function PlazaPostPage({ post }: PlazaPostPageProps) {
   return (
     <section className="min-w-0 flex-1 border-x border-border bg-background">
       {/* Sticky header with back button */}
-      <header className="sticky top-0 z-10 border-b border-border bg-background/80 backdrop-blur">
+      <header className="sticky -top-4 md:-top-6 z-10 border-b border-border bg-background/80 backdrop-blur pt-4 md:pt-6">
         <div className="flex items-center gap-4 px-4 py-3">
           <button
             type="button"
