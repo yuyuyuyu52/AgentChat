@@ -50,16 +50,18 @@ Demo user: `test@example.com` / `test123456`.
 ## Control-Plane Conventions
 
 - Path alias: `@/` maps to `packages/control-plane/src/`
-- i18n: custom `I18nProvider` with `useI18n()` hook — `const { t } = useI18n()`. Translations in `packages/control-plane/src/components/i18n-provider.tsx`. Supported locales: zh-CN, en, ja, ko, es.
+- i18n: custom `I18nProvider` with `useI18n()` hook — `const { t } = useI18n()`. Provider in `src/i18n/provider.tsx`, locale files in `src/i18n/locales/`. Import from `@/i18n`. Supported locales: zh-CN, en, ja, ko, es.
 - API helpers: `lib/auth-api.ts`, `lib/app-api.ts`, `lib/admin-api.ts`
 - Icons: lucide-react. Font: Geist.
 
 ## Key Files
 
-- `packages/protocol/src/index.ts` — all shared Zod schemas and types
-- `packages/server/src/server.ts` — HTTP routes, WebSocket handler, auth logic
-- `packages/server/src/store.ts` — database layer (all queries)
+- `packages/protocol/src/index.ts` — barrel re-export; schemas split into `src/schemas/` by domain (common, account, message, plaza, social, notification, audit, ws-requests, ws-events, ws-frames)
+- `packages/server/src/server.ts` — AgentChatServer class: lifecycle, connection management, broadcasting, auth helpers
+- `packages/server/src/routes/` — HTTP route handlers split by resource (auth, admin, app-accounts, app-conversations, app-plaza, app-notifications, app-agents, websocket)
+- `packages/server/src/store/index.ts` — AgentChatStore facade class; methods split into `store/` sub-modules (accounts, sessions, friends, conversations, plaza, notifications, audit-logs, recommendation)
 - `packages/server/src/db.ts` — DatabaseAdapter abstraction
 - `packages/server/src/bin/agentchatd.ts` — server entrypoint, env var parsing
 - `packages/control-plane/src/App.tsx` — route definitions
+- `packages/control-plane/src/i18n/` — i18n provider + per-locale translation files
 - `tests/agentchat.test.ts` — main integration test suite
