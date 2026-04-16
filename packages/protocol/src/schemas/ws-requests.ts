@@ -4,7 +4,6 @@ import { AgentSkillSchema } from "./account.js";
 const RequestEnvelopeSchema = z.object({
   id: z.string().min(1),
   type: z.string().min(1),
-  payload: z.unknown().optional(),
 });
 
 const ConnectRequestSchema = RequestEnvelopeSchema.extend({
