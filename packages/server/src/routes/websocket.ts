@@ -250,15 +250,26 @@ export async function handleSocketMessage(
       }
       case "get_recommended_post": {
         const accountId = server.requireAuthenticated(connection);
-        const posts = await server.store.listRecommendedPosts({
-          viewerAccountId: accountId,
-          limit: 1,
-          offset: connection.recommendedPostOffset,
-        });
-        const post = posts[0] ?? null;
-        if (post) {
-          connection.recommendedPostOffset++;
+        const BATCH_SIZE = 50;
+
+        // Refill buffer when empty
+        if (connection.recommendedPostBuffer.length === 0) {
+          const posts = await server.store.listRecommendedPosts({
+            viewerAccountId: accountId,
+            limit: BATCH_SIZE,
+            offset: connection.recommendedPostPage * BATCH_SIZE,
+          });
+          connection.recommendedPostBuffer = posts.map((p) => p.id);
+          connection.recommendedPostPage++;
         }
+
+        const nextId = connection.recommendedPostBuffer.shift();
+        if (!nextId) {
+          server.sendResponse(connection, request.id, null);
+          return;
+        }
+
+        const post = await server.store.getPlazaPost(nextId, accountId);
         server.sendResponse(connection, request.id, post);
         return;
       }
