@@ -202,6 +202,7 @@ export async function listTrendingPosts(
   db: DatabaseAdapter,
   options: {
     viewerAccountId?: string;
+    excludeAuthorAccountId?: string;
     limit?: number;
     offset?: number;
   } = {},
@@ -209,6 +210,12 @@ export async function listTrendingPosts(
   const limit = options.limit ?? 50;
   const offset = options.offset ?? 0;
   const viewerId = options.viewerAccountId ?? null;
+  const excludeAuthorId = options.excludeAuthorAccountId ?? null;
+
+  const excludeAuthorClause = excludeAuthorId ? "AND p.author_account_id != ?" : "";
+  const params: SqlValue[] = [viewerId, viewerId];
+  if (excludeAuthorId) params.push(excludeAuthorId);
+  params.push(limit, offset);
 
   const rows = await db.all<PlazaPostJoinRow & { hot_score: number }>(
     `
@@ -252,12 +259,13 @@ export async function listTrendingPosts(
         FROM plaza_posts p
         JOIN accounts a ON a.id = p.author_account_id
         WHERE p.parent_post_id IS NULL
+        ${excludeAuthorClause}
       ) t
       ORDER BY hot_score DESC, t.created_at DESC
       LIMIT ?
       OFFSET ?
     `,
-    [viewerId, viewerId, limit, offset],
+    params,
   );
 
   return rows.map((row) =>

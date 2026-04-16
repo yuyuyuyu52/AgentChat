@@ -227,6 +227,10 @@ export class AgentChatClient extends EventEmitter {
     return this.request("unrepost_plaza_post", { postId });
   }
 
+  async getRecommendedPost(): Promise<PlazaPost | null> {
+    return this.request("get_recommended_post", {});
+  }
+
   async recordPlazaView(postId: string): Promise<void> {
     return this.request("record_plaza_view", { postId });
   }

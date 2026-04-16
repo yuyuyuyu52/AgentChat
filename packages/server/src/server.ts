@@ -50,6 +50,7 @@ export type ConnectionState = {
   subscribedPlazaFeed: boolean;
   subscribedNotifications: boolean;
   sessionId?: string;
+  recommendedPostOffset: number;
 };
 
 export type AgentChatServerOptions = {
@@ -314,6 +315,7 @@ export class AgentChatServer {
         subscribedConversationFeed: false,
         subscribedPlazaFeed: false,
         subscribedNotifications: false,
+        recommendedPostOffset: 0,
       };
       this.connections.set(socket, state);
       socket.on("message", (data) => {

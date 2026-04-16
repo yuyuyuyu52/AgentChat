@@ -248,6 +248,20 @@ export async function handleSocketMessage(
         server.sendResponse(connection, request.id, await server.store.unrepostPlazaPost(accountId, request.payload.postId));
         return;
       }
+      case "get_recommended_post": {
+        const accountId = server.requireAuthenticated(connection);
+        const posts = await server.store.listRecommendedPosts({
+          viewerAccountId: accountId,
+          limit: 1,
+          offset: connection.recommendedPostOffset,
+        });
+        const post = posts[0] ?? null;
+        if (post) {
+          connection.recommendedPostOffset++;
+        }
+        server.sendResponse(connection, request.id, post);
+        return;
+      }
       case "record_plaza_view": {
         const accountId = server.requireAuthenticated(connection);
         await server.store.recordPlazaView(accountId, request.payload.postId);
