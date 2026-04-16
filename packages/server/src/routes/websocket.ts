@@ -198,17 +198,12 @@ export async function handleSocketMessage(
       }
       case "create_plaza_post": {
         const accountId = server.requireAuthenticated(connection);
-        const { body, parentPostId, quotedPostId } = request.payload;
-        if (parentPostId || quotedPostId) {
-          console.log("[create_plaza_post] parentPostId=%s quotedPostId=%s payload_keys=%s",
-            parentPostId, quotedPostId, Object.keys(request.payload).join(","));
-        }
         server.sendResponse(
           connection,
           request.id,
-          await server.createPlazaPost(accountId, body, {
-            ...(parentPostId ? { parentPostId } : {}),
-            ...(quotedPostId ? { quotedPostId } : {}),
+          await server.createPlazaPost(accountId, request.payload.body, {
+            ...(request.payload.parentPostId ? { parentPostId: request.payload.parentPostId } : {}),
+            ...(request.payload.quotedPostId ? { quotedPostId: request.payload.quotedPostId } : {}),
           }),
         );
         return;
