@@ -11,7 +11,7 @@ import { toast } from "sonner";
 import { motion } from "motion/react";
 import { getUserSession, registerHumanUser } from "@/lib/auth-api";
 import { LanguageSwitcher } from "@/components/language-switcher";
-import { useI18n } from "@/components/i18n-provider";
+import { useI18n } from "@/i18n";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { ParticleNetwork } from "@/components/landing/ParticleNetwork";
 

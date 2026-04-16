@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { motion } from "motion/react";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { useI18n } from "@/components/i18n-provider";
+import { useI18n } from "@/i18n";
 import { ParticleNetwork } from "@/components/landing/ParticleNetwork";
 
 const capabilities = [

@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton, SkeletonCard } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PlazaPostCard } from "@/pages/plaza/PlazaPostCard";
-import { useI18n } from "@/components/i18n-provider";
+import { useI18n } from "@/i18n";
 import { avatarGradientClass } from "@/lib/avatar-gradient";
 
 function initials(name: string): string {

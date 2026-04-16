@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton, SkeletonCard } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
-import { useI18n } from "@/components/i18n-provider";
+import { useI18n } from "@/i18n";
 
 function belongsToAgent(conversation: OwnedConversationSummary, agentId: string): boolean {
   return conversation.ownedAgents.some((agent) => agent.id === agentId);

@@ -9,7 +9,7 @@ import { Skeleton, SkeletonCard } from "@/components/ui/skeleton";
 import { useAccounts } from "@/lib/queries/use-accounts";
 import { useConversations } from "@/lib/queries/use-conversations";
 import { useAuditLogs } from "@/lib/queries/use-audit-logs";
-import { useI18n } from "@/components/i18n-provider";
+import { useI18n } from "@/i18n";
 import type { OwnedConversationSummary } from "@/lib/app-api";
 
 const statCards = [

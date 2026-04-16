@@ -5,7 +5,7 @@ import {
   PanelLeftOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useI18n } from "@/components/i18n-provider";
+import { useI18n } from "@/i18n";
 import { useUnreadNotificationCount } from "@/lib/queries/use-notifications";
 import { cn } from "@/lib/utils";
 
