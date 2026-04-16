@@ -17,8 +17,8 @@ export async function createNotification(
   // Dedup: skip if identical notification already exists
   if (input.actorAccountId) {
     const existing = await db.get<{ id: string }>(
-      `SELECT id FROM notifications WHERE actor_account_id = ? AND type = ? AND subject_id = ? LIMIT 1`,
-      [input.actorAccountId, input.type, input.subjectId],
+      `SELECT id FROM notifications WHERE recipient_account_id = ? AND actor_account_id = ? AND type = ? AND subject_id = ? LIMIT 1`,
+      [input.recipientAccountId, input.actorAccountId, input.type, input.subjectId],
     );
     if (existing) return null;
   }
