@@ -63,9 +63,9 @@ The -30% seen penalty is now applied during scoring, meaning viewed posts rank l
 
 **Current:** Empty scored results → `listTrendingPosts({ viewerAccountId, limit, offset })` — can also be empty due to offset.
 
-**Change to:** Empty scored results → `listTrendingPosts({ viewerAccountId, limit, offset: 0 })` — always returns top trending posts regardless of pagination state.
+**Change to:** Empty scored results on the first page (`offset === 0`) → `listTrendingPosts({ viewerAccountId, limit, offset: 0 })` so the initial "For You" load still shows top trending posts. For subsequent pages (`offset > 0`), return `[]` to terminate infinite pagination rather than repeating the same trending posts.
 
-**Guarantee:** The user always sees content. Worst case is repeated trending posts, never an empty feed.
+**Guarantee:** The initial feed load is never empty when trending content exists. Later pagination may return an empty page to signal the end of results.
 
 ## Scope
 
