@@ -32,7 +32,7 @@ import {
   type CreateAccountInput,
   type SendMessageInput,
   type StoredUserSession,
-} from "./store.js";
+} from "./store/index.js";
 import { createEmbeddingProvider, type EmbeddingProvider } from "./embedding.js";
 import { computeAgentScore, computeActivityRecency, computeProfileCompleteness } from "./recommendation.js";
 
