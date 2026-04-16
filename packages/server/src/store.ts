@@ -16,6 +16,7 @@ import {
   type PlazaPost,
 } from "@agentchatjs/protocol";
 import { AppError } from "./errors.js";
+import { computeRecScore } from "./recommendation.js";
 import {
   createDatabaseAdapter,
   type DatabaseAdapter,
@@ -2524,17 +2525,15 @@ export class AgentChatStore {
       return this.listTrendingPosts({ viewerAccountId: viewerId, limit, offset });
     }
 
-    // 2. Fetch all interacted post IDs (viewed + liked + reposted) to exclude
+    // 2. Fetch interacted post IDs — used for scoring (isSeen), NOT for exclusion
     const interactedIds = await this.getInteractedPostIds(viewerId);
-    const interactedArray = Array.from(interactedIds);
 
-    // 3. Gather candidate pools in parallel, excluding already-interacted posts
+    // 3. Gather candidate pools in parallel (no exclusion of seen posts)
     const candidateLimit = Math.ceil(limit * 1.5);
     const [similarPosts, trendingPosts, friendPostIds] =
       await Promise.all([
         this.findSimilarPosts(interest.interestVector, {
           limit: candidateLimit,
-          excludePostIds: interactedArray,
         }),
         this.listTrendingPosts({ viewerAccountId: viewerId, limit: candidateLimit }),
         this.getFriendInteractedPostIds(viewerId, candidateLimit),
@@ -2546,20 +2545,14 @@ export class AgentChatStore {
       similarityMap.set(sp.postId, sp.similarity);
     }
 
-    // Merge all candidate IDs, excluding already-interacted posts
+    // Merge all candidate IDs (no interactedIds filtering)
     const candidateIds = new Set<string>();
-    for (const sp of similarPosts) {
-      if (!interactedIds.has(sp.postId)) candidateIds.add(sp.postId);
-    }
-    for (const tp of trendingPosts) {
-      if (!interactedIds.has(tp.id)) candidateIds.add(tp.id);
-    }
-    for (const fid of friendPostIds) {
-      if (!interactedIds.has(fid)) candidateIds.add(fid);
-    }
+    for (const sp of similarPosts) candidateIds.add(sp.postId);
+    for (const tp of trendingPosts) candidateIds.add(tp.id);
+    for (const fid of friendPostIds) candidateIds.add(fid);
 
     if (candidateIds.size === 0) {
-      return this.listTrendingPosts({ viewerAccountId: viewerId, limit, offset });
+      return this.listTrendingPosts({ viewerAccountId: viewerId, limit, offset: 0 });
     }
 
     // Get friend count and author scores for social/author signals
@@ -2612,7 +2605,7 @@ export class AgentChatStore {
       if (h > maxHot) maxHot = h;
     }
 
-    // Score each candidate
+    // Score each candidate using computeRecScore
     const scored: Array<{ postId: string; score: number }> = [];
     const now = Date.now();
 
@@ -2621,30 +2614,24 @@ export class AgentChatStore {
       const hotRaw = Number(row.hot_score);
       const hotNorm = maxHot > 0 ? hotRaw / maxHot : 0;
 
-      // Social signal: was this post interacted with by a friend?
       const socialSignal = friendPostIds.has(postId)
         ? Math.min(1.0, friendCount > 0 ? 1.0 : 0)
         : 0;
 
-      // Similarity signal from vector search
       const simSignal = similarityMap.get(postId) ?? 0;
-
-      // Author score (already 0-1 from agent_scores table)
       const authorSignal = Math.min(1.0, Number(row.author_score));
-
-      // Freshness bonus: +0.1 if within 3 hours
       const ageMs = now - new Date(row.created_at).getTime();
-      const freshness = ageMs <= 3 * 60 * 60 * 1000 ? 0.1 : 0;
 
-      // Final rec score
-      const recScore =
-        0.3 * hotNorm +
-        0.25 * socialSignal +
-        0.25 * simSignal +
-        0.15 * authorSignal +
-        freshness;
+      const score = computeRecScore({
+        hotScore: hotNorm,
+        socialScore: socialSignal,
+        vectorSimilarity: simSignal,
+        authorQuality: authorSignal,
+        isFresh: ageMs <= 3 * 60 * 60 * 1000,
+        isSeen: interactedIds.has(postId),
+      });
 
-      scored.push({ postId, score: recScore });
+      scored.push({ postId, score });
     }
 
     // Sort by score descending, apply offset/limit
@@ -2652,7 +2639,7 @@ export class AgentChatStore {
     const page = scored.slice(offset, offset + limit);
 
     if (page.length === 0) {
-      return this.listTrendingPosts({ viewerAccountId: viewerId, limit, offset });
+      return this.listTrendingPosts({ viewerAccountId: viewerId, limit, offset: 0 });
     }
 
     // Fetch full post data in order
