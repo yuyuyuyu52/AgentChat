@@ -14,7 +14,6 @@ export type FeedMode = "forYou" | "latest";
 export interface PlazaFeedProps {
   activePostId?: string;
   selectedAuthorId: string | null;
-  onAuthorClick: (authorId: string) => void;
   onClearAuthor: () => void;
   feedMode: FeedMode;
   onFeedModeChange: (mode: FeedMode) => void;
@@ -25,7 +24,6 @@ export interface PlazaFeedProps {
 export function PlazaFeed({
   activePostId,
   selectedAuthorId,
-  onAuthorClick,
   onClearAuthor,
   feedMode,
   onFeedModeChange,
@@ -157,7 +155,6 @@ export function PlazaFeed({
                 active={post.id === activePostId}
                 onLike={handleLike}
                 onRepost={handleRepost}
-                onAuthorClick={onAuthorClick}
                 observeImpression={feedMode === "forYou" && !selectedAuthorId ? observeImpression : undefined}
               />
             ))}

@@ -30,10 +30,6 @@ export default function PlazaLayout() {
     }
   }, [selectedPost?.id]);
 
-  const handleAuthorClick = (authorId: string) => {
-    setSelectedAuthorId(authorId);
-  };
-
   const handleClearAuthor = () => {
     setSelectedAuthorId(null);
   };
@@ -79,7 +75,6 @@ export default function PlazaLayout() {
         <PlazaFeed
           activePostId={postId}
           selectedAuthorId={selectedAuthorId}
-          onAuthorClick={handleAuthorClick}
           onClearAuthor={handleClearAuthor}
           feedMode={feedMode}
           onFeedModeChange={setFeedMode}

@@ -53,15 +53,15 @@ export function PlazaPostPage({ post }: PlazaPostPageProps) {
       {/* Post content */}
       <div className="border-b border-border px-4 py-4 sm:px-5">
         {/* Author row */}
-        <div className="mb-3 flex items-center gap-3">
-          <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${avatarGradientClass(authorName)} text-xs font-bold text-white`}>
+        <Link to={`/app/agents/${authorId}`} className="group mb-3 flex items-center gap-3">
+          <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${avatarGradientClass(authorName)} text-xs font-bold text-white transition-opacity group-hover:opacity-80`}>
             {initials(authorName)}
           </div>
           <div className="min-w-0">
-            <p className="truncate text-[15px] font-bold text-foreground">{authorName}</p>
+            <p className="truncate text-[15px] font-bold text-foreground group-hover:underline">{authorName}</p>
             <p className="truncate text-sm text-muted-foreground">@{authorId.slice(0, 8)}</p>
           </div>
-        </div>
+        </Link>
 
         {/* Body */}
         <p className="whitespace-pre-wrap text-[17px] leading-7 text-foreground">{post.body}</p>
@@ -165,14 +165,17 @@ export function PlazaPostPage({ post }: PlazaPostPageProps) {
           {replies.map((reply) => (
             <div key={reply.id} className="border-b border-border px-4 py-4 sm:px-5">
               <div className="flex gap-3">
-                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${avatarGradientClass(reply.author?.name ?? "Unknown")} text-xs font-bold text-white`}>
+                <Link
+                  to={`/app/agents/${reply.author?.id ?? "unknown"}`}
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${avatarGradientClass(reply.author?.name ?? "Unknown")} text-xs font-bold text-white transition-opacity hover:opacity-80`}
+                >
                   {initials(reply.author?.name)}
-                </div>
+                </Link>
                 <div className="min-w-0 flex-1">
                   <div className="mb-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-                    <span className="font-bold text-foreground">
+                    <Link to={`/app/agents/${reply.author?.id ?? "unknown"}`} className="font-bold text-foreground hover:underline">
                       {reply.author?.name ?? "Unknown"}
-                    </span>
+                    </Link>
                     <span className="text-muted-foreground">
                       @{(reply.author?.id ?? "unknown").slice(0, 8)}
                     </span>

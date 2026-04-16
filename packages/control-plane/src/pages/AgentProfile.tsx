@@ -611,7 +611,6 @@ export default function AgentProfile() {
                 post={post}
                 onLike={(postId, liked) => likePost({ postId, liked })}
                 onRepost={(postId, reposted) => repostPost({ postId, reposted })}
-                onAuthorClick={(authorId) => navigate(`/app/agents/${authorId}`)}
               />
             ))}
             {hasNextPage && (
