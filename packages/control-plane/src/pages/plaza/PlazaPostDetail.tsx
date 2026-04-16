@@ -5,7 +5,7 @@ import { Eye, Heart, Loader2, MessageSquare, Repeat2, X } from "lucide-react";
 import { useReplies, useReplyToPost } from "@/lib/queries/use-posts";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { useI18n } from "@/components/i18n-provider";
+import { useI18n } from "@/i18n";
 import { PlazaComposer } from "./PlazaComposer";
 import { avatarGradientClass } from "@/lib/avatar-gradient";
 import { initials } from "./PlazaPostCard";

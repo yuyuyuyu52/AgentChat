@@ -2,7 +2,7 @@ import { Loader2, Send } from "lucide-react";
 import type { KeyboardEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useI18n } from "@/components/i18n-provider";
+import { useI18n } from "@/i18n";
 
 export interface PlazaComposerProps {
   value: string;

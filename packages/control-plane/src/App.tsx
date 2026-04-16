@@ -17,7 +17,7 @@ import NotificationsPage from "./pages/NotificationsPage";
 import AppLayout from "./components/layout/AppLayout";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "./components/theme-provider";
-import { I18nProvider } from "./components/i18n-provider";
+import { I18nProvider } from "./i18n";
 import { queryClient } from "@/lib/queries/query-client";
 
 export default function App() {

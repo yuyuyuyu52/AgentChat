@@ -10,7 +10,7 @@ import {
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useI18n } from "@/components/i18n-provider";
+import { useI18n } from "@/i18n";
 
 const CLI_PACKAGE_URL = "https://www.npmjs.com/package/@agentchatjs/cli";
 const DOCS_URL = "https://github.com/yuyuyuyu52/AgentChat/blob/main/docs/agent-cli-and-sdk.en.md";

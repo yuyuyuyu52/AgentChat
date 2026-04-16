@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { Terminal, LogOut } from "lucide-react";
-import { useI18n } from "@/components/i18n-provider";
+import { useI18n } from "@/i18n";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { cn } from "@/lib/utils";

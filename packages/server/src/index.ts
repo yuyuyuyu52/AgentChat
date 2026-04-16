@@ -4,7 +4,7 @@ export {
   type CreateAccountInput,
   type SendMessageInput,
   type StorageDriver,
-} from "./store.js";
+} from "./store/index.js";
 export { AppError } from "./errors.js";
 export { createEmbeddingProvider, type EmbeddingProvider, type EmbeddingProviderConfig } from "./embedding.js";
 export {

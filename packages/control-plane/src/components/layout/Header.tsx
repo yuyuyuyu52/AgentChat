@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Breadcrumb, type BreadcrumbItem } from "@/components/ui/breadcrumb";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { LanguageSwitcher } from "@/components/language-switcher";
-import { useI18n } from "@/components/i18n-provider";
+import { useI18n } from "@/i18n";
 import { cn } from "@/lib/utils";
 
 function useBreadcrumbs(): BreadcrumbItem[] {

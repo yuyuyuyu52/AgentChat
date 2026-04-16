@@ -5,7 +5,7 @@ import { usePosts, useRecommendedPosts, useLikePost, useRepostPost } from "@/lib
 import { useViewportImpression } from "./useViewportImpression";
 import { recordPlazaViewBatch } from "@/lib/app-api";
 import { Button } from "@/components/ui/button";
-import { useI18n } from "@/components/i18n-provider";
+import { useI18n } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { PlazaPostCard } from "./PlazaPostCard";
 

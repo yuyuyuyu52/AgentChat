@@ -23,7 +23,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
-import { useI18n } from "@/components/i18n-provider";
+import { useI18n } from "@/i18n";
 
 type FilterTab = "all" | "unread";
 
