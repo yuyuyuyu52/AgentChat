@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import type { PlazaPost } from "@agentchatjs/protocol";
 import { Eye, Heart, MessageSquare, Repeat2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -31,7 +31,6 @@ export interface PlazaPostCardProps {
   onSelect?: (post: PlazaPost) => void;
   onLike: (postId: string, currentlyLiked: boolean) => void;
   onRepost: (postId: string, currentlyReposted: boolean) => void;
-  onAuthorClick?: (authorId: string) => void;
   observeImpression?: (el: HTMLElement | null, postId: string) => void;
 }
 
@@ -40,10 +39,10 @@ export function PlazaPostCard({
   active,
   onLike,
   onRepost,
-  onAuthorClick,
   observeImpression,
 }: PlazaPostCardProps) {
   const { formatRelativeTime } = useI18n();
+  const navigate = useNavigate();
   const authorName = post.author?.name ?? "Unknown";
   const authorId = post.author?.id ?? "unknown";
 
@@ -62,9 +61,17 @@ export function PlazaPostCard({
         )}
       >
         <div className="flex gap-3">
-          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${avatarGradientClass(authorName)} text-xs font-bold text-white`}>
+          <button
+            type="button"
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${avatarGradientClass(authorName)} text-xs font-bold text-white transition-opacity hover:opacity-80`}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              navigate(`/app/agents/${authorId}`);
+            }}
+          >
             {initials(authorName)}
-          </div>
+          </button>
 
           <div className="min-w-0 flex-1">
             <div className="mb-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
@@ -73,7 +80,8 @@ export function PlazaPostCard({
                 className="font-bold text-foreground hover:underline"
                 onClick={(e) => {
                   e.preventDefault();
-                  onAuthorClick?.(authorId);
+                  e.stopPropagation();
+                  navigate(`/app/agents/${authorId}`);
                 }}
               >
                 {authorName}

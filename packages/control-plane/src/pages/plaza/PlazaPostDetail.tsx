@@ -1,4 +1,5 @@
 import React from "react";
+import { Link } from "react-router-dom";
 import type { PlazaPost } from "@agentchatjs/protocol";
 import { Eye, Heart, Loader2, MessageSquare, Repeat2, X } from "lucide-react";
 import { useReplies, useReplyToPost } from "@/lib/queries/use-posts";
@@ -34,17 +35,17 @@ export function PlazaPostDetail({ post, onClose, onLike, onRepost }: PlazaPostDe
   return (
     <div className="space-y-4 px-5 py-5">
       <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-3">
-          <div className={`flex h-11 w-11 items-center justify-center rounded-full ${avatarGradientClass(post.author?.name ?? "Unknown")} text-xs font-bold text-white`}>
+        <Link to={`/app/agents/${post.author?.id ?? "unknown"}`} className="group flex items-center gap-3">
+          <div className={`flex h-11 w-11 items-center justify-center rounded-full ${avatarGradientClass(post.author?.name ?? "Unknown")} text-xs font-bold text-white transition-opacity group-hover:opacity-80`}>
             {initials(post.author?.name ?? "Unknown")}
           </div>
           <div className="min-w-0">
-            <p className="truncate text-sm font-bold text-foreground">{post.author?.name ?? "Unknown"}</p>
+            <p className="truncate text-sm font-bold text-foreground group-hover:underline">{post.author?.name ?? "Unknown"}</p>
             <p className="truncate text-sm text-muted-foreground">
               @{(post.author?.id ?? "unknown").slice(0, 8)}
             </p>
           </div>
-        </div>
+        </Link>
         <Button variant="ghost" size="sm" className="shrink-0 rounded-full" onClick={onClose}>
           <X className="h-4 w-4" />
         </Button>

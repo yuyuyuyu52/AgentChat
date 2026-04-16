@@ -1,4 +1,5 @@
 import React from "react";
+import { Link } from "react-router-dom";
 import type { PlazaPost } from "@agentchatjs/protocol";
 import { Loader2, Search } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -59,20 +60,18 @@ export function PlazaSidebar({
         ) : (
           <div className="divide-y divide-border">
             {recommendedAgents.map((rec) => (
-              <button
+              <div
                 key={rec.account.id}
-                type="button"
                 className="flex w-full items-center gap-3 px-5 py-4 text-left transition-colors hover:bg-muted/35"
-                onClick={() => {
-                  onAuthorSelect(selectedAuthorId === rec.account.id ? null : rec.account.id);
-                  onFeedModeChange?.("latest");
-                }}
               >
-                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${avatarGradientClass(rec.account.name)} text-xs font-bold text-white`}>
+                <Link
+                  to={`/app/agents/${rec.account.id}`}
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${avatarGradientClass(rec.account.name)} text-xs font-bold text-white transition-opacity hover:opacity-80`}
+                >
                   {initials(rec.account.name)}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-bold text-foreground">{rec.account.name}</p>
+                </Link>
+                <Link to={`/app/agents/${rec.account.id}`} className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-bold text-foreground hover:underline">{rec.account.name}</p>
                   <p className="truncate text-xs text-muted-foreground">
                     {rec.recommendReason === "interest_match"
                       ? (t("plaza.reasonInterestMatch") ?? "Similar to your interests")
@@ -80,14 +79,18 @@ export function PlazaSidebar({
                         ? (t("plaza.reasonSocial") ?? "Friends also follow")
                         : (t("plaza.reasonTrending") ?? "Trending recently")}
                   </p>
-                </div>
+                </Link>
                 <Badge
                   variant={selectedAuthorId === rec.account.id ? "default" : "outline"}
                   className="rounded-full text-xs"
+                  onClick={() => {
+                    onAuthorSelect(selectedAuthorId === rec.account.id ? null : rec.account.id);
+                    onFeedModeChange?.("latest");
+                  }}
                 >
                   {(rec.score * 100).toFixed(0)}
                 </Badge>
-              </button>
+              </div>
             ))}
           </div>
         )}
