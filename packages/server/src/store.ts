@@ -3518,34 +3518,11 @@ export class AgentChatStore {
   }
 
   async listNotificationsForOwner(
-    ownerSubject: string,
+    _ownerSubject: string,
     humanAccountId: string,
     options?: { beforeCreatedAt?: string; beforeId?: string; limit?: number; unreadOnly?: boolean },
   ): Promise<Notification[]> {
-    const limit = Math.min(options?.limit ?? 50, 100);
-    const clauses: string[] = [
-      `(n.recipient_account_id IN (SELECT id FROM accounts WHERE owner_subject = ?) OR n.recipient_account_id = ?)`,
-    ];
-    const params: SqlValue[] = [ownerSubject, humanAccountId];
-
-    if (options?.unreadOnly) {
-      clauses.push("n.is_read = FALSE");
-    }
-    if (options?.beforeCreatedAt && options?.beforeId) {
-      clauses.push("(n.created_at < ? OR (n.created_at = ? AND n.id < ?))");
-      params.push(options.beforeCreatedAt, options.beforeCreatedAt, options.beforeId);
-    }
-
-    const rows = await this.db.all<NotificationRow & { actor_name: string | null }>(
-      `SELECT n.*, a.name AS actor_name
-       FROM notifications n
-       LEFT JOIN accounts a ON a.id = n.actor_account_id
-       WHERE ${clauses.join(" AND ")}
-       ORDER BY n.created_at DESC, n.id DESC
-       LIMIT ?`,
-      [...params, limit],
-    );
-    return rows.map(notificationFromRow);
+    return this.listNotifications(humanAccountId, options);
   }
 
   async getUnreadNotificationCount(accountId: string): Promise<number> {
@@ -3556,14 +3533,8 @@ export class AgentChatStore {
     return Number(row?.cnt ?? 0);
   }
 
-  async getUnreadNotificationCountForOwner(ownerSubject: string, humanAccountId: string): Promise<number> {
-    const row = await this.db.get<{ cnt: number }>(
-      `SELECT COUNT(*) AS cnt FROM notifications
-       WHERE (recipient_account_id IN (SELECT id FROM accounts WHERE owner_subject = ?) OR recipient_account_id = ?)
-       AND is_read = FALSE`,
-      [ownerSubject, humanAccountId],
-    );
-    return Number(row?.cnt ?? 0);
+  async getUnreadNotificationCountForOwner(_ownerSubject: string, humanAccountId: string): Promise<number> {
+    return this.getUnreadNotificationCount(humanAccountId);
   }
 
   async markNotificationRead(accountId: string, notificationId: string): Promise<void> {
@@ -3573,13 +3544,8 @@ export class AgentChatStore {
     );
   }
 
-  async markNotificationReadForOwner(ownerSubject: string, humanAccountId: string, notificationId: string): Promise<void> {
-    await this.db.run(
-      `UPDATE notifications SET is_read = TRUE
-       WHERE id = ?
-       AND (recipient_account_id IN (SELECT id FROM accounts WHERE owner_subject = ?) OR recipient_account_id = ?)`,
-      [notificationId, ownerSubject, humanAccountId],
-    );
+  async markNotificationReadForOwner(_ownerSubject: string, humanAccountId: string, notificationId: string): Promise<void> {
+    return this.markNotificationRead(humanAccountId, notificationId);
   }
 
   async markAllNotificationsRead(accountId: string): Promise<void> {
@@ -3589,13 +3555,8 @@ export class AgentChatStore {
     );
   }
 
-  async markAllNotificationsReadForOwner(ownerSubject: string, humanAccountId: string): Promise<void> {
-    await this.db.run(
-      `UPDATE notifications SET is_read = TRUE
-       WHERE (recipient_account_id IN (SELECT id FROM accounts WHERE owner_subject = ?) OR recipient_account_id = ?)
-       AND is_read = FALSE`,
-      [ownerSubject, humanAccountId],
-    );
+  async markAllNotificationsReadForOwner(_ownerSubject: string, humanAccountId: string): Promise<void> {
+    return this.markAllNotificationsRead(humanAccountId);
   }
 }
 
