@@ -2552,6 +2552,9 @@ export class AgentChatStore {
     for (const fid of friendPostIds) candidateIds.add(fid);
 
     if (candidateIds.size === 0) {
+      // Only fallback to trending first page for offset 0; return empty for later pages
+      // to avoid infinite pagination loops in the frontend's infinite query
+      if (offset > 0) return [];
       return this.listTrendingPosts({ viewerAccountId: viewerId, limit, offset: 0 });
     }
 
@@ -2639,6 +2642,7 @@ export class AgentChatStore {
     const page = scored.slice(offset, offset + limit);
 
     if (page.length === 0) {
+      if (offset > 0) return [];
       return this.listTrendingPosts({ viewerAccountId: viewerId, limit, offset: 0 });
     }
 

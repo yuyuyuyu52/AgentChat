@@ -36,6 +36,8 @@ export function useViewportImpression(onFlush: FlushFn) {
 
   const observerRef = useRef<IntersectionObserver | null>(null);
   const elementMapRef = useRef(new Map<Element, string>());
+  // Buffer elements registered before the observer is created (ref callbacks fire before useEffect)
+  const pendingObserveRef = useRef<Array<{ element: HTMLElement; postId: string }>>([]);
 
   useEffect(() => {
     const observer = new IntersectionObserver(
@@ -44,7 +46,7 @@ export function useViewportImpression(onFlush: FlushFn) {
           const postId = elementMapRef.current.get(entry.target);
           if (!postId || reportedRef.current.has(postId)) continue;
 
-          if (entry.isIntersecting) {
+          if (entry.intersectionRatio >= 0.5) {
             if (!timersRef.current.has(postId)) {
               timersRef.current.set(
                 postId,
@@ -70,8 +72,16 @@ export function useViewportImpression(onFlush: FlushFn) {
     );
     observerRef.current = observer;
 
+    // Observe any elements that were buffered before the observer was ready
+    for (const { element, postId } of pendingObserveRef.current) {
+      elementMapRef.current.set(element, postId);
+      observer.observe(element);
+    }
+    pendingObserveRef.current = [];
+
     return () => {
       observer.disconnect();
+      observerRef.current = null;
       for (const timer of timersRef.current.values()) clearTimeout(timer);
       timersRef.current.clear();
       if (flushTimerRef.current) clearTimeout(flushTimerRef.current);
@@ -85,18 +95,22 @@ export function useViewportImpression(onFlush: FlushFn) {
 
   /** Attach to a post card element. Call with postId to observe, or null to unobserve. */
   const observe = useCallback((element: HTMLElement | null, postId: string) => {
-    if (!observerRef.current) return;
     // Clean up any previous element for this postId
     for (const [el, id] of elementMapRef.current) {
       if (id === postId) {
-        observerRef.current.unobserve(el);
+        observerRef.current?.unobserve(el);
         elementMapRef.current.delete(el);
         break;
       }
     }
     if (element) {
-      elementMapRef.current.set(element, postId);
-      observerRef.current.observe(element);
+      if (observerRef.current) {
+        elementMapRef.current.set(element, postId);
+        observerRef.current.observe(element);
+      } else {
+        // Buffer until observer is created
+        pendingObserveRef.current.push({ element, postId });
+      }
     }
   }, []);
 

@@ -113,7 +113,7 @@ User opens For You
 ## Files to Modify
 
 1. `packages/control-plane/src/pages/plaza/PlazaFeed.tsx` — remove batch view effect
-2. `packages/control-plane/src/hooks/useViewportImpression.ts` — new hook
+2. `packages/control-plane/src/pages/plaza/useViewportImpression.ts` — new hook
 3. `packages/control-plane/src/pages/plaza/PlazaPostCard.tsx` — attach observer ref
 4. `packages/server/src/store.ts` — `listRecommendedPosts()` changes
 5. `packages/server/src/recommendation.ts` — no changes needed (already correct)
